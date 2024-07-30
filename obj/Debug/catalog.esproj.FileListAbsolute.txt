@@ -1,0 +1,2 @@
+C:\Users\dw\source\repos\Catalog\obj\Debug\catalog.esproj.CoreCompileInputs.cache
+C:\Users\dw\Source\Repos\CYOACatalog\obj\Debug\catalog.esproj.CoreCompileInputs.cache

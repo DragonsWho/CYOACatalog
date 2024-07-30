@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
-import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
-import { createGame } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+// src/components/CreateGame.jsx
+// Version 1.4.0
 
-// Version 1.2.3
+import React, { useState, useEffect } from 'react';
+import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
+import { createGame, getTags } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import TagSelector from './TagSelector';
+
 function CreateGame() {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -11,10 +14,25 @@ function CreateGame() {
     const [cyoaImages, setCyoaImages] = useState([]);
     const [imgOrLink, setImgOrLink] = useState('img');
     const [iframeUrl, setIframeUrl] = useState('');
-    const [tags, setTags] = useState('');
+    const [tags, setTags] = useState([]);
+    const [availableTags, setAvailableTags] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchTags = async () => {
+            try {
+                const tagsData = await getTags();
+                setAvailableTags(tagsData.map(tag => ({ id: tag.id, name: tag.attributes.Name })));
+            } catch (error) {
+                console.error('Error fetching tags:', error);
+                setError('Failed to load tags. Please try again.');
+            }
+        };
+
+        fetchTags();
+    }, []);
 
     const handleCardImageChange = (e) => {
         if (e.target.files[0]) {
@@ -61,7 +79,7 @@ function CreateGame() {
                 Description: descriptionData,
                 img_or_link: imgOrLink,
                 iframe_url: imgOrLink === 'link' ? iframeUrl : undefined,
-                tags: tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : []
+                tags: tags.map(tag => tag.id)
             }));
 
             // Append the main card image
@@ -136,13 +154,13 @@ function CreateGame() {
                     required
                 />
             )}
-            <TextField
-                fullWidth
-                label="Tags (comma-separated)"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                margin="normal"
-            />
+            <Box sx={{ mt: 2 }}>
+                <TagSelector
+                    value={tags}
+                    onChange={(newTags) => setTags(newTags)}
+                    availableTags={availableTags}
+                />
+            </Box>
             <Box sx={{ mt: 2 }}>
                 <input
                     accept="image/*"

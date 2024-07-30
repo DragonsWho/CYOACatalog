@@ -1,3 +1,6 @@
+// src/components/GameCard.jsx
+// v 1.0
+
 import React from 'react';
 import { Card, CardContent, CardMedia, Typography, Chip, Box } from '@mui/material';
 import { useNavigate } from 'react-router-dom';

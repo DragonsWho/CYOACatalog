@@ -62,4 +62,7 @@ export const createGame = async (formData) => {
     }
 };
 
- 
+export const getTags = async () => {
+    const response = await axios.get(`${API_URL}/api/tags`);
+    return response.data.data;
+};

@@ -1,3 +1,6 @@
+// src/components/GameList.jsx
+// Version 1.0
+
 import React, { useState, useEffect } from 'react';
 import { Grid, Typography, Box } from '@mui/material';
 import GameCard from './GameCard';

@@ -1,6 +1,6 @@
 // src/components/Header.jsx
-// v 1.10
-// Исправлена ошибка с проверкой currentUser
+// v 1.11
+// Добавлена логика отображения кнопки "Account" для авторизованных пользователей
 
 import React, { useState, useEffect } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, TextField, Autocomplete, CircularProgress, Menu, MenuItem, Avatar } from '@mui/material';
@@ -27,8 +27,8 @@ function Header() {
             .catch(error => console.error('Error initializing cache:', error));
 
         const user = authService.getCurrentUser();
-        if (user && user.username) {
-            setCurrentUser(user);
+        if (user && user.user) {
+            setCurrentUser(user.user);
         } else {
             setCurrentUser(null);
         }
@@ -146,13 +146,13 @@ function Header() {
                     <Button color="inherit" component={Link} to="/create">
                         Create Game
                     </Button>
-                    {currentUser && currentUser.username ? (
+                    {currentUser ? (
                         <>
                             <Button color="inherit" onClick={handleMenuOpen}>
                                 <Avatar sx={{ width: 32, height: 32, mr: 1 }}>
                                     {currentUser.username.charAt(0)}
                                 </Avatar>
-                                {currentUser.username}
+                                Account
                             </Button>
                             <Menu
                                 anchorEl={anchorEl}

@@ -1,7 +1,8 @@
 // src/services/authService.js
-// Version: 1.0.0
+// Version: 1.0.1
 // Description: Модуль для управления аутентификацией пользователей
- 
+// Обновлена структура возвращаемых данных в getCurrentUser
+
 import axios from 'axios';
 
 const API_URL = 'http://localhost:1337';
@@ -48,7 +49,16 @@ const authService = {
 
     // Функция для получения текущего пользователя
     getCurrentUser: () => {
-        return JSON.parse(localStorage.getItem('user'));
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                return JSON.parse(userStr);
+            } catch (e) {
+                console.error('Error parsing user data:', e);
+                return null;
+            }
+        }
+        return null;
     },
 
     // Функция для проверки, авторизован ли пользователь

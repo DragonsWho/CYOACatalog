@@ -1,35 +1,33 @@
 // src/services/searchService.js
-// v 1.5
+// v 1.6
 
-import { fetchGames } from './api';
+import { getFromCache, saveToCache } from './cacheService';
+
+const API_URL = 'http://localhost:1337/api';
+
+export const fetchAllGames = async () => {
+    const cachedGames = getFromCache();
+    if (cachedGames) {
+        return cachedGames;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/games`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch games');
+        }
+        const data = await response.json();
+        saveToCache(data.data);
+        return data.data;
+    } catch (error) {
+        console.error('Error fetching games:', error);
+        throw error;
+    }
+};
 
 export const searchGames = async (query) => {
-    try {
-        const games = await fetchGames();
-
-        if (!Array.isArray(games)) {
-            console.error('Unexpected API response structure:', games);
-            return [];
-        }
-
-        const filteredGames = games.filter(game =>
-            game &&
-            game.title &&
-            typeof game.title === 'string' &&
-            game.title.toLowerCase().includes(query.toLowerCase())
-        );
-
-        return filteredGames.slice(0, 5).map(game => ({
-            id: game.id,
-            attributes: {
-                Title: game.title,
-                Description: game.description,
-                Image: game.image,
-                tags: game.tags
-            }
-        }));
-    } catch (error) {
-        console.error('Error searching games:', error);
-        return [];
-    }
+    const allGames = await fetchAllGames();
+    return allGames.filter(game =>
+        game.attributes.Title.toLowerCase().includes(query.toLowerCase())
+    );
 };

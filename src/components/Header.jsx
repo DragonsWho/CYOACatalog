@@ -1,17 +1,25 @@
 // src/components/Header.jsx
-// v 1.7
+// v 1.8
 
 import React, { useState, useEffect } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, TextField, Autocomplete, CircularProgress } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
-import { searchGames } from '../services/searchService';
+import { searchGames, fetchAllGames } from '../services/searchService';
 
 function Header() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [allGames, setAllGames] = useState([]);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        // Initialize cache
+        fetchAllGames()
+            .then(games => setAllGames(games))
+            .catch(error => console.error('Error initializing cache:', error));
+    }, []);
 
     useEffect(() => {
         const delayDebounce = setTimeout(() => {
@@ -31,7 +39,6 @@ function Header() {
         setError(null);
         try {
             const results = await searchGames(searchQuery);
-            console.log('Search results:', results);
             setSearchResults(results);
         } catch (error) {
             console.error('Error performing search:', error);

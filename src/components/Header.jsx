@@ -1,10 +1,12 @@
 // src/components/Header.jsx
-// v 1.8
+// v 1.10
+// Исправлена ошибка с проверкой currentUser
 
 import React, { useState, useEffect } from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, TextField, Autocomplete, CircularProgress } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, TextField, Autocomplete, CircularProgress, Menu, MenuItem, Avatar } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import { searchGames, fetchAllGames } from '../services/searchService';
+import authService from '../services/authService';
 
 function Header() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -14,11 +16,22 @@ function Header() {
     const [allGames, setAllGames] = useState([]);
     const navigate = useNavigate();
 
+    // Состояния для меню пользователя
+    const [anchorEl, setAnchorEl] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
+
     useEffect(() => {
-        // Initialize cache
+        // Initialize cache and check for current user
         fetchAllGames()
             .then(games => setAllGames(games))
             .catch(error => console.error('Error initializing cache:', error));
+
+        const user = authService.getCurrentUser();
+        if (user && user.username) {
+            setCurrentUser(user);
+        } else {
+            setCurrentUser(null);
+        }
     }, []);
 
     useEffect(() => {
@@ -47,6 +60,22 @@ function Header() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // Обработчики для меню пользователя
+    const handleMenuOpen = (event) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+    };
+
+    const handleLogout = () => {
+        authService.logout();
+        setCurrentUser(null);
+        handleMenuClose();
+        navigate('/');
     };
 
     return (
@@ -117,6 +146,28 @@ function Header() {
                     <Button color="inherit" component={Link} to="/create">
                         Create Game
                     </Button>
+                    {currentUser && currentUser.username ? (
+                        <>
+                            <Button color="inherit" onClick={handleMenuOpen}>
+                                <Avatar sx={{ width: 32, height: 32, mr: 1 }}>
+                                    {currentUser.username.charAt(0)}
+                                </Avatar>
+                                {currentUser.username}
+                            </Button>
+                            <Menu
+                                anchorEl={anchorEl}
+                                open={Boolean(anchorEl)}
+                                onClose={handleMenuClose}
+                            >
+                                <MenuItem onClick={handleMenuClose} component={Link} to="/profile">Profile</MenuItem>
+                                <MenuItem onClick={handleLogout}>Logout</MenuItem>
+                            </Menu>
+                        </>
+                    ) : (
+                        <Button color="inherit" component={Link} to="/login">
+                            Login
+                        </Button>
+                    )}
                 </Box>
             </Toolbar>
         </AppBar>

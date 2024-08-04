@@ -115,6 +115,9 @@ function CreateGame() {
     };
 
     return (
+
+        console.log('Available tags:', availableTags),
+    console.log('Selected tags:', tags),
         <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 600, margin: 'auto', mt: 4 }}>
             <Typography variant="h4" component="h1" gutterBottom>
                 Create New Game
@@ -165,6 +168,7 @@ function CreateGame() {
                     onChange={setTags}
                     availableTags={availableTags}
                     onTagsChange={handleTagsChange}
+
                 />
             </Box>
             <Box sx={{ mt: 2 }}>
@@ -221,5 +225,4 @@ function CreateGame() {
         </Box>
     );
 }
-
 export default CreateGame;

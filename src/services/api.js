@@ -66,3 +66,18 @@ export const getTags = async () => {
     const response = await axios.get(`${API_URL}/api/tags`);
     return response.data.data;
 };
+
+
+export const createTag = async (tagName) => {
+    try {
+        const response = await axios.post(`${API_URL}/api/tags`, {
+            data: {
+                Name: tagName
+            }
+        });
+        return response.data.data;
+    } catch (error) {
+        console.error('Error creating tag:', error);
+        throw error;
+    }
+};

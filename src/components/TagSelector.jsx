@@ -1,9 +1,11 @@
 // src/components/TagSelector.jsx
-// Version 1.8.0
+// Version 1.9.1
 
 import React, { useState, useEffect } from 'react';
-import { TextField, Chip, Typography, Box } from '@mui/material';
+import { TextField, Chip, Typography, Box, Button } from '@mui/material';
 import { debounce } from 'lodash';
+import axios from 'axios';
+import { createTag } from '../services/api';
 
 // Configurable maximum Levenshtein distance
 // Optimal value may vary depending on your application specifics
@@ -64,10 +66,24 @@ function findSimilarTags(input, availableTags, maxResults = 3) {
     return filteredTags.slice(0, maxResults);
 }
 
-function TagSelector({ value, onChange, availableTags }) {
+async function createNewTag(tagName) {
+    try {
+        const newTag = await createTag(tagName);
+        return {
+            id: newTag.id,
+            name: newTag.attributes.Name
+        };
+    } catch (error) {
+        console.error('Failed to create new tag:', error);
+        throw error;
+    }
+}
+
+function TagSelector({ value, onChange, availableTags, onTagsChange }) {
     const [inputValue, setInputValue] = useState('');
     const [autocompleteSuggestions, setAutocompleteSuggestions] = useState([]);
     const [similarTags, setSimilarTags] = useState([]);
+    const [isCreatingTag, setIsCreatingTag] = useState(false);
 
     useEffect(() => {
         setInputValue('');
@@ -81,23 +97,41 @@ function TagSelector({ value, onChange, availableTags }) {
         debouncedFindSuggestions(newValue);
     };
 
-    const handleKeyDown = (event) => {
+    const handleKeyDown = async (event) => {
         if (event.key === 'Enter' && inputValue.trim() !== '') {
-            const trimmedValue = inputValue.trim();
-            const existingTag = availableTags.find(tag => tag.name.toLowerCase() === trimmedValue.toLowerCase());
+            await handleCreateOrSelectTag();
+        }
+    };
 
-            if (existingTag) {
-                if (!value.some(v => v.id === existingTag.id)) {
-                    onChange([...value, existingTag]);
-                }
-            } else {
-                const newTag = { id: Date.now(), name: trimmedValue };
-                onChange([...value, newTag]);
+    const handleCreateOrSelectTag = async () => {
+        const trimmedValue = inputValue.trim();
+        const existingTag = availableTags.find(tag => tag.name.toLowerCase() === trimmedValue.toLowerCase());
+
+        if (existingTag) {
+            if (!value.some(v => v.id === existingTag.id)) {
+                onChange([...value, existingTag]);
             }
+        } else {
+            await handleCreateNewTag();
+        }
 
+        setInputValue('');
+        setAutocompleteSuggestions([]);
+        setSimilarTags([]);
+    };
+
+    const handleCreateNewTag = async () => {
+        try {
+            setIsCreatingTag(true);
+            const newTag = await createNewTag(inputValue.trim());
+            onChange([...value, newTag]);
+            onTagsChange([...availableTags, newTag]); // Update the list of available tags
+            setIsCreatingTag(false);
             setInputValue('');
-            setAutocompleteSuggestions([]);
-            setSimilarTags([]);
+        } catch (error) {
+            console.error('Failed to create new tag:', error);
+            // ƒобавьте здесь обработку ошибок, например, показ сообщени€ пользователю
+            setIsCreatingTag(false);
         }
     };
 
@@ -150,6 +184,8 @@ function TagSelector({ value, onChange, availableTags }) {
         }
     }, 300);
 
+    const isNewTag = inputValue.trim() !== '' && !availableTags.some(tag => tag.name.toLowerCase() === inputValue.trim().toLowerCase());
+
     return (
         <Box>
             <Box mb={2}>
@@ -170,6 +206,18 @@ function TagSelector({ value, onChange, availableTags }) {
                 onKeyDown={handleKeyDown}
                 placeholder="Add tags..."
             />
+            {isNewTag && (
+                <Box mt={1}>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleCreateOrSelectTag}
+                        disabled={isCreatingTag}
+                    >
+                        Create New Tag: {inputValue}
+                    </Button>
+                </Box>
+            )}
             {autocompleteSuggestions.length > 0 && (
                 <Box mt={1}>
                     <Typography variant="subtitle2">Suggestions:</Typography>

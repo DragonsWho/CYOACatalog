@@ -1,5 +1,5 @@
 // src/services/searchService.js
-// v 1.6
+// v 1.8
 
 import { getFromCache, saveToCache } from './cacheService';
 

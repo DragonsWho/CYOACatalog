@@ -1,5 +1,5 @@
 // src/components/CreateGame.jsx
-// Version 1.4.0
+// Version 1.5.0
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
@@ -109,6 +109,11 @@ function CreateGame() {
         }
     };
 
+    // Handler for updating available tags
+    const handleTagsChange = (newTags) => {
+        setAvailableTags(newTags);
+    };
+
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 600, margin: 'auto', mt: 4 }}>
             <Typography variant="h4" component="h1" gutterBottom>
@@ -157,8 +162,9 @@ function CreateGame() {
             <Box sx={{ mt: 2 }}>
                 <TagSelector
                     value={tags}
-                    onChange={(newTags) => setTags(newTags)}
+                    onChange={setTags}
                     availableTags={availableTags}
+                    onTagsChange={handleTagsChange}
                 />
             </Box>
             <Box sx={{ mt: 2 }}>

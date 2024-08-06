@@ -1,5 +1,6 @@
 // src/components/GameCard.jsx
-// v 1.0
+// v 1.1
+// Изменения: заменены теги на авторов
 
 import React from 'react';
 import { Card, CardContent, CardMedia, Typography, Chip, Box } from '@mui/material';
@@ -51,10 +52,10 @@ function GameCard({ game }) {
                         ? `${description.substring(0, 100)}...`
                         : description}
                 </Typography>
-                {game.tags && game.tags.length > 0 && (
+                {game.authors && game.authors.length > 0 && (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {game.tags.map((tag, index) => (
-                            <Chip key={index} label={tag} size="small" />
+                        {game.authors.map((author, index) => (
+                            <Chip key={index} label={author.name} size="small" />
                         ))}
                     </Box>
                 )}

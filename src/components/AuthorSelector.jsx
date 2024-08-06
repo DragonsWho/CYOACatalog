@@ -1,11 +1,10 @@
-// src/components/TagSelector.jsx
-// Version 1.9.1
+// src/components/AuthorSelector.jsx
+// Version 2.0.0
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Chip, Typography, Box, Button } from '@mui/material';
 import { debounce } from 'lodash';
-import axios from 'axios';
-import { createTag } from '../services/api';
+import { createAuthor } from '../services/api';
 
 // Configurable maximum Levenshtein distance
 // Optimal value may vary depending on your application specifics
@@ -50,45 +49,45 @@ function levenshteinDistance(a, b, maxDistance = MAX_LEVENSHTEIN_DISTANCE) {
     return matrix[b.length][a.length];
 }
 
-function findSimilarTags(input, availableTags, maxResults = 3) {
+function findSimilarAuthors(input, availableAuthors, maxResults = 3) {
     const normalizedInput = input.toLowerCase().trim();
 
-    const tagDistances = availableTags.map(tag => ({
-        ...tag,
-        distance: levenshteinDistance(normalizedInput, tag.name.toLowerCase())
+    const authorDistances = availableAuthors.map(author => ({
+        ...author,
+        distance: levenshteinDistance(normalizedInput, author.name.toLowerCase())
     }));
 
-    // Filter tags with distance not exceeding MAX_LEVENSHTEIN_DISTANCE
-    const filteredTags = tagDistances.filter(tag => tag.distance <= MAX_LEVENSHTEIN_DISTANCE);
+    // Filter authors with distance not exceeding MAX_LEVENSHTEIN_DISTANCE
+    const filteredAuthors = authorDistances.filter(author => author.distance <= MAX_LEVENSHTEIN_DISTANCE);
 
-    filteredTags.sort((a, b) => a.distance - b.distance);
+    filteredAuthors.sort((a, b) => a.distance - b.distance);
 
-    return filteredTags.slice(0, maxResults);
+    return filteredAuthors.slice(0, maxResults);
 }
 
-async function createNewTag(tagName) {
+async function createNewAuthor(authorName) {
     try {
-        const newTag = await createTag(tagName);
+        const newAuthor = await createAuthor(authorName);
         return {
-            id: newTag.id,
-            name: newTag.attributes.Name
+            id: newAuthor.id,
+            name: newAuthor.attributes.Name
         };
     } catch (error) {
-        console.error('Failed to create new tag:', error);
+        console.error('Failed to create new author:', error);
         throw error;
     }
 }
 
-function TagSelector({ value, onChange, availableTags, onTagsChange }) {
+function AuthorSelector({ value, onChange, availableAuthors, onAuthorsChange }) {
     const [inputValue, setInputValue] = useState('');
     const [autocompleteSuggestions, setAutocompleteSuggestions] = useState([]);
-    const [similarTags, setSimilarTags] = useState([]);
-    const [isCreatingTag, setIsCreatingTag] = useState(false);
+    const [similarAuthors, setSimilarAuthors] = useState([]);
+    const [isCreatingAuthor, setIsCreatingAuthor] = useState(false);
 
     useEffect(() => {
         setInputValue('');
         setAutocompleteSuggestions([]);
-        setSimilarTags([]);
+        setSimilarAuthors([]);
     }, [value]);
 
     const handleInputChange = (event) => {
@@ -99,44 +98,44 @@ function TagSelector({ value, onChange, availableTags, onTagsChange }) {
 
     const handleKeyDown = async (event) => {
         if (event.key === 'Enter' && inputValue.trim() !== '') {
-            await handleCreateOrSelectTag();
+            await handleCreateOrSelectAuthor();
         }
     };
 
-    const handleCreateOrSelectTag = async () => {
+    const handleCreateOrSelectAuthor = async () => {
         const trimmedValue = inputValue.trim();
-        const existingTag = availableTags.find(tag => tag.name.toLowerCase() === trimmedValue.toLowerCase());
+        const existingAuthor = availableAuthors.find(author => author.name.toLowerCase() === trimmedValue.toLowerCase());
 
-        if (existingTag) {
-            if (!value.some(v => v.id === existingTag.id)) {
-                onChange([...value, existingTag]);
+        if (existingAuthor) {
+            if (!value.some(v => v.id === existingAuthor.id)) {
+                onChange([...value, existingAuthor]);
             }
         } else {
-            await handleCreateNewTag();
+            await handleCreateNewAuthor();
         }
 
         setInputValue('');
         setAutocompleteSuggestions([]);
-        setSimilarTags([]);
+        setSimilarAuthors([]);
     };
 
-    const handleCreateNewTag = async () => {
+    const handleCreateNewAuthor = async () => {
         try {
-            setIsCreatingTag(true);
-            const newTag = await createNewTag(inputValue.trim());
-            onChange([...value, newTag]);
-            onTagsChange([...availableTags, newTag]); // Update the list of available tags
-            setIsCreatingTag(false);
+            setIsCreatingAuthor(true);
+            const newAuthor = await createNewAuthor(inputValue.trim());
+            onChange([...value, newAuthor]);
+            onAuthorsChange([...availableAuthors, newAuthor]); // Update the list of available authors
+            setIsCreatingAuthor(false);
             setInputValue('');
         } catch (error) {
-            console.error('Failed to create new tag:', error);
+            console.error('Failed to create new author:', error);
             // ƒобавьте здесь обработку ошибок, например, показ сообщени€ пользователю
-            setIsCreatingTag(false);
+            setIsCreatingAuthor(false);
         }
     };
 
-    const handleTagDelete = (tagToDelete) => {
-        onChange(value.filter(tag => tag.id !== tagToDelete.id));
+    const handleAuthorDelete = (authorToDelete) => {
+        onChange(value.filter(author => author.id !== authorToDelete.id));
     };
 
     const handleSuggestionClick = (suggestion) => {
@@ -145,55 +144,55 @@ function TagSelector({ value, onChange, availableTags, onTagsChange }) {
         }
         setInputValue('');
         setAutocompleteSuggestions([]);
-        setSimilarTags([]);
+        setSimilarAuthors([]);
     };
 
     const debouncedFindSuggestions = debounce((input) => {
         if (input) {
             // Autocomplete suggestions
-            const autoSuggestions = availableTags
-                .filter(tag => tag.name.toLowerCase().includes(input.toLowerCase()))
+            const autoSuggestions = availableAuthors
+                .filter(author => author.name.toLowerCase().includes(input.toLowerCase()))
                 .slice(0, 5);
             setAutocompleteSuggestions(autoSuggestions);
 
-            // Similar tags for error correction
-            if (!availableTags.some(tag => tag.name.toLowerCase() === input.toLowerCase())) {
-                const similar = findSimilarTags(input, availableTags);
-                const filteredSimilar = similar.filter(tag =>
-                    !value.some(v => v.id === tag.id) &&
-                    !autoSuggestions.some(a => a.id === tag.id)
+            // Similar authors for error correction
+            if (!availableAuthors.some(author => author.name.toLowerCase() === input.toLowerCase())) {
+                const similar = findSimilarAuthors(input, availableAuthors);
+                const filteredSimilar = similar.filter(author =>
+                    !value.some(v => v.id === author.id) &&
+                    !autoSuggestions.some(a => a.id === author.id)
                 );
 
-                // Check if the best autocomplete suggestion is closer than the best similar tag
+                // Check if the best autocomplete suggestion is closer than the best similar author
                 const bestAutocompleteDist = autoSuggestions.length > 0
                     ? levenshteinDistance(input.toLowerCase(), autoSuggestions[0].name.toLowerCase())
                     : Infinity;
                 const bestSimilarDist = filteredSimilar.length > 0 ? filteredSimilar[0].distance : Infinity;
 
                 if (bestSimilarDist < bestAutocompleteDist && bestSimilarDist <= MAX_LEVENSHTEIN_DISTANCE) {
-                    setSimilarTags(filteredSimilar.slice(0, 5));
+                    setSimilarAuthors(filteredSimilar.slice(0, 5));
                 } else {
-                    setSimilarTags([]);
+                    setSimilarAuthors([]);
                 }
             } else {
-                setSimilarTags([]);
+                setSimilarAuthors([]);
             }
         } else {
             setAutocompleteSuggestions([]);
-            setSimilarTags([]);
+            setSimilarAuthors([]);
         }
     }, 300);
 
-    const isNewTag = inputValue.trim() !== '' && !availableTags.some(tag => tag.name.toLowerCase() === inputValue.trim().toLowerCase());
+    const isNewAuthor = inputValue.trim() !== '' && !availableAuthors.some(author => author.name.toLowerCase() === inputValue.trim().toLowerCase());
 
     return (
         <Box>
             <Box mb={2}>
-                {value.map((tag) => (
+                {value.map((author) => (
                     <Chip
-                        key={tag.id}
-                        label={tag.name}
-                        onDelete={() => handleTagDelete(tag)}
+                        key={author.id}
+                        label={author.name}
+                        onDelete={() => handleAuthorDelete(author)}
                         style={{ margin: '0 5px 5px 0' }}
                     />
                 ))}
@@ -204,17 +203,17 @@ function TagSelector({ value, onChange, availableTags, onTagsChange }) {
                 value={inputValue}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Add tags..."
+                placeholder="Add authors..."
             />
-            {isNewTag && (
+            {isNewAuthor && (
                 <Box mt={1}>
                     <Button
                         variant="contained"
                         color="primary"
-                        onClick={handleCreateOrSelectTag}
-                        disabled={isCreatingTag}
+                        onClick={handleCreateOrSelectAuthor}
+                        disabled={isCreatingAuthor}
                     >
-                        Create New Tag: {inputValue}
+                        Create New Author: {inputValue}
                     </Button>
                 </Box>
             )}
@@ -231,10 +230,10 @@ function TagSelector({ value, onChange, availableTags, onTagsChange }) {
                     ))}
                 </Box>
             )}
-            {similarTags.length > 0 && (
+            {similarAuthors.length > 0 && (
                 <Box mt={1}>
                     <Typography variant="subtitle2">Did you mean:</Typography>
-                    {similarTags.map((suggestion) => (
+                    {similarAuthors.map((suggestion) => (
                         <Chip
                             key={suggestion.id}
                             label={suggestion.name}
@@ -248,4 +247,4 @@ function TagSelector({ value, onChange, availableTags, onTagsChange }) {
     );
 }
 
-export default TagSelector;
+export default AuthorSelector;

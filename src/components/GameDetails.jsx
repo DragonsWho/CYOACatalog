@@ -1,5 +1,5 @@
 // src/components/GameDetails.jsx
-// Версия 1.1 - Добавлена обработка ошибок и заглушки для отсутствующих элементов
+// Версия 1.2 - Переименование тегов в авторов, обновление логики отображения
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
@@ -66,11 +66,11 @@ function GameDetails() {
 
             {renderSafely(() => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                    {attributes.tags && attributes.tags.data.map((tag) => (
-                        <Chip key={tag.id} label={tag.attributes.Name} />
+                    {attributes.authors && attributes.authors.data.map((author) => (
+                        <Chip key={author.id} label={author.attributes.Name} />
                     ))}
                 </Box>
-            ), <Box sx={{ mb: 2 }}><Chip label="No tags" /></Box>)}
+            ), <Box sx={{ mb: 2 }}><Chip label="Unknown Author" /></Box>)}
 
             {renderSafely(() => (
                 <Typography variant="body1" paragraph>

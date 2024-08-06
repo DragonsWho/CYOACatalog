@@ -1,5 +1,6 @@
-// src/services/api.jsx
-// v1.2
+// src/services/api.js
+// v1.3
+// Изменения: заменены теги на авторов
 
 import axios from 'axios';
 
@@ -18,7 +19,10 @@ export const fetchGames = async () => {
             image: game.attributes.Image?.data?.attributes?.url
                 ? `${API_URL}${game.attributes.Image.data.attributes.url}`
                 : null,
-            tags: game.attributes.tags?.data?.map(tag => tag.attributes.Name) || []
+            authors: game.attributes.authors?.data?.map(author => ({
+                id: author.id,
+                name: author.attributes.Name
+            })) || []
         }));
     } catch (error) {
         console.error('Error fetching games:', error);
@@ -34,17 +38,19 @@ export const fetchGameById = async (id) => {
             id: game.id,
             title: game.attributes.Title,
             description: game.attributes.Description,
-            image: `${API_URL}${game.attributes.Image.data.attributes.url}`,
-            tags: game.attributes.tags.data.map(tag => tag.attributes.Name)
+            image: game.attributes.Image?.data?.attributes?.url
+                ? `${API_URL}${game.attributes.Image.data.attributes.url}`
+                : null,
+            authors: game.attributes.authors?.data?.map(author => ({
+                id: author.id,
+                name: author.attributes.Name
+            })) || []
         };
     } catch (error) {
         console.error('Error fetching game:', error);
         throw error;
     }
 };
- 
-
-
 
 export const createGame = async (formData) => {
     try {
@@ -62,22 +68,21 @@ export const createGame = async (formData) => {
     }
 };
 
-export const getTags = async () => {
-    const response = await axios.get(`${API_URL}/api/tags`);
+export const getAuthors = async () => {
+    const response = await axios.get(`${API_URL}/api/authors`);
     return response.data.data;
 };
 
-
-export const createTag = async (tagName) => {
+export const createAuthor = async (authorName) => {
     try {
-        const response = await axios.post(`${API_URL}/api/tags`, {
+        const response = await axios.post(`${API_URL}/api/authors`, {
             data: {
-                Name: tagName
+                Name: authorName
             }
         });
         return response.data.data;
     } catch (error) {
-        console.error('Error creating tag:', error);
+        console.error('Error creating author:', error);
         throw error;
     }
 };

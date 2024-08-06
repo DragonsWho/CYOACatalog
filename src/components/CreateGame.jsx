@@ -1,11 +1,11 @@
 // src/components/CreateGame.jsx
-// Version 1.5.0
+// Version 1.5.1
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
-import { createGame, getTags } from '../services/api';
+import { createGame, getAuthors } from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import TagSelector from './TagSelector';
+import AuthorSelector from './AuthorSelector';
 
 function CreateGame() {
     const [title, setTitle] = useState('');
@@ -14,24 +14,24 @@ function CreateGame() {
     const [cyoaImages, setCyoaImages] = useState([]);
     const [imgOrLink, setImgOrLink] = useState('img');
     const [iframeUrl, setIframeUrl] = useState('');
-    const [tags, setTags] = useState([]);
-    const [availableTags, setAvailableTags] = useState([]);
+    const [authors, setAuthors] = useState([]);
+    const [availableAuthors, setAvailableAuthors] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
-        const fetchTags = async () => {
+        const fetchAuthors = async () => {
             try {
-                const tagsData = await getTags();
-                setAvailableTags(tagsData.map(tag => ({ id: tag.id, name: tag.attributes.Name })));
+                const authorsData = await getAuthors();
+                setAvailableAuthors(authorsData.map(author => ({ id: author.id, name: author.attributes.Name })));
             } catch (error) {
-                console.error('Error fetching tags:', error);
-                setError('Failed to load tags. Please try again.');
+                console.error('Error fetching authors:', error);
+                setError('Failed to load authors. Please try again.');
             }
         };
 
-        fetchTags();
+        fetchAuthors();
     }, []);
 
     const handleCardImageChange = (e) => {
@@ -79,7 +79,7 @@ function CreateGame() {
                 Description: descriptionData,
                 img_or_link: imgOrLink,
                 iframe_url: imgOrLink === 'link' ? iframeUrl : undefined,
-                tags: tags.map(tag => tag.id)
+                authors: authors.map(author => author.id)
             }));
 
             // Append the main card image
@@ -109,15 +109,14 @@ function CreateGame() {
         }
     };
 
-    // Handler for updating available tags
-    const handleTagsChange = (newTags) => {
-        setAvailableTags(newTags);
+    // Handler for updating available authors
+    const handleAuthorsChange = (newAuthors) => {
+        setAvailableAuthors(newAuthors);
     };
 
     return (
-
-        console.log('Available tags:', availableTags),
-    console.log('Selected tags:', tags),
+        console.log('Available authors:', availableAuthors),
+        console.log('Selected authors:', authors),
         <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 600, margin: 'auto', mt: 4 }}>
             <Typography variant="h4" component="h1" gutterBottom>
                 Create New Game
@@ -163,12 +162,11 @@ function CreateGame() {
                 />
             )}
             <Box sx={{ mt: 2 }}>
-                <TagSelector
-                    value={tags}
-                    onChange={setTags}
-                    availableTags={availableTags}
-                    onTagsChange={handleTagsChange}
-
+                <AuthorSelector
+                    value={authors}
+                    onChange={setAuthors}
+                    availableAuthors={availableAuthors}
+                    onAuthorsChange={handleAuthorsChange}
                 />
             </Box>
             <Box sx={{ mt: 2 }}>
@@ -225,4 +223,5 @@ function CreateGame() {
         </Box>
     );
 }
+
 export default CreateGame;

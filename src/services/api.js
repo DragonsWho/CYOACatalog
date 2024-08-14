@@ -1,16 +1,23 @@
 // src/services/api.js
-// v1.3
-// Изменения: заменены теги на авторов
+// v1.7
+// Изменения: обновлена функция fetchGameById для включения тегов и их категорий
 
 import axios from 'axios';
 
 const API_URL = 'http://localhost:1337';
 
-export const fetchGames = async () => {
+export const fetchGames = async (page = 1, pageSize = 12) => {
     try {
-        const response = await axios.get(`${API_URL}/api/games?populate=*`);
+        const response = await axios.get(`${API_URL}/api/games`, {
+            params: {
+                'pagination[page]': page,
+                'pagination[pageSize]': pageSize,
+                'populate': '*'
+            }
+        });
         console.log('Raw response:', response.data);
-        return response.data.data.map(game => ({
+
+        const games = response.data.data.map(game => ({
             id: game.id,
             title: game.attributes.Title,
             description: Array.isArray(game.attributes.Description)
@@ -22,8 +29,14 @@ export const fetchGames = async () => {
             authors: game.attributes.authors?.data?.map(author => ({
                 id: author.id,
                 name: author.attributes.Name
-            })) || []
+            })) || [],
+            tags: game.attributes.tags?.data || []
         }));
+
+        return {
+            games,
+            totalCount: response.data.meta.pagination.total
+        };
     } catch (error) {
         console.error('Error fetching games:', error);
         throw error;
@@ -44,13 +57,18 @@ export const fetchGameById = async (id) => {
             authors: game.attributes.authors?.data?.map(author => ({
                 id: author.id,
                 name: author.attributes.Name
-            })) || []
+            })) || [],
+            tags: game.attributes.tags?.data || [],
+            img_or_link: game.attributes.img_or_link,
+            iframe_url: game.attributes.iframe_url,
+            CYOA_pages: game.attributes.CYOA_pages?.data || []
         };
     } catch (error) {
         console.error('Error fetching game:', error);
         throw error;
     }
 };
+
 
 export const createGame = async (formData) => {
     try {
@@ -83,6 +101,28 @@ export const createAuthor = async (authorName) => {
         return response.data.data;
     } catch (error) {
         console.error('Error creating author:', error);
+        throw error;
+    }
+};
+
+export const getTags = async () => {
+    try {
+        const response = await axios.get(`${API_URL}/api/tags?populate=tag_category`);
+        console.log('Tags response:', response.data);
+        return response.data.data;
+    } catch (error) {
+        console.error('Error fetching tags:', error);
+        throw error;
+    }
+};
+
+export const getTagCategories = async () => {
+    try {
+        const response = await axios.get(`${API_URL}/api/tag-categories?populate=tags`);
+        console.log('Tag categories response:', response.data);
+        return response.data.data;
+    } catch (error) {
+        console.error('Error fetching tag categories:', error);
         throw error;
     }
 };

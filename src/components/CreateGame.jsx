@@ -1,11 +1,12 @@
 // src/components/CreateGame.jsx
-// Version 1.5.1
+// Version 1.6.0
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
 import { createGame, getAuthors } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import AuthorSelector from './AuthorSelector';
+import TagSelector from './TagSelector';
 
 function CreateGame() {
     const [title, setTitle] = useState('');
@@ -19,6 +20,8 @@ function CreateGame() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
+    const [selectedTags, setSelectedTags] = useState([]);
+    const [tagsLoaded, setTagsLoaded] = useState(false);
 
     useEffect(() => {
         const fetchAuthors = async () => {
@@ -79,7 +82,8 @@ function CreateGame() {
                 Description: descriptionData,
                 img_or_link: imgOrLink,
                 iframe_url: imgOrLink === 'link' ? iframeUrl : undefined,
-                authors: authors.map(author => author.id)
+                authors: authors.map(author => author.id),
+                tags: selectedTags
             }));
 
             // Append the main card image
@@ -167,8 +171,21 @@ function CreateGame() {
                     onChange={setAuthors}
                     availableAuthors={availableAuthors}
                     onAuthorsChange={handleAuthorsChange}
-                />
-            </Box>
+                    />
+                
+                </Box>
+
+                
+                    <Box sx={{ mt: 2 }}>
+                        <Typography variant="h6">Select Tags</Typography>
+                        <TagSelector
+                            selectedTags={selectedTags}
+                            onTagsChange={setSelectedTags}
+                            onLoad={() => setTagsLoaded(true)}
+                        />
+                    </Box>
+                
+
             <Box sx={{ mt: 2 }}>
                 <input
                     accept="image/*"

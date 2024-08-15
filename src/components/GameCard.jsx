@@ -1,6 +1,6 @@
 // src/components/GameCard.jsx
 // v 1.2
-// »зменени€: добавлено отображение тегов после имени автора
+// add tags 
 
 import React from 'react';
 import { Card, CardContent, CardMedia, Typography, Chip, Box } from '@mui/material';
@@ -60,8 +60,7 @@ function GameCard({ game }) {
                         ))}
                     </Box>
                 )}
-
-                {/* ƒобавл€ем отображение тегов */}
+                 
                 {game.tags && game.tags.length > 0 && (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {game.tags.map((tag, index) => (

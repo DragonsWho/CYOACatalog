@@ -1,6 +1,6 @@
 // src/components/GameList.jsx
 // Version 1.1
-// Изменения: добавлена пагинация
+// Changes: added pagination
 
 import React, { useState, useEffect } from 'react';
 import { Grid, Typography, Box, Pagination } from '@mui/material';
@@ -13,7 +13,7 @@ function GameList() {
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
-    const gamesPerPage = 12; // Количество игр на странице
+    const gamesPerPage = 12;  
 
     useEffect(() => {
         const loadGames = async () => {

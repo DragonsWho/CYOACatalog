@@ -130,6 +130,19 @@ export const getTagCategories = async () => {
 
 
 
+
+
+
+
+
+
+
+
+
+// comments
+
+
+
 export const postComment = async (gameId, content, parentId = null) => {
     try {
         const user = authService.getCurrentUser();
@@ -169,8 +182,7 @@ export const fetchComments = async (gameId) => {
                 'populate[1]': 'threadOf',
                 'populate[2]': 'children.author',
                 'populate[3]': 'children.children.author',
-                'populate[4]': 'children.children.children.author',
-                // Добавьте больше уровней, если необходимо
+                'populate[4]': 'children.children.children.author', // I'm not sure if this is involved at all. it might be worth deleting.
             }
         });
         console.log('API response:', response.data);

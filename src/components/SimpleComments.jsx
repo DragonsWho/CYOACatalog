@@ -85,11 +85,7 @@ const SimpleComments = ({ gameId }) => {
     const handleDeleteComment = async (data) => {
         try {
             console.log('Attempting to delete comment:', data);
-            const commentId = data.comIdToDelete || data.comId;
-            if (!commentId) {
-                throw new Error('Comment ID is undefined');
-            }
-            await deleteComment(gameId, commentId);
+            await deleteComment(gameId, data.comId);
             console.log('Comment deleted successfully');
             await loadComments();
         } catch (error) {

@@ -2,11 +2,11 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Container, Box } from '@mui/material';
-import Header from './components/Header';
+import Header from './components/Header/Header';
 import GameList from './components/GameList';
 import GameDetails from './components/GameDetails';
 import CreateGame from './components/CreateGame';
-import Login from './components/Login';
+import Login from './components/Header/Login';
 
 
 function App() {

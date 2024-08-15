@@ -14,8 +14,8 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
         const fetchTagData = async () => {
             try {
                 const [tagsData, categoriesData] = await Promise.all([getTags(), getTagCategories()]);
-                console.log('Tags data:', tagsData); // Добавим лог для отладки
-                console.log('Categories data:', categoriesData); // Добавим лог для отладки
+                console.log('Tags data:', tagsData); // Add a log for debugging
+                console.log('Categories data:', categoriesData); // Add a log for debugging
                 const categoriesWithTags = categoriesData.map(category => ({
                     ...category.attributes,
                     id: category.id,

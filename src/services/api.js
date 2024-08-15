@@ -1,6 +1,6 @@
 // src/services/api.js
 // v1.9
-// Updated postComment function to use authenticated user data
+// Updated postComment function to use authenticated user data    almost working, but no nested comm
 
 import axios from 'axios';
 import authService from './authService';
@@ -134,14 +134,15 @@ export const getTagCategories = async () => {
 export const fetchComments = async (gameId) => {
     try {
         const response = await axios.get(`${API_URL}/api/comments/api::game.game:${gameId}`);
-        return response.data;
+        console.log('API response:', response.data);
+        return response.data; // Убрали .data
     } catch (error) {
         console.error('Error fetching comments:', error);
         throw error;
     }
 };
 
-export const postComment = async (gameId, content) => {
+export const postComment = async (gameId, content, parentId = null) => {
     try {
         const user = authService.getCurrentUser();
         const token = user ? user.jwt : null;
@@ -152,9 +153,10 @@ export const postComment = async (gameId, content) => {
                 content,
                 author: {
                     id: user ? user.user.id : "anonymous",
-                    name: user ? user.user.username : "Anonymous User",
+                    name: user ? user.user.username : "Anonymous",
                     email: user ? user.user.email : "anonymous@example.com",
                 },
+                threadOf: parentId, // Добавляем поле для вложенных комментариев
             },
             {
                 headers: {
@@ -165,11 +167,6 @@ export const postComment = async (gameId, content) => {
         return response.data;
     } catch (error) {
         console.error('Error posting comment:', error);
-        if (error.response) {
-            console.error('Error data:', error.response.data);
-            console.error('Error status:', error.response.status);
-            console.error('Error headers:', error.response.headers);
-        }
         throw error;
     }
 };

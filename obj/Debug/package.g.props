@@ -16,9 +16,11 @@
     <PackageJsonDependenciesAxios Condition="$(PackageJsonDependenciesAxios) == ''">^1.7.2</PackageJsonDependenciesAxios>
     <PackageJsonDependenciesFormik Condition="$(PackageJsonDependenciesFormik) == ''">^2.4.3</PackageJsonDependenciesFormik>
     <PackageJsonDependenciesReact Condition="$(PackageJsonDependenciesReact) == ''">^18.2.0</PackageJsonDependenciesReact>
+    <PackageJsonDependenciesReactCommentsSection Condition="$(PackageJsonDependenciesReactCommentsSection) == ''">^3.0.1</PackageJsonDependenciesReactCommentsSection>
     <PackageJsonDependenciesReactDom Condition="$(PackageJsonDependenciesReactDom) == ''">^18.2.0</PackageJsonDependenciesReactDom>
     <PackageJsonDependenciesReactQuery Condition="$(PackageJsonDependenciesReactQuery) == ''">^3.39.3</PackageJsonDependenciesReactQuery>
     <PackageJsonDependenciesReactRouterDom Condition="$(PackageJsonDependenciesReactRouterDom) == ''">^6.15.0</PackageJsonDependenciesReactRouterDom>
+    <PackageJsonDependenciesUuid Condition="$(PackageJsonDependenciesUuid) == ''">^10.0.0</PackageJsonDependenciesUuid>
     <PackageJsonDependenciesYup Condition="$(PackageJsonDependenciesYup) == ''">^1.2.0</PackageJsonDependenciesYup>
     <PackageJsonDevdependenciesTypesReact Condition="$(PackageJsonDevdependenciesTypesReact) == ''">^18.2.21</PackageJsonDevdependenciesTypesReact>
     <PackageJsonDevdependenciesTypesReactDom Condition="$(PackageJsonDevdependenciesTypesReactDom) == ''">^18.2.7</PackageJsonDevdependenciesTypesReactDom>
@@ -28,5 +30,6 @@
     <PackageJsonDevdependenciesEslintPluginReactHooks Condition="$(PackageJsonDevdependenciesEslintPluginReactHooks) == ''">^4.6.0</PackageJsonDevdependenciesEslintPluginReactHooks>
     <PackageJsonDevdependenciesEslintPluginReactRefresh Condition="$(PackageJsonDevdependenciesEslintPluginReactRefresh) == ''">^0.4.3</PackageJsonDevdependenciesEslintPluginReactRefresh>
     <PackageJsonDevdependenciesVite Condition="$(PackageJsonDevdependenciesVite) == ''">^4.4.9</PackageJsonDevdependenciesVite>
+    <PackageJsonDevdependenciesVitePluginNodePolyfills Condition="$(PackageJsonDevdependenciesVitePluginNodePolyfills) == ''">^0.22.0</PackageJsonDevdependenciesVitePluginNodePolyfills>
   </PropertyGroup>
 </Project>

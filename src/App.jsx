@@ -8,6 +8,7 @@ import GameDetails from './components/GameDetails';
 import CreateGame from './components/CreateGame';
 import Login from './components/Login';
 
+
 function App() {
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%' }}>

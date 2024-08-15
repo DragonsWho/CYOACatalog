@@ -167,8 +167,10 @@ export const fetchComments = async (gameId) => {
                 'sort[createdAt]': 'desc',
                 'populate[0]': 'author',
                 'populate[1]': 'threadOf',
-                'populate[2]': 'children',
-                'populate[3]': 'children.author',
+                'populate[2]': 'children.author',
+                'populate[3]': 'children.children.author',
+                'populate[4]': 'children.children.children.author',
+                // Добавьте больше уровней, если необходимо
             }
         });
         console.log('API response:', response.data);

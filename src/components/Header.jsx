@@ -1,9 +1,9 @@
 // src/components/Header.jsx
-// v 1.11
-// Добавлена логика отображения кнопки "Account" для авторизованных пользователей
+// v 1.12
+// -Home
 
 import React, { useState, useEffect } from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, TextField, Autocomplete, CircularProgress, Menu, MenuItem, Avatar } from '@mui/material';
+import { AppBar, Toolbar, Button, Box, TextField, Autocomplete, CircularProgress, Menu, MenuItem, Avatar } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import { searchGames, fetchAllGames } from '../services/searchService';
 import authService from '../services/authService';
@@ -16,12 +16,10 @@ function Header() {
     const [allGames, setAllGames] = useState([]);
     const navigate = useNavigate();
 
-    // Состояния для меню пользователя
     const [anchorEl, setAnchorEl] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
 
     useEffect(() => {
-        // Initialize cache and check for current user
         fetchAllGames()
             .then(games => setAllGames(games))
             .catch(error => console.error('Error initializing cache:', error));
@@ -62,7 +60,6 @@ function Header() {
         }
     };
 
-    // Обработчики для меню пользователя
     const handleMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
     };
@@ -80,10 +77,15 @@ function Header() {
 
     return (
         <AppBar position="static" sx={{ width: '100%' }}>
-            <Toolbar sx={{ width: '100%', maxWidth: 'xl', margin: '0 auto' }}>
-                <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                    Game Catalog
-                </Typography>
+            <Toolbar sx={{ width: '100%', maxWidth: 'xl', margin: '0 auto', justifyContent: 'space-between' }}>
+                <Button
+                    color="inherit"
+                    component={Link}
+                    to="/"
+                    sx={{ fontSize: '1.25rem', fontWeight: 'bold' }}
+                >
+                    CYOA Catalog
+                </Button>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <Autocomplete
                         freeSolo
@@ -140,10 +142,7 @@ function Header() {
                             </li>
                         )}
                     />
-                    <Button color="inherit" component={Link} to="/">
-                        Home
-                    </Button>
-                    <Button color="inherit" component={Link} to="/create">
+                    <Button color="inherit" component={Link} to="/create" sx={{ mr: 2 }}>
                         Create Game
                     </Button>
                     {currentUser ? (

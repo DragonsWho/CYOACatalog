@@ -1,6 +1,6 @@
 // src/components/SimpleComments.jsx
-// v3.3
-// Added support for nested comments
+// v3.10
+// Restored working nested comments functionality
 
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
@@ -31,39 +31,23 @@ const SimpleComments = ({ gameId }) => {
         }
     };
 
-    const formatComments = (comments) => {
-        const commentMap = new Map();
-        const rootComments = [];
-
-        comments.forEach(comment => {
-            const formattedComment = {
-                userId: comment.author?.id || 'anonymous',
-                comId: comment.id,
-                fullName: comment.author?.name || 'Anonymous',
-                avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author?.name || 'Anonymous')}`,
-                text: comment.content,
-                replies: []
-            };
-
-            commentMap.set(comment.id, formattedComment);
-
-            if (comment.threadOf) {
-                const parentComment = commentMap.get(comment.threadOf);
-                if (parentComment) {
-                    parentComment.replies.push(formattedComment);
-                }
-            } else {
-                rootComments.push(formattedComment);
-            }
+    const formatComments = (commentsData) => {
+        const formatSingleComment = (comment) => ({
+            userId: comment.author?.id?.toString() || 'anonymous',
+            comId: comment.id.toString(),
+            fullName: comment.author?.name || 'Anonymous',
+            avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author?.name || 'Anonymous')}`,
+            text: comment.content,
+            replies: comment.children ? comment.children.map(formatSingleComment) : []
         });
 
-        return rootComments;
+        return commentsData.map(formatSingleComment);
     };
 
     const handleSubmitComment = async (data, parentCommentId = null) => {
         try {
             await postComment(gameId, data.text, parentCommentId);
-            loadComments();
+            await loadComments();
         } catch (error) {
             console.error('Error posting comment:', error);
         }
@@ -77,13 +61,13 @@ const SimpleComments = ({ gameId }) => {
             {user ? (
                 <CommentSection
                     currentUser={{
-                        currentUserId: user.user.id,
+                        currentUserId: user.user.id.toString(),
                         currentUserImg: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user.username)}`,
                         currentUserFullName: user.user.username
                     }}
                     commentData={comments}
                     onSubmitAction={(data) => handleSubmitComment(data)}
-                    onReplyAction={(data) => handleSubmitComment(data, data.parentOfRepliedCommentId)}
+                    onReplyAction={(data) => handleSubmitComment(data, data.repliedToCommentId)}
                     logIn={{
                         loginLink: '/login',
                         signupLink: '/signup'

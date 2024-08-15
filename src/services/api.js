@@ -1,6 +1,6 @@
 // src/services/api.js
-// v1.9
-// Updated postComment function to use authenticated user data    almost working, but no nested comm
+// v2.0
+// Updated postComment function to handle nested comments
 
 import axios from 'axios';
 import authService from './authService';
@@ -130,34 +130,23 @@ export const getTagCategories = async () => {
 
 
 
-
-export const fetchComments = async (gameId) => {
-    try {
-        const response = await axios.get(`${API_URL}/api/comments/api::game.game:${gameId}`);
-        console.log('API response:', response.data);
-        return response.data; // Убрали .data
-    } catch (error) {
-        console.error('Error fetching comments:', error);
-        throw error;
-    }
-};
-
 export const postComment = async (gameId, content, parentId = null) => {
     try {
         const user = authService.getCurrentUser();
         const token = user ? user.jwt : null;
 
+        const commentData = {
+            content,
+            author: user ? user.user.id : 'anonymous',
+        };
+
+        if (parentId) {
+            commentData.threadOf = parentId;
+        }
+
         const response = await axios.post(
             `${API_URL}/api/comments/api::game.game:${gameId}`,
-            {
-                content,
-                author: {
-                    id: user ? user.user.id : "anonymous",
-                    name: user ? user.user.username : "Anonymous",
-                    email: user ? user.user.email : "anonymous@example.com",
-                },
-                threadOf: parentId, // Добавляем поле для вложенных комментариев
-            },
+            commentData,
             {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -167,6 +156,25 @@ export const postComment = async (gameId, content, parentId = null) => {
         return response.data;
     } catch (error) {
         console.error('Error posting comment:', error);
+        throw error;
+    }
+};
+
+export const fetchComments = async (gameId) => {
+    try {
+        const response = await axios.get(`${API_URL}/api/comments/api::game.game:${gameId}`, {
+            params: {
+                'sort[createdAt]': 'desc',
+                'populate[0]': 'author',
+                'populate[1]': 'threadOf',
+                'populate[2]': 'children',
+                'populate[3]': 'children.author',
+            }
+        });
+        console.log('API response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching comments:', error);
         throw error;
     }
 };

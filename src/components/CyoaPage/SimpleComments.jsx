@@ -6,8 +6,8 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import { CommentSection } from 'react-comments-section';
 import 'react-comments-section/dist/index.css';
-import { fetchComments, postComment, editComment, deleteComment } from '../services/api';
-import authService from '../services/authService';
+import { fetchComments, postComment, editComment, deleteComment } from '../../services/api';
+import authService from '../../services/authService';
 
 const SimpleComments = ({ gameId }) => {
     const [comments, setComments] = useState([]);

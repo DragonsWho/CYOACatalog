@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Chip, TextField, Typography, CircularProgress } from '@mui/material';
-import { getTags, getTagCategories } from '../services/api';
+import { getTags, getTagCategories } from '../../services/api';
 
 function TagSelector({ selectedTags, onTagsChange, onLoad }) {
     const [tagCategories, setTagCategories] = useState([]);

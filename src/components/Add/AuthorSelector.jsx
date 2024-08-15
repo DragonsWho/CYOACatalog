@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { TextField, Chip, Typography, Box, Button } from '@mui/material';
 import { debounce } from 'lodash';
-import { createAuthor } from '../services/api';
+import { createAuthor } from '../../services/api';
 
 // Configurable maximum Levenshtein distance
 // Optimal value may vary depending on your application specifics

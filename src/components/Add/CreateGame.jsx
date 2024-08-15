@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
-import { createGame, getAuthors } from '../services/api';
+import { createGame, getAuthors } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import AuthorSelector from './AuthorSelector';
 import TagSelector from './TagSelector';

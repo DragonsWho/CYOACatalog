@@ -4,8 +4,8 @@ import { Routes, Route } from 'react-router-dom';
 import { Container, Box } from '@mui/material';
 import Header from './components/Header/Header';
 import GameList from './components/GameList';
-import GameDetails from './components/GameDetails';
-import CreateGame from './components/CreateGame';
+import GameDetails from './components/CyoaPage/GameDetails';
+import CreateGame from './components/Add/CreateGame';
 import Login from './components/Header/Login';
 
 

@@ -1,12 +1,13 @@
 // src/components/GameDetails.jsx
-// v2.1
-// Optimized version with separate GameContent component
+// v2.2
+// Added SimpleComments component and optimized imports
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Typography, Chip, Box, CircularProgress } from '@mui/material';
 import TagDisplay from './TagDisplay';
 import GameContent from './GameContent';
+import SimpleComments from './SimpleComments';
 
 const API_URL = 'http://localhost:1337';
 
@@ -75,6 +76,10 @@ function GameDetails() {
             )}
 
             <GameContent attributes={attributes} />
+
+            <Box sx={{ mt: 4 }}>
+                <SimpleComments gameId={id} />
+            </Box>
         </Container>
     );
 }

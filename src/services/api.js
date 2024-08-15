@@ -126,3 +126,41 @@ export const getTagCategories = async () => {
         throw error;
     }
 };
+
+
+
+
+export const fetchComments = async (gameId) => {
+    try {
+        const response = await axios.get(`${API_URL}/api/comments/api::game.game:${gameId}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching comments:', error);
+        throw error;
+    }
+};
+
+export const postComment = async (gameId, content, author) => {
+    try {
+        const response = await axios.post(`${API_URL}/api/comments/api::game.game:${gameId}`, {
+            content,
+            author: {
+                id: author.id || null,
+                name: author.name,
+                email: author.email
+            },
+            blockThread: false,
+            blocked: false,
+            approvalStatus: "approved"
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error posting comment:', error);
+        if (error.response) {
+            console.error('Error data:', error.response.data);
+            console.error('Error status:', error.response.status);
+            console.error('Error headers:', error.response.headers);
+        }
+        throw error;
+    }
+};

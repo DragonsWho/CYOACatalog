@@ -23,6 +23,4 @@ dist-ssr
 *.sln
 *.sw?
 .vs/
-
-
-/src/components/GameComments.jsx
+.env

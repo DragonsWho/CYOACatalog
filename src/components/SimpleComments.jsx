@@ -1,17 +1,21 @@
 // src/components/SimpleComments.jsx
-// v1.0
-// New component for handling comments
+// v1.1
+// Updated to use authenticated user data
 
 import React, { useState, useEffect } from 'react';
 import { Box, TextField, Button, List, ListItem, ListItemText, Typography } from '@mui/material';
 import { fetchComments, postComment } from '../services/api';
+import authService from '../services/authService';
 
 const SimpleComments = ({ gameId }) => {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
+    const [user, setUser] = useState(null);
 
     useEffect(() => {
         loadComments();
+        const currentUser = authService.getCurrentUser();
+        setUser(currentUser);
     }, [gameId]);
 
     const loadComments = async () => {
@@ -28,12 +32,7 @@ const SimpleComments = ({ gameId }) => {
         if (!newComment.trim()) return;
 
         try {
-            const author = {
-                id: "207ccfdc-94ba-45eb-979c-790f6f49c392",
-                name: "Anonymous User",
-                email: "anonymous@example.com",
-            };
-            await postComment(gameId, newComment, author);
+            await postComment(gameId, newComment);
             setNewComment('');
             loadComments();
         } catch (error) {
@@ -53,25 +52,29 @@ const SimpleComments = ({ gameId }) => {
                 {comments.map((comment) => (
                     <ListItem key={comment.id}>
                         <ListItemText
-                            primary={comment.author.name}
+                            primary={comment.author?.name || 'Anonymous'}
                             secondary={comment.content}
                         />
                     </ListItem>
                 ))}
             </List>
-            <form onSubmit={handleSubmitComment}>
-                <TextField
-                    fullWidth
-                    variant="outlined"
-                    label="Add a comment"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    margin="normal"
-                />
-                <Button type="submit" variant="contained" color="primary">
-                    Post Comment
-                </Button>
-            </form>
+            {user ? (
+                <form onSubmit={handleSubmitComment}>
+                    <TextField
+                        fullWidth
+                        variant="outlined"
+                        label="Add a comment"
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        margin="normal"
+                    />
+                    <Button type="submit" variant="contained" color="primary">
+                        Post Comment
+                    </Button>
+                </form>
+            ) : (
+                <Typography>Please log in to post comments.</Typography>
+            )}
         </Box>
     );
 };

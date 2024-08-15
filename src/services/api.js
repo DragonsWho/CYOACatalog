@@ -1,8 +1,9 @@
 // src/services/api.js
-// v1.7
-// Изменения: обновлена функция fetchGameById для включения тегов и их категорий
+// v1.9
+// Updated postComment function to use authenticated user data
 
 import axios from 'axios';
+import authService from './authService';
 
 const API_URL = 'http://localhost:1337';
 
@@ -140,19 +141,27 @@ export const fetchComments = async (gameId) => {
     }
 };
 
-export const postComment = async (gameId, content, author) => {
+export const postComment = async (gameId, content) => {
     try {
-        const response = await axios.post(`${API_URL}/api/comments/api::game.game:${gameId}`, {
-            content,
-            author: {
-                id: author.id || null,
-                name: author.name,
-                email: author.email
+        const user = authService.getCurrentUser();
+        const token = user ? user.jwt : null;
+
+        const response = await axios.post(
+            `${API_URL}/api/comments/api::game.game:${gameId}`,
+            {
+                content,
+                author: {
+                    id: user ? user.user.id : "anonymous",
+                    name: user ? user.user.username : "Anonymous User",
+                    email: user ? user.user.email : "anonymous@example.com",
+                },
             },
-            blockThread: false,
-            blocked: false,
-            approvalStatus: "approved"
-        });
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
         return response.data;
     } catch (error) {
         console.error('Error posting comment:', error);

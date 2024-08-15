@@ -1,6 +1,6 @@
 // src/components/SimpleComments.jsx
-// v3.29
-// Ensuring all comments are displayed correctly by flattening the structure completely
+// v3.30
+// MVP version with flattened comment structure and no depth indicators
 
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
@@ -38,7 +38,7 @@ const SimpleComments = ({ gameId }) => {
                 comId: comment.id.toString(),
                 fullName: comment.author?.name || 'Anonymous',
                 avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author?.name || 'Anonymous')}`,
-                text: depth > 1 ? `[Depth ${depth}] ${comment.content}` : comment.content,
+                text: comment.content,
                 replies: [],
                 parentId: parentId
             };
@@ -74,9 +74,7 @@ const SimpleComments = ({ gameId }) => {
 
     return (
         <Box>
-            <Typography variant="h6" gutterBottom>
-                Comments ({comments.length})
-            </Typography>
+
             {user ? (
                 <CommentSection
                     currentUser={{
@@ -87,13 +85,13 @@ const SimpleComments = ({ gameId }) => {
                     commentData={comments}
                     onSubmitAction={(data) => handleSubmitComment(data, data.parentId)}
                     onReplyAction={(data) => handleSubmitComment(data, data.repliedToCommentId)}
-                    logIn={{
-                        loginLink: '/login',
-                        signupLink: '/signup'
-                    }}
+ 
                 />
             ) : (
-                <Typography>Please log in to post comments.</Typography>
+                    <><Typography variant="h6" gutterBottom>
+                        Comments ({comments.length})</Typography>
+
+                        <Typography>Please log in to post comments.</Typography></>
             )}
         </Box>
     );

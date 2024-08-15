@@ -180,3 +180,61 @@ export const fetchComments = async (gameId) => {
         throw error;
     }
 };
+
+
+
+
+
+
+
+export const editComment = async (gameId, commentId, content) => {
+    try {
+        const user = authService.getCurrentUser();
+        const token = user ? user.jwt : null;
+
+        const response = await axios.put(
+            `${API_URL}/api/comments/api::game.game:${gameId}/comment/${commentId}`,
+            { content },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error('Error editing comment:', error);
+        throw error;
+    }
+};
+
+export const deleteComment = async (gameId, commentId) => {
+    try {
+        const user = authService.getCurrentUser();
+        const token = user ? user.jwt : null;
+        const authorId = user ? user.user.id : null;
+
+        if (!authorId) {
+            throw new Error('User not authenticated');
+        }
+
+        if (!commentId) {
+            throw new Error('Comment ID is undefined');
+        }
+
+        console.log(`Deleting comment: ${API_URL}/api/comments/api::game.game:${gameId}/comment/${commentId}?authorId=${authorId}`);
+
+        const response = await axios.delete(
+            `${API_URL}/api/comments/api::game.game:${gameId}/comment/${commentId}?authorId=${authorId}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error('Error deleting comment:', error);
+        throw error;
+    }
+};

@@ -1,12 +1,12 @@
 // src/components/SimpleComments.jsx
-// v3.30
-// MVP version with flattened comment structure and no depth indicators
+// v3.31
+// Added edit and delete functionality
 
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import { CommentSection } from 'react-comments-section';
 import 'react-comments-section/dist/index.css';
-import { fetchComments, postComment } from '../services/api';
+import { fetchComments, postComment, editComment, deleteComment } from '../services/api';
 import authService from '../services/authService';
 
 const SimpleComments = ({ gameId }) => {
@@ -30,6 +30,7 @@ const SimpleComments = ({ gameId }) => {
             console.error('Error loading comments:', error);
         }
     };
+
 
     const formatComments = (commentsData) => {
         const flattenComments = (comment, parentId = null, depth = 0) => {
@@ -72,9 +73,40 @@ const SimpleComments = ({ gameId }) => {
         }
     };
 
+    const handleEditComment = async (data) => {
+        try {
+            await editComment(gameId, data.comId, data.text);
+            await loadComments();
+        } catch (error) {
+            console.error('Error editing comment:', error);
+        }
+    };
+
+    const handleDeleteComment = async (data) => {
+        try {
+            console.log('Attempting to delete comment:', data);
+            const commentId = data.comIdToDelete || data.comId;
+            if (!commentId) {
+                throw new Error('Comment ID is undefined');
+            }
+            await deleteComment(gameId, commentId);
+            console.log('Comment deleted successfully');
+            await loadComments();
+        } catch (error) {
+            console.error('Error deleting comment:', error);
+            if (error.response) {
+                console.error('Error response:', error.response.data);
+                console.error('Error status:', error.response.status);
+            } else if (error.request) {
+                console.error('Error request:', error.request);
+            } else {
+                console.error('Error message:', error.message);
+            }
+        }
+    };
+
     return (
         <Box>
-
             {user ? (
                 <CommentSection
                     currentUser={{
@@ -85,13 +117,16 @@ const SimpleComments = ({ gameId }) => {
                     commentData={comments}
                     onSubmitAction={(data) => handleSubmitComment(data, data.parentId)}
                     onReplyAction={(data) => handleSubmitComment(data, data.repliedToCommentId)}
- 
+                    onEditAction={handleEditComment}
+                    onDeleteAction={handleDeleteComment}
                 />
             ) : (
-                    <><Typography variant="h6" gutterBottom>
-                        Comments ({comments.length})</Typography>
-
-                        <Typography>Please log in to post comments.</Typography></>
+                <>
+                    <Typography variant="h6" gutterBottom>
+                        Comments ({comments.length})
+                    </Typography>
+                    <Typography>Please log in to post comments.</Typography>
+                </>
             )}
         </Box>
     );

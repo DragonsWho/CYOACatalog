@@ -8,6 +8,7 @@ import GameDetails from './components/CyoaPage/GameDetails';
 import CreateGame from './components/Add/CreateGame';
 import Login from './components/Header/Login';
 import DiscordCallback from './components/Header/DiscordCallback';
+import AuthCallback from './components/AuthCallback';
 
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
                     <Route path="/create" element={<CreateGame />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/auth/discord/callback" element={<DiscordCallback />} />
+                    <Route path="/auth-callback" element={<AuthCallback />} />
                 </Routes>
             </Container>
         </Box>

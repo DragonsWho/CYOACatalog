@@ -95,17 +95,14 @@ const authService = {
         }
     },
 
-    // ћетод дл€ обработки callback от Discord
-    handleDiscordCallback: async (code) => {
-        try {
-            const response = await axios.get(`${API_URL}/api/auth/discord/callback?code=${code}`);
-            if (response.data.jwt) {
-                localStorage.setItem('user', JSON.stringify(response.data));
-            }
-            return response.data;
-        } catch (error) {
-            console.error('Error handling Discord callback:', error);
-            throw error;
+    handleDiscordCallback: async (token) => {
+        if (token) {
+            localStorage.setItem('token', token);
+            // «десь вы можете добавить запрос к вашему API дл€ получени€ информации о пользователе
+            // и сохранить ее в localStorage или в состо€нии приложени€
+            return { token };
+        } else {
+            throw new Error('No token provided');
         }
     },
 };

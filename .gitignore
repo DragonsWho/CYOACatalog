@@ -28,3 +28,4 @@ dist-ssr
 *.userosscache
 *.sln.docstates
 *.vcxproj.filters
+nul

@@ -22,4 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.vs/ .env
+
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj.filters

@@ -1,5 +1,5 @@
 // src/components/Header/Login.jsx
-// Version: 1.5.0
+// Version: 1.8.0
 // Description: Login modal component with both email/password and Discord OAuth support
 
 import React, { useState } from 'react';
@@ -14,12 +14,14 @@ const Login = ({ open, onClose, onLoginSuccess }) => {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const user = await authService.login(identifier, password);
-            onLoginSuccess(user);
+            const userData = await authService.login(identifier, password);
+            if (onLoginSuccess) {
+                onLoginSuccess(userData);
+            }
             handleClose();
         } catch (error) {
             console.error('Login error:', error);
-            setError(error.response?.data?.error?.message || 'Login error');
+            setError(error.message || 'Login error');
         }
     };
 

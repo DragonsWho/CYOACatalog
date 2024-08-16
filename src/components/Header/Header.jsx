@@ -1,4 +1,7 @@
 // src/components/Header/Header.jsx
+// Version: 1.2.0
+// Description: Header component with login functionality and user menu
+
 import React, { useState } from 'react';
 import { AppBar, Toolbar, Button, Box, Tooltip } from '@mui/material';
 import { Link } from 'react-router-dom';
@@ -6,11 +9,16 @@ import SearchBar from './SearchBar';
 import UserMenu from './UserMenu';
 import Login from './Login';
 
-function Header({ isAuthenticated, user, onLogout }) {
+function Header({ isAuthenticated, user, onLogout, onLoginSuccess }) {
     const [loginOpen, setLoginOpen] = useState(false);
 
     const handleLoginOpen = () => setLoginOpen(true);
     const handleLoginClose = () => setLoginOpen(false);
+
+    const handleLoginSuccessInternal = (userData) => {
+        onLoginSuccess(userData);
+        handleLoginClose();
+    };
 
     return (
         <>
@@ -64,7 +72,11 @@ function Header({ isAuthenticated, user, onLogout }) {
                     </Box>
                 </Toolbar>
             </AppBar>
-            <Login open={loginOpen} onClose={handleLoginClose} />
+            <Login
+                open={loginOpen}
+                onClose={handleLoginClose}
+                onLoginSuccess={handleLoginSuccessInternal}
+            />
         </>
     );
 }

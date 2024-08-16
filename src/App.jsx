@@ -1,4 +1,7 @@
 // src/App.jsx
+// Version: 1.3.0
+// Description: Main application component with routing and authentication state management
+
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { Container, Box } from '@mui/material';
@@ -45,6 +48,7 @@ function App() {
                 isAuthenticated={isAuthenticated}
                 user={user}
                 onLogout={handleLogout}
+                onLoginSuccess={handleLoginSuccess}
             />
             <Container component="main" maxWidth={false} sx={{ mt: 4, mb: 4, flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <Routes>

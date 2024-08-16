@@ -1,9 +1,9 @@
 // src/components/Header/Login.jsx
-// Version: 1.2.0
-// Description: Login modal component
+// Version: 1.4.0
+// Description: Login modal component with both email/password and Discord OAuth support
 
 import React, { useState } from 'react';
-import { TextField, Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
+import { TextField, Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Divider } from "@mui/material";
 import authService from '../../services/authService';
 
 const Login = ({ open, onClose, onLoginSuccess }) => {
@@ -15,11 +15,20 @@ const Login = ({ open, onClose, onLoginSuccess }) => {
         e.preventDefault();
         try {
             const user = await authService.login(identifier, password);
-            onLoginSuccess(user); // Вызываем функцию обратного вызова с данными пользователя
+            onLoginSuccess(user);
             handleClose();
         } catch (error) {
             console.error('Login error:', error);
             setError(error.response?.data?.error?.message || 'Login error');
+        }
+    };
+
+    const handleDiscordLogin = () => {
+        try {
+            authService.initiateDiscordLogin();
+        } catch (error) {
+            console.error('Discord login error:', error);
+            setError('Failed to initiate Discord login');
         }
     };
 
@@ -50,15 +59,34 @@ const Login = ({ open, onClose, onLoginSuccess }) => {
                         fullWidth
                         margin="normal"
                     />
-                    {error && <Typography color="error">{error}</Typography>}
+                    <Button
+                        type="submit"
+                        color="primary"
+                        variant="contained"
+                        fullWidth
+                        style={{ marginTop: '20px' }}
+                    >
+                        Login
+                    </Button>
                 </form>
+                <Divider style={{ margin: '20px 0' }}>
+                    <Typography variant="body2" color="textSecondary">
+                        OR
+                    </Typography>
+                </Divider>
+                <Button
+                    onClick={handleDiscordLogin}
+                    color="primary"
+                    variant="outlined"
+                    fullWidth
+                >
+                    Login with Discord
+                </Button>
+                {error && <Typography color="error" style={{ marginTop: '10px' }}>{error}</Typography>}
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleClose} color="primary">
                     Cancel
-                </Button>
-                <Button onClick={handleLogin} color="primary" variant="contained">
-                    Login
                 </Button>
             </DialogActions>
         </Dialog>

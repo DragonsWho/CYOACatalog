@@ -1,41 +1,45 @@
 // src/components/Header/Login.jsx
-// Version: 1.8.0
-// Description: Login modal component with both email/password and Discord OAuth support
+// Version: 1.2.0
+// Description: Combined Login and Register component with simplified interface
 
 import React, { useState } from 'react';
-import { TextField, Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Divider } from "@mui/material";
+import { TextField, Button, Typography, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import authService from '../../services/authService';
 
 const Login = ({ open, onClose, onLoginSuccess }) => {
-    const [identifier, setIdentifier] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const userData = await authService.login(identifier, password);
-            if (onLoginSuccess) {
-                onLoginSuccess(userData);
-            }
+            const user = await authService.login(email, password);
+            onLoginSuccess(user);
             handleClose();
         } catch (error) {
             console.error('Login error:', error);
-            setError(error.message || 'Login error');
+            setError('Invalid email or password');
         }
     };
 
-    const handleDiscordLogin = () => {
+    const handleRegister = async () => {
         try {
-            authService.initiateDiscordLogin();
+            const user = await authService.register("New User", email, password);
+            onLoginSuccess(user);
+            handleClose();
         } catch (error) {
-            console.error('Discord login error:', error);
-            setError('Failed to initiate Discord login');
+            console.error('Registration error:', error);
+            if (error.response && error.response.status === 500) {
+                setError('This email is already registered or invalid. Please try a different email.');
+            } else {
+                setError('Registration failed. Please try again.');
+            }
         }
     };
 
     const handleClose = () => {
-        setIdentifier('');
+        setEmail('');
         setPassword('');
         setError('');
         onClose();
@@ -43,15 +47,17 @@ const Login = ({ open, onClose, onLoginSuccess }) => {
 
     return (
         <Dialog open={open} onClose={handleClose}>
-            <DialogTitle>Login</DialogTitle>
+            <DialogTitle>Login or Register</DialogTitle>
             <DialogContent>
                 <form onSubmit={handleLogin}>
                     <TextField
-                        label="Email or username"
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
+                        label="Email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         fullWidth
                         margin="normal"
+                        required
                     />
                     <TextField
                         label="Password"
@@ -60,35 +66,20 @@ const Login = ({ open, onClose, onLoginSuccess }) => {
                         onChange={(e) => setPassword(e.target.value)}
                         fullWidth
                         margin="normal"
+                        required
                     />
-                    <Button
-                        type="submit"
-                        color="primary"
-                        variant="contained"
-                        fullWidth
-                        style={{ marginTop: '20px' }}
-                    >
-                        Login
-                    </Button>
+                    {error && <Typography color="error">{error}</Typography>}
                 </form>
-                <Divider style={{ margin: '20px 0' }}>
-                    <Typography variant="body2" color="textSecondary">
-                        OR
-                    </Typography>
-                </Divider>
-                <Button
-                    onClick={handleDiscordLogin}
-                    color="primary"
-                    variant="outlined"
-                    fullWidth
-                >
-                    Login with Discord
-                </Button>
-                {error && <Typography color="error" style={{ marginTop: '10px' }}>{error}</Typography>}
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleClose} color="primary">
                     Cancel
+                </Button>
+                <Button onClick={handleLogin} color="primary" variant="contained">
+                    Login
+                </Button>
+                <Button onClick={handleRegister} color="primary" variant="outlined">
+                    Register
                 </Button>
             </DialogActions>
         </Dialog>

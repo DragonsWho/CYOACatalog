@@ -1,7 +1,7 @@
 // src/services/authService.js
-// Version: 1.1.0
+// Version: 1.2.0
 // Description: Модуль для управления аутентификацией пользователей
-// Обновлен метод getDiscordAuthURL для работы через Strapi бэкенд
+// Обновлен метод handleDiscordCallback для получения информации о пользователе
 
 import axios from 'axios';
 
@@ -46,6 +46,7 @@ const authService = {
     // Функция для выхода пользователя
     logout: () => {
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
     },
 
     // Функция для получения текущего пользователя
@@ -98,12 +99,30 @@ const authService = {
     handleDiscordCallback: async (token) => {
         if (token) {
             localStorage.setItem('token', token);
-            // Здесь вы можете добавить запрос к вашему API для получения информации о пользователе
-            // и сохранить ее в localStorage или в состоянии приложения
-            return { token };
+
+            try {
+                const response = await axios.get(`${API_URL}/api/users/me`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                const user = response.data;
+                const userData = { user, jwt: token };
+                localStorage.setItem('user', JSON.stringify(userData));
+                return userData;
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+                throw error;
+            }
         } else {
             throw new Error('No token provided');
         }
+    },
+
+    // Новый метод для получения токена
+    getToken: () => {
+        return localStorage.getItem('token');
     },
 };
 

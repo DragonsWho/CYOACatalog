@@ -1,5 +1,5 @@
 // src/components/Header/Login.jsx
-// Version: 1.4.0
+// Version: 1.5.0
 // Description: Login modal component with both email/password and Discord OAuth support
 
 import React, { useState } from 'react';

@@ -1,11 +1,17 @@
 // src/components/Header/DiscordCallback.jsx
-import React, { useEffect } from 'react';
+// Version: 1.1.0
+// Description: Компонент для обработки callback от Discord OAuth
+
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../../services/authService';
+import { CircularProgress, Typography } from '@mui/material';
 
-const DiscordCallback = () => {
+const DiscordCallback = ({ onLoginSuccess }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         const handleCallback = async () => {
@@ -14,29 +20,45 @@ const DiscordCallback = () => {
             const error = searchParams.get('error');
 
             if (error) {
-                console.error('Authentication error:', error);
-                navigate('/login', { state: { error } });
+                setError(error);
+                setLoading(false);
                 return;
             }
 
             if (token) {
                 try {
-                    // Сохранение токена и получение информации о пользователе
-                    await authService.handleDiscordCallback(token);
+                    const userData = await authService.handleDiscordCallback(token);
+                    onLoginSuccess(userData);
                     navigate('/');
                 } catch (error) {
-                    console.error('Error handling Discord callback:', error);
-                    navigate('/login', { state: { error: 'Failed to authenticate' } });
+                    setError('Failed to authenticate');
                 }
             } else {
-                navigate('/login', { state: { error: 'No token received' } });
+                setError('No token received');
             }
+            setLoading(false);
         };
 
         handleCallback();
-    }, [navigate, location]);
+    }, [navigate, location, onLoginSuccess]);
 
-    return <div>Processing Discord login...</div>;
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <CircularProgress />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <Typography color="error">{error}</Typography>
+            </div>
+        );
+    }
+
+    return null;
 };
 
 export default DiscordCallback;

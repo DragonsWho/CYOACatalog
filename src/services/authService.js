@@ -1,10 +1,11 @@
 // src/services/authService.js
-// Version: 1.0.1
+// Version: 1.1.0
 // Description: Модуль для управления аутентификацией пользователей
-// Обновлена структура возвращаемых данных в getCurrentUser
+// Обновлен метод getDiscordAuthURL для работы через Strapi бэкенд
 
 import axios from 'axios';
 
+axios.defaults.withCredentials = true;
 const API_URL = 'http://localhost:1337';
 
 const authService = {
@@ -70,10 +71,26 @@ const authService = {
     // Метод для получения URL авторизации Discord
     getDiscordAuthURL: async () => {
         try {
-            const response = await axios.get(`${API_URL}/api/connect/discord`);
-            return response.data;
+            const response = await axios.get(`${API_URL}/api/connect/discord`, {
+                withCredentials: true
+            });
+            if (response.data && response.data.url) {
+                return response.data.url;
+            } else {
+                throw new Error('Invalid response from server');
+            }
         } catch (error) {
             console.error('Error getting Discord auth URL:', error);
+            throw error;
+        }
+    },
+
+    initiateDiscordLogin: async () => {
+        try {
+            // Перенаправляем пользователя на эндпоинт Strapi для инициации OAuth
+            window.location.href = `${API_URL}/api/connect/discord`;
+        } catch (error) {
+            console.error('Error initiating Discord login:', error);
             throw error;
         }
     },
@@ -91,14 +108,6 @@ const authService = {
             throw error;
         }
     },
-
-
 };
 
-
 export default authService;
-
-
-
-
-

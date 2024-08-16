@@ -23,10 +23,9 @@ const Login = ({ open, onClose, onLoginSuccess }) => {
         }
     };
 
-    const handleDiscordLogin = async () => {
+    const handleDiscordLogin = () => {
         try {
-            const authURL = await authService.getDiscordAuthURL();
-            window.location.href = authURL;
+            authService.initiateDiscordLogin();
         } catch (error) {
             console.error('Discord login error:', error);
             setError('Failed to initiate Discord login');

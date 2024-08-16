@@ -5,6 +5,8 @@
 import axios from 'axios';
 import authService from './authService';
 
+axios.defaults.withCredentials = true;
+
 const API_URL = 'http://localhost:1337';
 
 export const fetchGames = async (page = 1, pageSize = 12) => {

@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Container, Typography, Chip, Box, CircularProgress } from '@mui/material';
+import { Container, Typography, Chip, Box, CircularProgress, Button } from '@mui/material';
 import TagDisplay from './TagDisplay';
 import GameContent from './GameContent';
 import SimpleComments from './SimpleComments';
@@ -76,6 +76,10 @@ function GameDetails() {
             )}
 
             <GameContent attributes={attributes} />
+
+            <Button variant="contained" component="span">
+                Upvote!
+            </Button>
 
             <Box sx={{ mt: 4 }}>
                 <SimpleComments gameId={id} />

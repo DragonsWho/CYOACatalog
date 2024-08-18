@@ -33,8 +33,10 @@ export const fetchGames = async (page = 1, pageSize = 12) => {
                 id: author.id,
                 name: author.attributes.Name
             })) || [],
-            tags: game.attributes.tags?.data || []
+            tags: game.attributes.tags?.data || [],
+            Upvotes: game.attributes.Upvotes || []
         }));
+
 
         return {
             games,

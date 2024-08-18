@@ -22,6 +22,9 @@ function GameCard({ game }) {
 
     const description = getDescription(game.description);
 
+    const gameUpvotes = game.Upvotes || []; // If game does not contain any upvotes, create an empty array
+    const gameUpvoteCount = gameUpvotes.length;
+
     const handleCardClick = () => {
         navigate(`/game/${game.id}`);
     };
@@ -68,6 +71,13 @@ function GameCard({ game }) {
                         ))}
                     </Box>
                 )}
+
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <img src="/img/upvote.png" alt="Upvote" />
+                    <Typography variant="body3" color="text.secondary" sx={{ ml: 0.5 }}>
+                        {gameUpvoteCount}
+                    </Typography>
+                </Box>
             </CardContent>
         </Card>
     );

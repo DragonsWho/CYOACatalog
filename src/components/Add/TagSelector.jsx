@@ -1,4 +1,4 @@
-// src/components/TagSelector.jsx
+// src/components/Add/TagSelector.jsx
 // Version 1.0.5
 // Changes: Removed MinTags constraint, allowing users to deselect all tags. Added warning for categories with less than MinTags selected.
 

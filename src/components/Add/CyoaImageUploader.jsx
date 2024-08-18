@@ -1,4 +1,4 @@
-// src/components/CyoaImageUploader.jsx
+// src/components/Add/CyoaImageUploader.jsx
 // Version 1.0.0
 // New component for uploading and sorting CYOA images
 

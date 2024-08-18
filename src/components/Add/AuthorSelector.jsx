@@ -1,4 +1,4 @@
-// src/components/AuthorSelector.jsx
+// src/components/Add/AuthorSelector.jsx
 // Version 2.0.0
 
 import React, { useState, useEffect } from 'react';
@@ -129,7 +129,7 @@ function AuthorSelector({ value, onChange, availableAuthors, onAuthorsChange }) 
             setInputValue('');
         } catch (error) {
             console.error('Failed to create new author:', error);
-            // Добавьте здесь обработку ошибок, например, показ сообщения пользователю
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             setIsCreatingAuthor(false);
         }
     };

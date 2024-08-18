@@ -1,4 +1,4 @@
-// src/components/GameContent.jsx
+// src/components/CyoaPage/GameContent.jsx
 // v1.0
 // Separate component for game content display
 

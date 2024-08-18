@@ -1,4 +1,4 @@
-// src/components/TagDisplay.jsx
+// src/components/CyoaPage/TagDisplay.jsx
 // v1.3
 // Updated to handle missing category information
 

@@ -1,4 +1,4 @@
-// src/components/SimpleComments.jsx
+// src/components/CyoaPage/SimpleComments.jsx
 // v3.31
 // Added edit and delete functionality
 

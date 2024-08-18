@@ -1,4 +1,4 @@
-// src/components/GameDetails.jsx
+// src/components/CyoaPage/GameDetails.jsx
 // v2.2
 // Added SimpleComments component and optimized imports
 

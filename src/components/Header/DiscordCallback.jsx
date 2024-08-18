@@ -1,6 +1,6 @@
 // src/components/Header/DiscordCallback.jsx
 // Version: 1.1.0
-// Description: Компонент для обработки callback от Discord OAuth
+// Description: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ callback пїЅпїЅ Discord OAuth
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';

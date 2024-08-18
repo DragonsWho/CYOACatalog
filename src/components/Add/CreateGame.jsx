@@ -1,4 +1,4 @@
-// src/components/CreateGame.jsx
+// src/components/Add/CreateGame.jsx
 // Version 1.8.0
 // Updated to use CyoaImageUploader component
 

@@ -1,24 +1,30 @@
 // src/components/Header/Header.jsx
-// Version: 1.2.0
-// Description: Header component with login functionality and user menu
+// Version: 1.3.0
+// Description: Enhanced Header component with prop types, memoization, and accessibility improvements
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { AppBar, Toolbar, Button, Box, Tooltip } from '@mui/material';
 import { Link } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserMenu from './UserMenu';
 import Login from './Login';
 
-function Header({ isAuthenticated, user, onLogout, onLoginSuccess }) {
+const SITE_TITLE = "CYOA Catalog";
+const ADD_CYOA_TEXT = "Add CYOA";
+const LOGIN_TEXT = "Login";
+const LOGIN_TOOLTIP = "Login to add a CYOA";
+
+const Header = React.memo(function Header({ isAuthenticated, user, onLogout, onLoginSuccess }) {
     const [loginOpen, setLoginOpen] = useState(false);
 
-    const handleLoginOpen = () => setLoginOpen(true);
-    const handleLoginClose = () => setLoginOpen(false);
+    const handleLoginOpen = useCallback(() => setLoginOpen(true), []);
+    const handleLoginClose = useCallback(() => setLoginOpen(false), []);
 
-    const handleLoginSuccessInternal = (userData) => {
+    const handleLoginSuccessInternal = useCallback((userData) => {
         onLoginSuccess(userData);
         handleLoginClose();
-    };
+    }, [onLoginSuccess, handleLoginClose]);
 
     return (
         <>
@@ -30,11 +36,11 @@ function Header({ isAuthenticated, user, onLogout, onLoginSuccess }) {
                         to="/"
                         sx={{ fontSize: '1.25rem', fontWeight: 'bold' }}
                     >
-                        CYOA Catalog
+                        {SITE_TITLE}
                     </Button>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <SearchBar />
-                        <Tooltip title={isAuthenticated ? "" : "Login to add a CYOA"} arrow>
+                        <Tooltip title={isAuthenticated ? "" : LOGIN_TOOLTIP} arrow>
                             <span>
                                 <Button
                                     color="inherit"
@@ -48,8 +54,9 @@ function Header({ isAuthenticated, user, onLogout, onLoginSuccess }) {
                                         },
                                     }}
                                     disabled={!isAuthenticated}
+                                    aria-label={ADD_CYOA_TEXT}
                                 >
-                                    Add CYOA
+                                    {ADD_CYOA_TEXT}
                                 </Button>
                             </span>
                         </Tooltip>
@@ -64,8 +71,9 @@ function Header({ isAuthenticated, user, onLogout, onLoginSuccess }) {
                                         width: '100%',
                                         justifyContent: 'center'
                                     }}
+                                    aria-label={LOGIN_TEXT}
                                 >
-                                    Login
+                                    {LOGIN_TEXT}
                                 </Button>
                             )}
                         </Box>
@@ -79,6 +87,13 @@ function Header({ isAuthenticated, user, onLogout, onLoginSuccess }) {
             />
         </>
     );
-}
+});
+
+Header.propTypes = {
+    isAuthenticated: PropTypes.bool.isRequired,
+    user: PropTypes.object,
+    onLogout: PropTypes.func.isRequired,
+    onLoginSuccess: PropTypes.func.isRequired,
+};
 
 export default Header;

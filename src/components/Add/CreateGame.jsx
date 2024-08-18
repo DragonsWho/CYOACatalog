@@ -1,13 +1,19 @@
 // src/components/CreateGame.jsx
-// Version 1.6.0
+// Version 1.8.0
+// Updated to use CyoaImageUploader component
 
 import React, { useState, useEffect } from 'react';
-import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
-import { createGame, getAuthors } from '../../services/api';
+import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl, Alert } from '@mui/material';
+import { createGame, getAuthors, getTagCategories } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import AuthorSelector from './AuthorSelector';
 import TagSelector from './TagSelector';
+import CyoaImageUploader from './CyoaImageUploader';
 
+/**
+ * CreateGame component for creating a new game entry
+ * @returns {JSX.Element} The CreateGame form
+ */
 function CreateGame() {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -19,22 +25,31 @@ function CreateGame() {
     const [availableAuthors, setAvailableAuthors] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const navigate = useNavigate();
     const [selectedTags, setSelectedTags] = useState([]);
     const [tagsLoaded, setTagsLoaded] = useState(false);
+    const [tagCategories, setTagCategories] = useState([]);
+    const [initialDataLoading, setInitialDataLoading] = useState(true);
+
+    const navigate = useNavigate();
 
     useEffect(() => {
-        const fetchAuthors = async () => {
+        const fetchInitialData = async () => {
             try {
-                const authorsData = await getAuthors();
+                const [authorsData, categoriesData] = await Promise.all([
+                    getAuthors(),
+                    getTagCategories()
+                ]);
                 setAvailableAuthors(authorsData.map(author => ({ id: author.id, name: author.attributes.Name })));
+                setTagCategories(categoriesData);
             } catch (error) {
-                console.error('Error fetching authors:', error);
-                setError('Failed to load authors. Please try again.');
+                console.error('Error fetching initial data:', error);
+                setError('Failed to load necessary data. Please refresh the page and try again.');
+            } finally {
+                setInitialDataLoading(false);
             }
         };
 
-        fetchAuthors();
+        fetchInitialData();
     }, []);
 
     const handleCardImageChange = (e) => {
@@ -43,10 +58,25 @@ function CreateGame() {
         }
     };
 
-    const handleCyoaImagesChange = (e) => {
-        if (e.target.files) {
-            setCyoaImages(Array.from(e.target.files));
-        }
+    const handleCyoaImagesChange = (newImages) => {
+        setCyoaImages(newImages);
+    };
+
+    /**
+     * Validates the selected tags against the minimum required for each category
+     * @returns {string[]} Array of error messages, empty if no errors
+     */
+    const validateTags = () => {
+        const errors = [];
+        tagCategories.forEach(category => {
+            const categoryTags = selectedTags.filter(tagId =>
+                category.attributes.tags.data.some(tag => tag.id === tagId)
+            );
+            if (categoryTags.length < category.attributes.MinTags) {
+                errors.push(`${category.attributes.Name} requires at least ${category.attributes.MinTags} tag(s)`);
+            }
+        });
+        return errors;
     };
 
     const handleSubmit = async (e) => {
@@ -54,14 +84,40 @@ function CreateGame() {
         setLoading(true);
         setError(null);
 
-        if (!title || !description || !cardImage) {
-            setError('Please fill in all required fields and upload a card image.');
+        // Form validation
+        if (!title.trim()) {
+            setError('Title is required.');
+            setLoading(false);
+            return;
+        }
+
+        if (!description.trim()) {
+            setError('Description is required.');
+            setLoading(false);
+            return;
+        }
+
+        if (!cardImage) {
+            setError('Please upload a card image.');
             setLoading(false);
             return;
         }
 
         if (imgOrLink === 'img' && cyoaImages.length === 0) {
             setError('Please upload at least one CYOA page image.');
+            setLoading(false);
+            return;
+        }
+
+        if (imgOrLink === 'link' && !iframeUrl.trim()) {
+            setError('Please provide an iframe URL.');
+            setLoading(false);
+            return;
+        }
+
+        const tagErrors = validateTags();
+        if (tagErrors.length > 0) {
+            setError(`Tag selection errors:\n${tagErrors.join('\n')}`);
             setLoading(false);
             return;
         }
@@ -113,14 +169,11 @@ function CreateGame() {
         }
     };
 
-    // Handler for updating available authors
-    const handleAuthorsChange = (newAuthors) => {
-        setAvailableAuthors(newAuthors);
-    };
+    if (initialDataLoading) {
+        return <CircularProgress />;
+    }
 
     return (
-        console.log('Available authors:', availableAuthors),
-        console.log('Selected authors:', authors),
         <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 600, margin: 'auto', mt: 4 }}>
             <Typography variant="h4" component="h1" gutterBottom>
                 Create New Game
@@ -170,21 +223,18 @@ function CreateGame() {
                     value={authors}
                     onChange={setAuthors}
                     availableAuthors={availableAuthors}
-                    onAuthorsChange={handleAuthorsChange}
-                    />
-                
-                </Box>
+                />
+            </Box>
 
-                
-                    <Box sx={{ mt: 2 }}>
-                        <Typography variant="h6">Select Tags</Typography>
-                        <TagSelector
-                            selectedTags={selectedTags}
-                            onTagsChange={setSelectedTags}
-                            onLoad={() => setTagsLoaded(true)}
-                        />
-                    </Box>
-                
+            <Box sx={{ mt: 2 }}>
+                <Typography variant="h6">Select Tags</Typography>
+                <TagSelector
+                    selectedTags={selectedTags}
+                    onTagsChange={setSelectedTags}
+                    onLoad={() => setTagsLoaded(true)}
+                    tagCategories={tagCategories}
+                />
+            </Box>
 
             <Box sx={{ mt: 2 }}>
                 <input
@@ -203,24 +253,7 @@ function CreateGame() {
             </Box>
             {imgOrLink === 'img' && (
                 <Box sx={{ mt: 2 }}>
-                    <input
-                        accept="image/*"
-                        id="cyoa-images-upload"
-                        type="file"
-                        multiple
-                        onChange={handleCyoaImagesChange}
-                        style={{ display: 'none' }}
-                    />
-                    <label htmlFor="cyoa-images-upload">
-                        <Button variant="contained" component="span">
-                            Upload CYOA Page Images
-                        </Button>
-                    </label>
-                    {cyoaImages.length > 0 && (
-                        <Typography sx={{ mt: 1 }}>
-                            {cyoaImages.length} image(s) selected
-                        </Typography>
-                    )}
+                    <CyoaImageUploader onImagesChange={handleCyoaImagesChange} />
                 </Box>
             )}
             <Button
@@ -233,9 +266,9 @@ function CreateGame() {
                 {loading ? <CircularProgress size={24} /> : 'Create Game'}
             </Button>
             {error && (
-                <Typography color="error" sx={{ mt: 2 }}>
+                <Alert severity="error" sx={{ mt: 2 }}>
                     {error}
-                </Typography>
+                </Alert>
             )}
         </Box>
     );

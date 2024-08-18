@@ -1,6 +1,6 @@
 // src/components/Header/DiscordCallback.jsx
 // Version: 1.1.0
-// Description: ��������� ��� ��������� callback �� Discord OAuth
+// Description: 
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';

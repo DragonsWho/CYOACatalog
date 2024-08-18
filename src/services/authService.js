@@ -1,6 +1,6 @@
 // src/services/authService.js
 // Version: 1.9.0
-// Description: ������ ��� ���������� ��������������� �������������
+// Description:
 
 import axios from 'axios';
 

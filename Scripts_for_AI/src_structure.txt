@@ -1,0 +1,12 @@
+﻿src/
+  [App.css, App.jsx, index.css, main.jsx, theme.js]
+  components/
+    [AuthCallback.jsx, EmailConfirmation.jsx, GameCard.jsx, GameList.jsx]
+    Add/
+      [AuthorSelector.jsx, CreateGame.jsx, TagSelector.jsx]
+    CyoaPage/
+      [GameContent.jsx, GameDetails.jsx, SimpleComments.jsx, TagDisplay.jsx]
+    Header/
+      [DiscordCallback.jsx, Header.jsx, Login.jsx, Register.jsx, SearchBar.jsx, UserMenu.jsx]
+  services/
+    [api.js, authService.js, cacheService.js, searchService.js]

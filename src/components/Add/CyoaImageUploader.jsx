@@ -1,5 +1,6 @@
 // src/components/Add/CyoaImageUploader.jsx
 // Version 1.1.0
+
 import React, { useState, useCallback } from 'react';
 import { Box, Button, Typography, List, ListItem, ListItemText, ListItemSecondaryAction, IconButton } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -8,49 +9,45 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 const CyoaImageUploader = ({ onImagesChange }) => {
     const [images, setImages] = useState([]);
 
-    const compressImage = useCallback(async (file) => {
+    const processImage = useCallback(async (file) => {
+        //  
+        if (file.size <= 10 * 1024 * 1024) {
+            return file;
+        }
+
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-                const maxWidth = 1920;
-                const maxHeight = 1080;
-
-                if (width > height) {
-                    if (width > maxWidth) {
-                        height = Math.round((height * maxWidth) / width);
-                        width = maxWidth;
-                    }
-                } else {
-                    if (height > maxHeight) {
-                        width = Math.round((width * maxHeight) / height);
-                        height = maxHeight;
-                    }
-                }
-
-                canvas.width = width;
-                canvas.height = height;
+                canvas.width = img.width;
+                canvas.height = img.height;
 
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
+                ctx.drawImage(img, 0, 0);
 
-                canvas.toBlob(
-                    (blob) => {
-                        if (blob) {
-                            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
-                                type: 'image/jpeg',
-                                lastModified: Date.now()
-                            });
-                            resolve(compressedFile);
-                        } else {
-                            reject(new Error('Canvas to Blob conversion failed'));
-                        }
-                    },
-                    'image/jpeg',
-                    0.8
-                );
+                const process = (quality) => {
+                    canvas.toBlob(
+                        (blob) => {
+                            if (blob) {
+                                if (blob.size <= 10 * 1024 * 1024 || quality <= 0.7) {
+                                    const processedFile = new File([blob], file.name, {
+                                        type: file.type,  
+                                        lastModified: Date.now()
+                                    });
+                                    resolve(processedFile);
+                                } else {
+                                    process(quality - 0.05);
+                                }
+                            } else {
+                                reject(new Error('Canvas to Blob conversion failed'));
+                            }
+                        },
+                        file.type,  
+                        quality
+                    );
+                };
+
+                process(1); //  
             };
             img.onerror = (error) => reject(error);
             img.src = URL.createObjectURL(file);
@@ -59,15 +56,17 @@ const CyoaImageUploader = ({ onImagesChange }) => {
 
     const handleFileChange = async (event) => {
         const files = Array.from(event.target.files);
-        const compressedImages = await Promise.all(files.map(async (file) => {
-            const compressedFile = await compressImage(file);
+        const processedImages = await Promise.all(files.map(async (file) => {
+            console.log(`Original file size: ${file.size} bytes`);
+            const processedFile = await processImage(file);
+            console.log(`Processed file size: ${processedFile.size} bytes`);
             return {
-                file: compressedFile,
-                preview: URL.createObjectURL(compressedFile)
+                file: processedFile,
+                preview: URL.createObjectURL(processedFile)
             };
         }));
-        setImages(prevImages => [...prevImages, ...compressedImages]);
-        onImagesChange([...images, ...compressedImages].map(img => img.file));
+        setImages(prevImages => [...prevImages, ...processedImages]);
+        onImagesChange([...images, ...processedImages].map(img => img.file));
     };
 
     const handleDragStart = (e, index) => {

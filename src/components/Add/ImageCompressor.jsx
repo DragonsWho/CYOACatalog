@@ -1,9 +1,23 @@
 // src/components/Add/ImageCompressor.jsx
-// v1.4
+// v1.7
+// Changes: Fixed resizing and cropping logic to start from the top
+
 import React, { useCallback, useState } from 'react';
 import { Button, Typography, Box, CircularProgress, Alert } from '@mui/material';
 
-const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', maxWidth = 1920, maxHeight = 1080, quality = 0.8 }) => {
+// START: Aspect Ratio Configuration
+// You can easily change the aspect ratio by modifying this value
+// Examples: 1 (square), 4/3, 16/9, 2/3 (portrait), etc.
+const defaultAspectRatio = 3/4; // Square aspect ratio
+// END: Aspect Ratio Configuration
+
+const ImageCompressor = ({
+    onImageChange,
+    buttonText = 'Upload Image',
+    quality = 0.8,
+    aspectRatio = defaultAspectRatio,
+    targetWidth = 500
+}) => {
     const [isCompressing, setIsCompressing] = useState(false);
     const [error, setError] = useState(null);
     const [preview, setPreview] = useState(null);
@@ -14,26 +28,26 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', maxWidth 
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-                    if (width > maxWidth) {
-                        height = Math.round((height * maxWidth) / width);
-                        width = maxWidth;
-                    }
-                } else {
-                    if (height > maxHeight) {
-                        width = Math.round((width * maxHeight) / height);
-                        height = maxHeight;
-                    }
-                }
+                let width = targetWidth;
+                let height = Math.round(targetWidth / aspectRatio);
 
                 canvas.width = width;
                 canvas.height = height;
 
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
+
+                // Calculate scaling factor
+                const scale = width / img.width;
+                const scaledHeight = img.height * scale;
+
+                // Draw the resized image
+                ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, width, scaledHeight);
+
+                // Crop from the top
+                const imageData = ctx.getImageData(0, 0, width, height);
+                canvas.width = width;
+                canvas.height = height;
+                ctx.putImageData(imageData, 0, 0);
 
                 canvas.toBlob(
                     (blob) => {
@@ -59,7 +73,7 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', maxWidth 
             img.onerror = (error) => reject(error);
             img.src = URL.createObjectURL(file);
         });
-    }, [maxWidth, maxHeight, quality]);
+    }, [quality, aspectRatio, targetWidth]);
 
     const handleImageChange = useCallback(async (event) => {
         const file = event.target.files[0];
@@ -68,9 +82,7 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', maxWidth 
             setError(null);
             try {
                 const compressedImage = await compressImage(file);
-                setTimeout(() => {
-                    onImageChange(compressedImage);
-                }, 100);
+                onImageChange(compressedImage);
             } catch (error) {
                 console.error('Error compressing image:', error);
                 setError('Failed to compress image. Please try again.');
@@ -112,7 +124,15 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', maxWidth 
             )}
             {preview && (
                 <Box sx={{ mt: 2 }}>
-                    <img src={preview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '200px' }} />
+                    <img
+                        src={preview}
+                        alt="Preview"
+                        style={{
+                            width: '200px',
+                            height: `${200 / aspectRatio}px`,
+                            objectFit: 'cover'
+                        }}
+                    />
                     <Typography variant="body2" sx={{ mt: 1 }}>
                         Original size: {(fileInfo.originalSize / 1024).toFixed(2)} KB
                         <br />

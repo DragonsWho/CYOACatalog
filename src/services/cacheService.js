@@ -1,6 +1,6 @@
 // src/services/cacheService.js
-// v 1.3
-// Changed image caching to use IndexedDB instead of localStorage
+// v 1.4
+// Fixed IndexedDB operations and error handling
 
 const CACHE_KEY = 'gameList';
 const CACHE_TIMESTAMP_KEY = 'gameListTimestamp';
@@ -20,6 +20,10 @@ let db;
 // Open IndexedDB connection
 const openDB = () => {
     return new Promise((resolve, reject) => {
+        if (db) {
+            resolve(db);
+            return;
+        }
         const request = indexedDB.open(DB_NAME, 1);
         request.onerror = (event) => reject("IndexedDB error: " + event.target.error);
         request.onsuccess = (event) => {
@@ -73,7 +77,12 @@ export const cacheImage = async (url, base64Data) => {
         };
 
         // Check and manage cache size
-        const allItems = await store.getAll();
+        const allItemsRequest = store.getAll();
+        const allItems = await new Promise((resolve, reject) => {
+            allItemsRequest.onsuccess = () => resolve(allItemsRequest.result);
+            allItemsRequest.onerror = () => reject(allItemsRequest.error);
+        });
+
         let totalSize = allItems.reduce((sum, item) => sum + item.size, 0);
 
         if (allItems.length >= MAX_CACHE_ITEMS || totalSize + cacheData.size > MAX_CACHE_SIZE) {

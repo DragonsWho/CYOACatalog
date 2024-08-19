@@ -1,5 +1,5 @@
 // src/components/Add/ImageCompressor.jsx
-// v1.3
+// v1.4
 import React, { useCallback, useState } from 'react';
 import { Button, Typography, Box, CircularProgress, Alert } from '@mui/material';
 
@@ -38,8 +38,8 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', maxWidth 
                 canvas.toBlob(
                     (blob) => {
                         if (blob) {
-                            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".webp"), {
-                                type: 'image/webp',
+                            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+                                type: 'image/jpeg',
                                 lastModified: Date.now()
                             });
                             setPreview(URL.createObjectURL(compressedFile));
@@ -52,7 +52,7 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', maxWidth 
                             reject(new Error('Canvas to Blob conversion failed'));
                         }
                     },
-                    'image/webp',
+                    'image/jpeg',
                     quality
                 );
             };

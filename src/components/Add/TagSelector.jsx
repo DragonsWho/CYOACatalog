@@ -1,12 +1,12 @@
 // src/components/Add/TagSelector.jsx
-// Version 1.0.5
-// Changes: Removed MinTags constraint, allowing users to deselect all tags. Added warning for categories with less than MinTags selected.
+// Version 1.1.0
+// Changes: Added tooltips with tag descriptions to tag chips
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Chip, TextField, Typography, CircularProgress } from '@mui/material';
+import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
 import { getTags, getTagCategories } from '../../services/api';
 
-const CATEGORY_ORDER = ['Genre', 'Rating', 'Theme', 'Length', 'Difficulty'];
+const CATEGORY_ORDER = ['Rating', 'Genre', 'Theme', 'Length', 'Difficulty'];
 
 function TagSelector({ selectedTags, onTagsChange, onLoad }) {
     const [tagCategories, setTagCategories] = useState([]);
@@ -93,13 +93,14 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                             {category.tags.map(tag => (
-                                <Chip
-                                    key={tag.id}
-                                    label={tag.attributes.Name}
-                                    onClick={() => handleTagToggle(tag.id, category.id)}
-                                    color={selectedTags.includes(tag.id) ? "primary" : "default"}
-                                    disabled={!selectedTags.includes(tag.id) && !canAddMore}
-                                />
+                                <Tooltip key={tag.id} title={tag.attributes.Description || 'No description available'} arrow>
+                                    <Chip
+                                        label={tag.attributes.Name}
+                                        onClick={() => handleTagToggle(tag.id, category.id)}
+                                        color={selectedTags.includes(tag.id) ? "primary" : "default"}
+                                        disabled={!selectedTags.includes(tag.id) && !canAddMore}
+                                    />
+                                </Tooltip>
                             ))}
                             {category.AllowNewTags && canAddMore && (
                                 <TextField

@@ -1,6 +1,6 @@
 // src/components/Add/CreateGame.jsx
-// Version 1.9.0
-// Updated to use ImageCompressor component for card image
+// Version 1.9.1
+// Updated to use ImageCompressor component with AVIF compression for card image
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl, Alert } from '@mui/material';
@@ -241,9 +241,12 @@ function CreateGame() {
                     buttonText="Upload Card Image"
                     maxWidth={800}
                     maxHeight={600}
-                    quality={0.8}
                 />
-                {cardImage && <Typography sx={{ mt: 1 }}>{cardImage.name}</Typography>}
+                {cardImage && (
+                    <Typography sx={{ mt: 1 }}>
+                        {cardImage.name} (Size: {(cardImage.size / 1024).toFixed(2)} KB)
+                    </Typography>
+                )}
             </Box>
             {imgOrLink === 'img' && (
                 <Box sx={{ mt: 2 }}>

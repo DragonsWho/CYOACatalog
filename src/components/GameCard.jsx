@@ -1,13 +1,50 @@
 // src/components/GameCard.jsx
-// v 1.2
-// add tags 
+// v 1.3
+// Added image caching and optimized rendering
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardMedia, Typography, Chip, Box } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { getCachedImage, cacheImage } from '../services/cacheService';
+
+const MAX_CACHE_SIZE = 100 * 1024 * 1024; // 100 MB
+const MAX_CACHE_ITEMS = 500; // Maximum number of cached items
 
 function GameCard({ game }) {
     const navigate = useNavigate();
+    const [imageUrl, setImageUrl] = useState(null);
+
+    useEffect(() => {
+        const loadImage = async () => {
+            if (game.image) {
+                const cachedImage = getCachedImage(game.image);
+                if (cachedImage) {
+                    setImageUrl(cachedImage);
+                } else {
+                    try {
+                        const response = await fetch(game.image);
+                        const blob = await response.blob();
+                        if (blob.size <= MAX_CACHE_SIZE / MAX_CACHE_ITEMS) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const base64data = reader.result;
+                                cacheImage(game.image, base64data);
+                                setImageUrl(base64data);
+                            };
+                            reader.readAsDataURL(blob);
+                        } else {
+                            setImageUrl(game.image);
+                        }
+                    } catch (error) {
+                        console.error('Error loading image:', error);
+                        setImageUrl(game.image);
+                    }
+                }
+            }
+        };
+
+        loadImage();
+    }, [game.image]);
 
     const getDescription = (description) => {
         if (typeof description === 'string') {
@@ -22,7 +59,7 @@ function GameCard({ game }) {
 
     const description = getDescription(game.description);
 
-    const gameUpvotes = game.Upvotes || []; // If game does not contain any upvotes, create an empty array
+    const gameUpvotes = game.Upvotes || [];
     const gameUpvoteCount = gameUpvotes.length;
 
     const handleCardClick = () => {
@@ -38,11 +75,11 @@ function GameCard({ game }) {
                 '&:hover': { transform: 'scale(1.03)' }
             }}
         >
-            {game.image && (
+            {imageUrl && (
                 <CardMedia
                     component="img"
                     height="140"
-                    image={game.image}
+                    image={imageUrl}
                     alt={game.title}
                 />
             )}
@@ -63,7 +100,7 @@ function GameCard({ game }) {
                         ))}
                     </Box>
                 )}
-                 
+
                 {game.tags && game.tags.length > 0 && (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {game.tags.map((tag, index) => (
@@ -74,7 +111,7 @@ function GameCard({ game }) {
 
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <img src="/img/upvote.png" alt="Upvote" />
-                    <Typography variant="body3" color="text.secondary" sx={{ ml: 0.5 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
                         {gameUpvoteCount}
                     </Typography>
                 </Box>

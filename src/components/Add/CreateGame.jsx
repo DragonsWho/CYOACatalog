@@ -1,6 +1,6 @@
 // src/components/Add/CreateGame.jsx
-// Version 1.8.0
-// Updated to use CyoaImageUploader component
+// Version 1.9.0
+// Updated to use ImageCompressor component for card image
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl, Alert } from '@mui/material';
@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import AuthorSelector from './AuthorSelector';
 import TagSelector from './TagSelector';
 import CyoaImageUploader from './CyoaImageUploader';
+import ImageCompressor from './ImageCompressor';
 
 /**
  * CreateGame component for creating a new game entry
@@ -52,10 +53,8 @@ function CreateGame() {
         fetchInitialData();
     }, []);
 
-    const handleCardImageChange = (e) => {
-        if (e.target.files[0]) {
-            setCardImage(e.target.files[0]);
-        }
+    const handleCardImageChange = (compressedImage) => {
+        setCardImage(compressedImage);
     };
 
     const handleCyoaImagesChange = (newImages) => {
@@ -237,18 +236,13 @@ function CreateGame() {
             </Box>
 
             <Box sx={{ mt: 2 }}>
-                <input
-                    accept="image/*"
-                    id="card-image-upload"
-                    type="file"
-                    onChange={handleCardImageChange}
-                    style={{ display: 'none' }}
+                <ImageCompressor
+                    onImageChange={handleCardImageChange}
+                    buttonText="Upload Card Image"
+                    maxWidth={800}
+                    maxHeight={600}
+                    quality={0.8}
                 />
-                <label htmlFor="card-image-upload">
-                    <Button variant="contained" component="span">
-                        Upload Card Image
-                    </Button>
-                </label>
                 {cardImage && <Typography sx={{ mt: 1 }}>{cardImage.name}</Typography>}
             </Box>
             {imgOrLink === 'img' && (

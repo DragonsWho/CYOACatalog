@@ -111,10 +111,30 @@ export const createAuthor = async (authorName) => {
 };
 
 export const getTags = async () => {
-    try {
-        const response = await axios.get(`${API_URL}/api/tags?populate=tag_category`);
-        console.log('Tags response:', response.data);
-        return response.data.data;
+    try { 
+        const firstPageResponse = await axios.get(`${API_URL}/api/tags?populate=tag_category&pagination[pageSize]=100&pagination[page]=1`);
+
+        console.log('Tags response (first page):', firstPageResponse.data);
+
+        const { data, meta } = firstPageResponse.data;
+         
+        if (meta.pagination.pageCount > 1) { 
+            const remainingPages = Array.from({ length: meta.pagination.pageCount - 1 }, (_, i) => i + 2);
+            const additionalResponses = await Promise.all(
+                remainingPages.map(page =>
+                    axios.get(`${API_URL}/api/tags?populate=tag_category&pagination[pageSize]=100&pagination[page]=${page}`)
+                )
+            );
+             
+            const allData = additionalResponses.reduce((acc, response) => {
+                return [...acc, ...response.data.data];
+            }, data);
+
+            console.log('All tags:', allData);
+            return allData;
+        }
+
+        return data;
     } catch (error) {
         console.error('Error fetching tags:', error);
         throw error;

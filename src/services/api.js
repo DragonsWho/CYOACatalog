@@ -1,6 +1,6 @@
 // src/services/api.js
-// v2.0
-// Updated postComment function to handle nested comments
+// v2.1
+// Updated fetchGames function to sort games by creation date in descending order
 
 import axios from 'axios';
 import authService from './authService';
@@ -15,7 +15,8 @@ export const fetchGames = async (page = 1, pageSize = 12) => {
             params: {
                 'pagination[page]': page,
                 'pagination[pageSize]': pageSize,
-                'populate': '*'
+                'populate': '*',
+                'sort[0]': 'createdAt:desc'  // Sort by creation date in descending order
             }
         });
         console.log('Raw response:', response.data);
@@ -36,7 +37,6 @@ export const fetchGames = async (page = 1, pageSize = 12) => {
             tags: game.attributes.tags?.data || [],
             Upvotes: game.attributes.Upvotes || []
         }));
-
 
         return {
             games,

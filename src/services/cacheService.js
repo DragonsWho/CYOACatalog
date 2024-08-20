@@ -15,6 +15,9 @@ const MAX_CACHE_ITEMS = 500;
 const DB_NAME = 'CYOAImageCache';
 const STORE_NAME = 'images';
 
+const TAG_CACHE_KEY = 'tagCategoryMap';
+const TAG_CACHE_EXPIRATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
 let db;
 
 // Open IndexedDB connection
@@ -57,6 +60,31 @@ export const getFromCache = () => {
 
     return JSON.parse(cachedData);
 };
+
+
+export const cacheTagCategoryMap = (tagCategoryMap) => {
+    const cacheData = {
+        data: tagCategoryMap,
+        timestamp: Date.now()
+    };
+    localStorage.setItem(TAG_CACHE_KEY, JSON.stringify(cacheData));
+};
+
+export const getCachedTagCategoryMap = () => {
+    const cachedData = localStorage.getItem(TAG_CACHE_KEY);
+    if (cachedData) {
+        const { data, timestamp } = JSON.parse(cachedData);
+        if (Date.now() - timestamp < TAG_CACHE_EXPIRATION) {
+            return data;
+        }
+    }
+    return null;
+};
+
+export const clearTagCache = () => {
+    localStorage.removeItem(TAG_CACHE_KEY);
+};
+
 
 export const clearCache = () => {
     localStorage.removeItem(CACHE_KEY);
@@ -137,4 +165,5 @@ export const clearImageCache = async () => {
 export const clearAllCaches = async () => {
     clearCache();
     await clearImageCache();
+    clearTagCache();
 };

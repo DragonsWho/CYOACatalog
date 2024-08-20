@@ -1,11 +1,11 @@
 // src/components/GameCard.jsx
-// v3.3
-// Changes: Fixed tag sorting function
+// v3.5
+// Implemented tag caching
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { Card, CardContent, Typography, Chip, Box, Skeleton, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { getCachedImage, cacheImage } from '../services/cacheService';
+import { getCachedImage, cacheImage, cacheTagCategoryMap, getCachedTagCategoryMap } from '../services/cacheService';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 
 // Design variables
@@ -86,33 +86,28 @@ const GameCard = memo(({ game, tagCategories }) => {
     }, []);
 
     const sortedTags = useMemo(() => {
-        console.log('Starting tag sorting');
-        console.log('Game tags:', game.tags);
-        console.log('Tag categories:', tagCategories);
-
         if (!game.tags || !tagCategories) {
-            console.log('No tags or categories, returning empty array');
             return [];
         }
 
-        // Create a map of tag IDs to their categories
-        const tagCategoryMap = new Map();
-        tagCategories.forEach(category => {
-            category.attributes.tags.data.forEach(tag => {
-                tagCategoryMap.set(tag.id, category.attributes.Name);
+        let tagCategoryMap = getCachedTagCategoryMap();
+
+        if (!tagCategoryMap) {
+            tagCategoryMap = new Map();
+            tagCategories.forEach(category => {
+                category.attributes.tags.data.forEach(tag => {
+                    tagCategoryMap.set(tag.id, category.attributes.Name);
+                });
             });
-        });
-        console.log('Tag category map:', tagCategoryMap);
+            cacheTagCategoryMap(Array.from(tagCategoryMap.entries()));
+        } else {
+            tagCategoryMap = new Map(tagCategoryMap);
+        }
 
         const sortedAndFilteredTags = CATEGORY_ORDER.flatMap(categoryName => {
-            const tagsInCategory = game.tags.filter(tag => {
-                return tagCategoryMap.get(tag.id) === categoryName;
-            });
-            console.log(`Tags in category ${categoryName}:`, tagsInCategory);
-            return tagsInCategory;
+            return game.tags.filter(tag => tagCategoryMap.get(tag.id) === categoryName);
         });
 
-        console.log('Sorted and filtered tags:', sortedAndFilteredTags);
         return sortedAndFilteredTags.slice(0, TAG_DISPLAY_LIMIT);
     }, [game.tags, tagCategories]);
 

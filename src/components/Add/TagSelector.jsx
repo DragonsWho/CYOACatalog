@@ -1,26 +1,33 @@
 // src/components/Add/TagSelector.jsx
-// Version 1.8.5
-// Full file version with all recent changes
+// Version 1.8.7
+// Changes: Applied TAG_GROUPS to all sections, unified spacing
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
 import { getTags, getTagCategories } from '../../services/api';
 
 const CATEGORY_ORDER = ['Rating', 'Genre', 'Theme', 'Length', 'Difficulty'];
-const TAG_GROUPS = [
-    [10, 4, 6],
-    [3, 5, 5, 5],
-    [13, 2],
-    [5, 5, 5],
-];
+const TAG_GROUPS = {
+    'Rating': [[4]],
+    'Genre': [[3], [5], [5]],
+    'Playtime': [[4]],
+    'Interactivity': [[4]],
+    'Status': [[3]],
+    'POV': [[3], [2]],
+    'Player Sexual Role': [[6]],
+    'Tone': [[7]],
+    'Extra': [[6], [3]]
+};
 const TOOLTIP_DELAY = 1000; // 1 second delay for tooltips
 const CHIP_HEIGHT = '24px';
 const CHIP_FONT_SIZE = '0.8125rem';
 const CHIP_PADDING = '0 8px';
 const CHIP_BORDER_RADIUS = '4px';
-const GAP = 0.75; // Unified gap for both horizontal and vertical spacing
-const CATEGORY_TITLE_MARGIN_BOTTOM = 0.5;
+const GAP = 0.75; // Gap between chips
+const CATEGORY_TITLE_MARGIN_BOTTOM = 0;
 const CATEGORY_TITLE_FONT_WEIGHT = '500';
+const SECTION_GAP = 0.5; // Gap between sections
+
 
 // Custom DelayedTooltip component
 function DelayedTooltip({ title, children, placement = "bottom" }) {
@@ -115,10 +122,17 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
 
     const renderTagGroups = (category, groupConfig) => {
         if (!groupConfig || groupConfig.length === 0) {
-            // If no group config, render all tags in a single group
-            return (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: GAP }}>
-                    {category.tags.map(tag => (
+            groupConfig = [[category.tags.length]]; // Default to all tags in one row
+        }
+
+        return groupConfig.map((row, rowIndex) => (
+            <Box key={rowIndex} sx={{ display: 'flex', flexWrap: 'wrap', gap: GAP, mb: rowIndex < groupConfig.length - 1 ? GAP : 0 }}>
+                {row.map((groupSize, groupIndex) => {
+                    const startIndex = groupConfig.slice(0, rowIndex).flat().reduce((sum, size) => sum + size, 0) +
+                        row.slice(0, groupIndex).reduce((sum, size) => sum + size, 0);
+                    const groupTags = category.tags.slice(startIndex, startIndex + groupSize);
+
+                    return groupTags.map(tag => (
                         <DelayedTooltip
                             key={tag.id}
                             title={tag.attributes.Description || 'No description available'}
@@ -141,63 +155,24 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
                                 ).length >= category.MaxTags}
                             />
                         </DelayedTooltip>
-                    ))}
-                </Box>
-            );
-        }
-
-        return (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
-                {groupConfig.map((row, rowIndex) => (
-                    <Box key={rowIndex} sx={{ display: 'flex', flexWrap: 'wrap', gap: GAP }}>
-                        {(Array.isArray(row) ? row : [row]).map((groupSize, groupIndex) => {
-                            const startIndex = groupConfig.slice(0, rowIndex).flat().reduce((sum, size) => sum + (Array.isArray(size) ? size.reduce((a, b) => a + b, 0) : size), 0) +
-                                (Array.isArray(row) ? row.slice(0, groupIndex).reduce((sum, size) => sum + size, 0) : 0);
-                            const groupTags = category.tags.slice(startIndex, startIndex + groupSize);
-
-                            return groupTags.map(tag => (
-                                <DelayedTooltip
-                                    key={tag.id}
-                                    title={tag.attributes.Description || 'No description available'}
-                                >
-                                    <Chip
-                                        label={tag.attributes.Name}
-                                        onClick={() => handleTagToggle(tag.id, category.id)}
-                                        color={selectedTags.includes(tag.id) ? "primary" : "default"}
-                                        size="small"
-                                        sx={{
-                                            height: CHIP_HEIGHT,
-                                            borderRadius: CHIP_BORDER_RADIUS,
-                                            '& .MuiChip-label': {
-                                                fontSize: CHIP_FONT_SIZE,
-                                                padding: CHIP_PADDING,
-                                            }
-                                        }}
-                                        disabled={!selectedTags.includes(tag.id) && selectedTags.filter(id =>
-                                            category.tags.some(catTag => catTag.id === id)
-                                        ).length >= category.MaxTags}
-                                    />
-                                </DelayedTooltip>
-                            ));
-                        })}
-                    </Box>
-                ))}
+                    ));
+                })}
             </Box>
-        );
+        ));
     };
 
     if (loading) return <CircularProgress size={24} />;
     if (error) return <Typography color="error" variant="body2">{error}</Typography>;
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
-            {sortedCategories.map((category, index) => {
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
+            {sortedCategories.map((category) => {
                 const canAddMore = selectedTags.filter(id =>
                     category.tags.some(tag => tag.id === id)
                 ).length < category.MaxTags;
 
                 return (
-                    <Box key={category.id} sx={{ mb: GAP }}>
+                    <Box key={category.id}>
                         <DelayedTooltip
                             title={category.Description || 'No description available'}
                             placement="bottom-start"
@@ -213,7 +188,7 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
                                 {category.Name}
                             </Typography>
                         </DelayedTooltip>
-                        {renderTagGroups(category, TAG_GROUPS[index])}
+                        {renderTagGroups(category, TAG_GROUPS[category.Name])}
                         {category.AllowNewTags && canAddMore && (
                             <TextField
                                 size="small"

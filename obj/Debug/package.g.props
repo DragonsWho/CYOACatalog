@@ -21,6 +21,8 @@
     <PackageJsonDependenciesReactDom Condition="$(PackageJsonDependenciesReactDom) == ''">^18.2.0</PackageJsonDependenciesReactDom>
     <PackageJsonDependenciesReactQuery Condition="$(PackageJsonDependenciesReactQuery) == ''">^3.39.3</PackageJsonDependenciesReactQuery>
     <PackageJsonDependenciesReactRouterDom Condition="$(PackageJsonDependenciesReactRouterDom) == ''">^6.15.0</PackageJsonDependenciesReactRouterDom>
+    <PackageJsonDependenciesReactVirtualizedAutoSizer Condition="$(PackageJsonDependenciesReactVirtualizedAutoSizer) == ''">^1.0.24</PackageJsonDependenciesReactVirtualizedAutoSizer>
+    <PackageJsonDependenciesReactWindow Condition="$(PackageJsonDependenciesReactWindow) == ''">^1.8.10</PackageJsonDependenciesReactWindow>
     <PackageJsonDependenciesUuid Condition="$(PackageJsonDependenciesUuid) == ''">^10.0.0</PackageJsonDependenciesUuid>
     <PackageJsonDependenciesYup Condition="$(PackageJsonDependenciesYup) == ''">^1.2.0</PackageJsonDependenciesYup>
     <PackageJsonDevdependenciesTypesReact Condition="$(PackageJsonDevdependenciesTypesReact) == ''">^18.2.21</PackageJsonDevdependenciesTypesReact>

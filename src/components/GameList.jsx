@@ -1,28 +1,53 @@
 // src/components/GameList.jsx
-// Version 1.1
-// Changes: added pagination
+// v2.4
+// Changes: Updated grid layout to 5 cards per row
 
-import React, { useState, useEffect } from 'react';
-import { Grid, Typography, Box, Pagination } from '@mui/material';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Typography, Box, Grid, useTheme } from '@mui/material';
 import GameCard from './GameCard';
 import { fetchGames } from '../services/api';
 
+const ITEMS_PER_PAGE = 20; // 5 cards per row, 4 rows
+
 function GameList() {
+    const theme = useTheme();
     const [games, setGames] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const gamesPerPage = 12;  
+    const [hasMore, setHasMore] = useState(true);
+    const [totalCount, setTotalCount] = useState(0);
+
+    const observer = useRef();
+    const lastGameElementRef = useCallback(node => {
+        if (loading) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                setPage(prevPage => prevPage + 1);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [loading, hasMore]);
 
     useEffect(() => {
         const loadGames = async () => {
+            if (!hasMore || loading) return;
+
             try {
                 setLoading(true);
-                const { games: fetchedGames, totalCount } = await fetchGames(page, gamesPerPage);
-                console.log('Fetched games:', fetchedGames);
-                setGames(fetchedGames);
-                setTotalPages(Math.ceil(totalCount / gamesPerPage));
+                const { games: fetchedGames, totalCount: fetchedTotalCount } = await fetchGames(page, ITEMS_PER_PAGE);
+
+                setGames(prevGames => {
+                    // Фильтруем новые игры, чтобы избежать дубликатов
+                    const newGames = fetchedGames.filter(
+                        newGame => !prevGames.some(existingGame => existingGame.id === newGame.id)
+                    );
+                    return [...prevGames, ...newGames];
+                });
+
+                setTotalCount(fetchedTotalCount);
+                setHasMore(games.length + fetchedGames.length < fetchedTotalCount);
             } catch (error) {
                 console.error('Error fetching games:', error);
                 setError('Failed to load games. Please try again later.');
@@ -30,54 +55,35 @@ function GameList() {
                 setLoading(false);
             }
         };
+
         loadGames();
-    }, [page]);
-
-    const handlePageChange = (event, value) => {
-        setPage(value);
-    };
-
-    if (loading) {
-        return (
-            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-                <Typography>Loading...</Typography>
-            </Box>
-        );
-    }
+    }, [page, hasMore]);
 
     if (error) {
-        return (
-            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-                <Typography color="error">{error}</Typography>
-            </Box>
-        );
-    }
-
-    if (games.length === 0) {
-        return (
-            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-                <Typography>No games found.</Typography>
-            </Box>
-        );
+        return <Typography color="error">{error}</Typography>;
     }
 
     return (
-        <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Grid container spacing={3} maxWidth="xl">
-                {games.map((game) => (
-                    <Grid item xs={12} sm={6} md={4} lg={3} key={game.id}>
+        <Box sx={{ width: '100%', p: 3 }}>
+            <Typography
+                variant="h4"
+                sx={{
+                    mb: 3,
+                    textAlign: 'center',
+                    ...theme.custom.cardTitle,
+                }}
+            >
+                Recent uploads
+            </Typography>
+            <Grid container spacing={2} justifyContent="center">
+                {games.map((game, index) => (
+                    <Grid item xs={12} sm={6} md={4} lg={2.4} key={game.id} ref={games.length === index + 1 ? lastGameElementRef : null}>
                         <GameCard game={game} />
                     </Grid>
                 ))}
             </Grid>
-            <Box sx={{ mt: 4, mb: 4 }}>
-                <Pagination
-                    count={totalPages}
-                    page={page}
-                    onChange={handlePageChange}
-                    color="primary"
-                />
-            </Box>
+            {loading && <Typography sx={{ mt: 2, textAlign: 'center' }}>Loading more games...</Typography>}
+            {!loading && !hasMore && <Typography sx={{ mt: 2, textAlign: 'center' }}>No more games to load</Typography>}
         </Box>
     );
 }

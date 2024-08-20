@@ -1,8 +1,8 @@
 // src/components/GameCard.jsx
-// v2.5
-// Changes: Added spacing variables for fine-tuning
+// v3.3
+// Changes: Fixed tag sorting function
 
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { Card, CardContent, Typography, Chip, Box, Skeleton, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { getCachedImage, cacheImage } from '../services/cacheService';
@@ -26,7 +26,9 @@ const BOTTOM_INFO_MARGIN_BOTTOM = 0; // Adjust this to change the bottom spacing
 const MAX_CACHE_SIZE = 100 * 1024 * 1024;
 const MAX_CACHE_ITEMS = 500;
 
-const GameCard = memo(({ game }) => {
+const CATEGORY_ORDER = ['Rating', 'Playtime', 'POV'];
+
+const GameCard = memo(({ game, tagCategories }) => {
     const theme = useTheme();
     const navigate = useNavigate();
     const [imageUrl, setImageUrl] = useState(null);
@@ -83,8 +85,36 @@ const GameCard = memo(({ game }) => {
         return 'No description available';
     }, []);
 
+    const sortedTags = useMemo(() => {
+        console.log('Starting tag sorting');
+        console.log('Game tags:', game.tags);
+        console.log('Tag categories:', tagCategories);
 
+        if (!game.tags || !tagCategories) {
+            console.log('No tags or categories, returning empty array');
+            return [];
+        }
 
+        // Create a map of tag IDs to their categories
+        const tagCategoryMap = new Map();
+        tagCategories.forEach(category => {
+            category.attributes.tags.data.forEach(tag => {
+                tagCategoryMap.set(tag.id, category.attributes.Name);
+            });
+        });
+        console.log('Tag category map:', tagCategoryMap);
+
+        const sortedAndFilteredTags = CATEGORY_ORDER.flatMap(categoryName => {
+            const tagsInCategory = game.tags.filter(tag => {
+                return tagCategoryMap.get(tag.id) === categoryName;
+            });
+            console.log(`Tags in category ${categoryName}:`, tagsInCategory);
+            return tagsInCategory;
+        });
+
+        console.log('Sorted and filtered tags:', sortedAndFilteredTags);
+        return sortedAndFilteredTags.slice(0, TAG_DISPLAY_LIMIT);
+    }, [game.tags, tagCategories]);
 
     const description = getDescription(game.description);
     const gameUpvotes = game.Upvotes || [];
@@ -195,13 +225,15 @@ const GameCard = memo(({ game }) => {
                         height: TAG_SECTION_HEIGHT,
                         overflow: 'hidden'
                     }}>
-                        {game.tags && game.tags.slice(0, TAG_DISPLAY_LIMIT).map((tag, index) => (
+                        {sortedTags.map((tag, index) => (
                             <Chip
                                 key={index}
                                 label={tag.attributes.Name}
                                 size="small"
                                 sx={{
                                     fontSize: '0.7rem',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                    color: 'white',
                                 }}
                             />
                         ))}

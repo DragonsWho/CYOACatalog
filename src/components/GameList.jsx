@@ -1,11 +1,11 @@
 // src/components/GameList.jsx
-// v2.4
-// Changes: Updated grid layout to 5 cards per row
+// v2.6
+// Changes: Added separate requests for games and tag categories
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Typography, Box, Grid, useTheme } from '@mui/material';
 import GameCard from './GameCard';
-import { fetchGames } from '../services/api';
+import { fetchGames, getTagCategories } from '../services/api';
 
 const ITEMS_PER_PAGE = 20; // 5 cards per row, 4 rows
 
@@ -17,6 +17,7 @@ function GameList() {
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const [totalCount, setTotalCount] = useState(0);
+    const [tagCategories, setTagCategories] = useState([]);
 
     const observer = useRef();
     const lastGameElementRef = useCallback(node => {
@@ -29,6 +30,20 @@ function GameList() {
         });
         if (node) observer.current.observe(node);
     }, [loading, hasMore]);
+
+    useEffect(() => {
+        const fetchTagCategories = async () => {
+            try {
+                const categories = await getTagCategories();
+                setTagCategories(categories);
+            } catch (error) {
+                console.error('Error fetching tag categories:', error);
+                // Не устанавливаем общую ошибку, чтобы не блокировать загрузку игр
+            }
+        };
+
+        fetchTagCategories();
+    }, []);
 
     useEffect(() => {
         const loadGames = async () => {
@@ -78,7 +93,7 @@ function GameList() {
             <Grid container spacing={2} justifyContent="center">
                 {games.map((game, index) => (
                     <Grid item xs={12} sm={6} md={4} lg={2.4} key={game.id} ref={games.length === index + 1 ? lastGameElementRef : null}>
-                        <GameCard game={game} />
+                        <GameCard game={game} tagCategories={tagCategories} />
                     </Grid>
                 ))}
             </Grid>

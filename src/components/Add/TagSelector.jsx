@@ -1,12 +1,13 @@
 // src/components/Add/TagSelector.jsx
 // Version 1.8.8
-// Full component with all recent changes
+//  
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
 import { getTags, getTagCategories } from '../../services/api';
 
-const CATEGORY_ORDER = ['Rating', 'Genre', 'Theme', 'Length', 'Difficulty'];
+const CATEGORY_ORDER = ['Rating', 'Interactivity', 'POV', 'Player Sexual Role', 'Playtime', 'Status', 'Genre', 'Setting', 'Tone', 'Extra', 'Narrative Structure', 'Power Level', 'Visual Style', 'Language', 'Kinks'];
+ 
 const TAG_GROUPS = {
     'Rating': [[4]], 
     'Playtime': [[4]],

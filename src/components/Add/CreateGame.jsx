@@ -1,6 +1,6 @@
 // src/components/Add/CreateGame.jsx
 // Version 1.9.1
-// Updated to use ImageCompressor component with AVIF compression for card image
+// Updated to..
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, Box, Typography, CircularProgress, Select, MenuItem, InputLabel, FormControl, Alert } from '@mui/material';
@@ -175,7 +175,7 @@ function CreateGame() {
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 600, margin: 'auto', mt: 4 }}>
             <Typography variant="h4" component="h1" gutterBottom>
-                Create New Game
+                Add a New Cyoa!
             </Typography>
             <TextField
                 fullWidth

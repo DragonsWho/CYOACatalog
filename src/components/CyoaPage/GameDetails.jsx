@@ -1,13 +1,15 @@
 // src/components/CyoaPage/GameDetails.jsx
-// v2.2
-// Added SimpleComments component and optimized imports
+// v3.8
+// Updated layout and integrated GameAdditionalInfo component
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Container, Typography, Chip, Box, CircularProgress, Button } from '@mui/material';
+import { Container, Typography, Box, CircularProgress, Grid, Paper } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import TagDisplay from './TagDisplay';
 import GameContent from './GameContent';
 import SimpleComments from './SimpleComments';
+import GameAdditionalInfo from './GameAdditionalInfo';
 
 const API_URL = 'http://localhost:1337';
 
@@ -16,6 +18,7 @@ function GameDetails() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { id } = useParams();
+    const theme = useTheme();
 
     useEffect(() => {
         const fetchGameDetails = async () => {
@@ -42,46 +45,101 @@ function GameDetails() {
     const { attributes } = game;
 
     return (
-        <Container maxWidth="lg">
-            <Typography variant="h2" component="h1" gutterBottom>
-                {attributes.Title || 'Untitled Game'}
-            </Typography>
+        <Container maxWidth="lg" disableGutters>
+            <Paper
+                elevation={3}
+                sx={{
+                    p: 2,
+                    mb: 1,
+                    bgcolor: theme.palette.grey[900],
+                    color: theme.palette.common.white
+                }}
+            >
+                <Box sx={{
+                    mb: 0.5,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'flex-end'
+                }}>
+                    <Typography variant="h4" component="h1" sx={{ mr: 1 }}>
+                        {attributes.Title || 'Untitled Game'}
+                    </Typography>
+                    {attributes.authors?.data?.length > 0 && (
+                        <Typography variant="subtitle1" sx={{ mb: '0.35em' }}>
+                            by {attributes.authors.data.map(author => author.attributes.Name).join(', ')}
+                        </Typography>
+                    )}
+                </Box>
 
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                {attributes.authors?.data?.map((author) => (
-                    <Chip key={author.id} label={author.attributes.Name} />
-                ))}
+                <Grid container spacing={3}>
+                    {/* Left Column - Image */}
+                    <Grid item xs={12} md={6}>
+                        {attributes.Image?.data && (
+                            <Box sx={{
+                                width: '100%',
+                                height: '100%',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center'
+                            }}>
+                                <img
+                                    src={`${API_URL}${attributes.Image.data.attributes.url}`}
+                                    alt={attributes.Title}
+                                    style={{
+                                        maxWidth: '60%',
+                                        height: 'auto',
+                                        objectFit: 'contain'
+                                    }}
+                                />
+                            </Box>
+                        )}
+                    </Grid>
+
+                    {/* Right Column - Game Info */}
+                    <Grid item xs={12} md={6}>
+                        {attributes.tags?.data?.length > 0 && (
+                            <Box>
+                                <TagDisplay
+                                    tags={attributes.tags.data}
+                                    chipProps={{
+                                        size: 'small',
+                                        sx: {
+                                            bgcolor: theme.palette.grey[800],
+                                            color: theme.palette.common.white,
+                                            '&:hover': {
+                                                bgcolor: theme.palette.grey[700],
+                                            },
+                                        }
+                                    }}
+                                />
+                            </Box>
+                        )}
+
+                        <GameAdditionalInfo gameId={id} upvotes={attributes.Upvotes} />
+                    </Grid>
+                </Grid>
+
+                <Box sx={{ mt: 3 }}>
+                    <Typography variant="h6" gutterBottom textAlign="center">
+                        Description
+                    </Typography>
+                    <Typography variant="body1" sx={{ px: 2 }}>
+                        {attributes.Description?.map((block, index) => (
+                            <React.Fragment key={index}>
+                                {block.children.map((child, childIndex) => (
+                                    <span key={childIndex}>{child.text}</span>
+                                ))}
+                            </React.Fragment>
+                        ))}
+                    </Typography>
+                </Box>
+            </Paper>
+
+            <Box sx={{ bgcolor: theme.palette.grey[800], mb: 3 }}>
+                <GameContent attributes={attributes} />
             </Box>
 
-            {attributes.tags?.data?.length > 0 && <TagDisplay tags={attributes.tags.data} />}
-
-            <Typography variant="body1" paragraph>
-                {attributes.Description?.map((block, index) => (
-                    <React.Fragment key={index}>
-                        {block.children.map((child, childIndex) => (
-                            <span key={childIndex}>{child.text}</span>
-                        ))}
-                    </React.Fragment>
-                ))}
-            </Typography>
-
-            {attributes.Image?.data && (
-                <Box sx={{ my: 2 }}>
-                    <img
-                        src={`${API_URL}${attributes.Image.data.attributes.url}`}
-                        alt={attributes.Title}
-                        style={{ maxWidth: '100%', height: 'auto' }}
-                    />
-                </Box>
-            )}
-
-            <GameContent attributes={attributes} />
-
-            <Button variant="contained" component="span">
-                Upvote!
-            </Button>
-
-            <Box sx={{ mt: 4 }}>
+            <Box sx={{ bgcolor: theme.palette.grey[800] }}>
                 <SimpleComments gameId={id} />
             </Box>
         </Container>

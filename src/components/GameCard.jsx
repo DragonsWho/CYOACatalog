@@ -10,8 +10,8 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 
 // Design variables
 const CARD_ASPECT_RATIO = '133.33%'; // 3:4 aspect ratio
-const TITLE_FONT_SIZE = '1.2rem';
-const DESCRIPTION_TOP = '50%';
+const TITLE_FONT_SIZE = '1.5rem';
+const DESCRIPTION_TOP = '60%';
 const TAG_SECTION_HEIGHT = '80px';
 const TAG_DISPLAY_LIMIT = 12;
 const OVERLAY_OPACITY = 0.5;
@@ -26,7 +26,7 @@ const BOTTOM_INFO_MARGIN_BOTTOM = 0; // Adjust this to change the bottom spacing
 const MAX_CACHE_SIZE = 100 * 1024 * 1024;
 const MAX_CACHE_ITEMS = 500;
 
-const CATEGORY_ORDER = ['Rating', 'Playtime', 'POV'];
+const CATEGORY_ORDER = ['Rating', 'Interactivity', 'POV', 'Player Sexual Role', 'Playtime', 'Status', 'Genre', 'Setting', 'Tone', 'Extra',  'Kinks'];
 
 const GameCard = memo(({ game, tagCategories }) => {
     const theme = useTheme();
@@ -227,7 +227,7 @@ const GameCard = memo(({ game, tagCategories }) => {
                                 size="small"
                                 sx={{
                                     fontSize: '0.7rem',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                    backgroundColor: 'rgba(3, 3, 3, 0.4)',
                                     color: 'white',
                                 }}
                             />

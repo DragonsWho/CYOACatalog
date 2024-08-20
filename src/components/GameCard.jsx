@@ -215,7 +215,7 @@ const GameCard = memo(({ game }) => {
                         mb: `${BOTTOM_INFO_MARGIN_BOTTOM}px`,
                     }}>
                         <Typography variant="body2" sx={theme.custom.cardText}>
-                            by {game.authors && game.authors.length > 0 ? game.authors[0].name : 'Anonymous'}
+                            {game.authors && game.authors.length > 0 ? game.authors[0].name : 'Anonymous'}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <FavoriteIcon sx={{ color: theme.palette.primary.main, fontSize: '1rem', mr: 0.5 }} />

@@ -1,6 +1,6 @@
 // src/components/Add/TagSelector.jsx
-// Version 1.8.7
-// Changes: Applied TAG_GROUPS to all sections, unified spacing
+// Version 1.8.8
+// Full component with all recent changes
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
@@ -8,15 +8,13 @@ import { getTags, getTagCategories } from '../../services/api';
 
 const CATEGORY_ORDER = ['Rating', 'Genre', 'Theme', 'Length', 'Difficulty'];
 const TAG_GROUPS = {
-    'Rating': [[4]],
-    'Genre': [[3], [5], [5]],
+    'Rating': [[4]], 
     'Playtime': [[4]],
     'Interactivity': [[4]],
-    'Status': [[3]],
-    'POV': [[3], [2]],
+    'Status': [[3]], 
     'Player Sexual Role': [[6]],
     'Tone': [[7]],
-    'Extra': [[6], [3]]
+    'Kinks': [[7], [6], [5], [3], [4], [5], [5], [4], [6], [7], [3], [6], [6], [5], [5], [6], [99]]
 };
 const TOOLTIP_DELAY = 1000; // 1 second delay for tooltips
 const CHIP_HEIGHT = '24px';
@@ -28,8 +26,6 @@ const CATEGORY_TITLE_MARGIN_BOTTOM = 0;
 const CATEGORY_TITLE_FONT_WEIGHT = '500';
 const SECTION_GAP = 0.5; // Gap between sections
 
-
-// Custom DelayedTooltip component
 function DelayedTooltip({ title, children, placement = "bottom" }) {
     const [isOpen, setIsOpen] = useState(false);
     const [timer, setTimer] = useState(null);
@@ -161,6 +157,13 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
         ));
     };
 
+    const isMinimumTagsSelected = (category) => {
+        const selectedTagsInCategory = selectedTags.filter(id =>
+            category.tags.some(tag => tag.id === id)
+        ).length;
+        return selectedTagsInCategory >= category.MinTags;
+    };
+
     if (loading) return <CircularProgress size={24} />;
     if (error) return <Typography color="error" variant="body2">{error}</Typography>;
 
@@ -182,10 +185,14 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
                                 sx={{
                                     mb: CATEGORY_TITLE_MARGIN_BOTTOM,
                                     fontWeight: CATEGORY_TITLE_FONT_WEIGHT,
-                                    display: 'inline-block',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
                                 }}
                             >
                                 {category.Name}
+                                {!isMinimumTagsSelected(category) && (
+                                    <span style={{ color: 'red', marginLeft: '4px' }}>*</span>
+                                )}
                             </Typography>
                         </DelayedTooltip>
                         {renderTagGroups(category, TAG_GROUPS[category.Name])}

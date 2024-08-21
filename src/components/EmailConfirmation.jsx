@@ -25,7 +25,7 @@ const EmailConfirmation = () => {
             try {
                 await authService.confirmEmail(confirmationToken);
                 setStatus('success');
-                setTimeout(() => navigate('/'), 3000); // Redirect to home page after 3 seconds
+                setTimeout(() => navigate('/'), 3000);  
             } catch (error) {
                 console.error('Email confirmation error:', error);
                 setStatus('error');

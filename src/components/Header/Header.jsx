@@ -11,7 +11,7 @@ import UserMenu from './UserMenu';
 import Login from './Login';
 import Button from '@mui/material/Button';
 
-const SITE_TITLE = "CYOA CAFE";
+const SITE_TITLE = "CYOA.CAFE";
 const ADD_CYOA_TEXT = "Add CYOA";
 const LOGIN_TEXT = "Login";
 const LOGIN_TOOLTIP = "Login to add a CYOA";

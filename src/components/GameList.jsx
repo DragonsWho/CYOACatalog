@@ -7,7 +7,7 @@ import { Typography, Box, Grid, useTheme } from '@mui/material';
 import GameCard from './GameCard';
 import { fetchGames, getTagCategories } from '../services/api';
 
-const ITEMS_PER_PAGE = 20; // 5 cards per row, 4 rows
+const ITEMS_PER_PAGE = 25; // 5 cards per row, 5 rows
 
 function GameList() {
     const theme = useTheme();
@@ -37,8 +37,7 @@ function GameList() {
                 const categories = await getTagCategories();
                 setTagCategories(categories);
             } catch (error) {
-                console.error('Error fetching tag categories:', error);
-                // Не устанавливаем общую ошибку, чтобы не блокировать загрузку игр
+                console.error('Error fetching tag categories:', error); 
             }
         };
 
@@ -53,8 +52,7 @@ function GameList() {
                 setLoading(true);
                 const { games: fetchedGames, totalCount: fetchedTotalCount } = await fetchGames(page, ITEMS_PER_PAGE);
 
-                setGames(prevGames => {
-                    // Фильтруем новые игры, чтобы избежать дубликатов
+                setGames(prevGames => { 
                     const newGames = fetchedGames.filter(
                         newGame => !prevGames.some(existingGame => existingGame.id === newGame.id)
                     );

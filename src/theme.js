@@ -23,6 +23,24 @@ const theme = createTheme({
         },
     },
     components: {
+
+        MuiTextField: {
+            styleOverrides: {
+                root: {
+                    '& .MuiOutlinedInput-root': {
+                        '& fieldset': {
+                            borderColor: 'rgba(255, 255, 255, 0.23)',
+                        },
+                        '&:hover fieldset': {
+                            borderColor: '#fc3447',
+                        },
+                        '&.Mui-focused fieldset': {
+                            borderColor: '#fc3447',
+                        },
+                    },
+                },
+            },
+        }, 
         MuiAppBar: {
             styleOverrides: {
                 root: {

@@ -23,6 +23,7 @@
     "react-query": "^3.39.3",
     "react-router-dom": "^6.15.0",
     "uuid": "^10.0.0",
+    "yet-another-react-lightbox": "^3.21.4",
     "yup": "^1.2.0"
   },
   "devDependencies": {

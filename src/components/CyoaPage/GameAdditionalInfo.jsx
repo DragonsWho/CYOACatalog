@@ -14,7 +14,7 @@ function GameAdditionalInfo({ gameId, upvotes }) {
     return (
         <Box sx={{ mt: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Additional game information will be displayed here.
+                Additional game information will be displayed here. Probably.
             </Typography>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

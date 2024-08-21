@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { Box, Chip, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 const CATEGORY_ORDER = ['Rating', 'Interactivity', 'POV', 'Player Sexual Role', 'Playtime', 'Status', 'Genre', 'Setting', 'Tone', 'Extra', 'Narrative Structure', 'Power Level', 'Visual Style', 'Language', 'Kinks'];
 
@@ -16,6 +17,8 @@ const CATEGORY_FONT_WEIGHT = '500';
 const SECTION_GAP = 0.5; // Gap between sections
 
 const TagDisplay = ({ tags, chipProps = {} }) => {
+    const theme = useTheme();
+
     if (!tags || tags.length === 0) {
         return null;
     }
@@ -58,6 +61,7 @@ const TagDisplay = ({ tags, chipProps = {} }) => {
                             alignItems: 'center',
                             mr: 1,
                             minWidth: 'max-content',
+                            color: theme.palette.text.primary, // Применяем цвет текста из темы
                         }}
                     >
                         {category}:

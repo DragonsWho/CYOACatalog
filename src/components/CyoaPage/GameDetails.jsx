@@ -50,22 +50,22 @@ function GameDetails() {
                 elevation={3}
                 sx={{
                     p: 2,
-                    mb: 1,
-                    bgcolor: theme.palette.grey[900],
+                    mb: 0,
+                    bgcolor: theme.palette.background.paper,
                     color: theme.palette.common.white
                 }}
             >
                 <Box sx={{
-                    mb: 0.5,
+                    mb: 1,
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'flex-end'
                 }}>
-                    <Typography variant="h4" component="h1" sx={{ mr: 1 }}>
+                    <Typography variant="h4" component="h1" sx={{ mr: 1, color: theme.palette.text.primary }} >
                         {attributes.Title || 'Untitled Game'}
                     </Typography>
                     {attributes.authors?.data?.length > 0 && (
-                        <Typography variant="subtitle1" sx={{ mb: '0.35em' }}>
+                        <Typography variant="subtitle1" sx={{ mb: '0.05em', color: theme.palette.text.primary }}>
                             by {attributes.authors.data.map(author => author.attributes.Name).join(', ')}
                         </Typography>
                     )}
@@ -105,7 +105,7 @@ function GameDetails() {
                                         size: 'small',
                                         sx: {
                                             bgcolor: theme.palette.grey[800],
-                                            color: theme.palette.common.white,
+                                            color: theme.palette.text.primary,
                                             '&:hover': {
                                                 bgcolor: theme.palette.grey[700],
                                             },
@@ -119,11 +119,11 @@ function GameDetails() {
                     </Grid>
                 </Grid>
 
-                <Box sx={{ mt: 3 }}>
-                    <Typography variant="h6" gutterBottom textAlign="center">
+                <Box sx={{ mt: 1 }}>
+                    <Typography variant="h6" gutterBottom textAlign="center" sx={{ color: theme.palette.text.primary }}>
                         Description
                     </Typography>
-                    <Typography variant="body1" sx={{ px: 2 }}>
+                    <Typography variant="body1" sx={{ px: 12, color: theme.palette.text.primary }}>
                         {attributes.Description?.map((block, index) => (
                             <React.Fragment key={index}>
                                 {block.children.map((child, childIndex) => (
@@ -135,11 +135,19 @@ function GameDetails() {
                 </Box>
             </Paper>
 
-            <Box sx={{ bgcolor: theme.palette.grey[800], mb: 3 }}>
+            <Box
+                sx={{
+                    mb: 3,
+                    mt: 3,
+                    borderRadius: theme.custom.borderRadius,
+                    boxShadow: theme.custom.boxShadow,
+                    overflow: 'hidden'
+                }}
+            >
                 <GameContent attributes={attributes} />
             </Box>
 
-            <Box sx={{ bgcolor: theme.palette.grey[800] }}>
+            <Box  sx={{  }}>
                 <SimpleComments gameId={id} />
             </Box>
         </Container>

@@ -1,6 +1,6 @@
 // src/theme.js
-// v1.3
-// Changes: Added more theme variables for consistent styling
+// v1.4
+// Changes: Added custom values for box shadow and border radius
 
 import { createTheme } from '@mui/material/styles';
 
@@ -15,10 +15,10 @@ const theme = createTheme({
         },
         background: {
             default: '#121212',
-            paper: '#1e1e1e',
+            paper: '#0b0b0b',
         },
         text: {
-            primary: '#ffffff',
+            primary: '#dcdcdc',
             secondary: 'rgba(255, 255, 255, 0.7)',
         },
     },
@@ -27,7 +27,7 @@ const theme = createTheme({
             styleOverrides: {
                 root: {
                     '&:last-child': {
-                        paddingBottom: 16, // или любое другое значение, которое вам нужно
+                        paddingBottom: 16,
                     },
                 },
             },
@@ -52,7 +52,6 @@ const theme = createTheme({
                 },
             },
         },
-
     },
     custom: {
         cardTitle: {
@@ -63,6 +62,8 @@ const theme = createTheme({
             color: 'rgba(255,255,255,0.9)',
             textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
         },
+        boxShadow: '0 3px 5px 2px rgba(0, 0, 0, .3)',
+        borderRadius: '3px',
     },
 });
 

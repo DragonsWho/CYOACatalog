@@ -1,15 +1,17 @@
 // src/App.jsx
-// Version: 1.3.0
-// Description: Main application component with routing and authentication state management
+// Version: 1.4.0
+// Description: Main application component with routing, authentication state management, and Footer
 
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { Container, Box } from '@mui/material';
 import Header from './components/Header/Header';
+import Footer from './components/Footer/Footer';
 import GameList from './components/GameList';
 import GameDetails from './components/CyoaPage/GameDetails';
 import CreateGame from './components/Add/CreateGame';
 import Login from './components/Header/Login';
+import Profile from './components/Profile/Profile';
 import AuthCallback from './components/AuthCallback';
 import authService from './services/authService';
 
@@ -61,12 +63,14 @@ function App() {
                         }
                     />
                     <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+                    <Route path="/profile" element={<Profile />} />
                     <Route
                         path="/auth-callback"
                         element={<AuthCallback onLoginSuccess={handleLoginSuccess} />}
                     />
                 </Routes>
             </Container>
+            <Footer />
         </Box>
     );
 }

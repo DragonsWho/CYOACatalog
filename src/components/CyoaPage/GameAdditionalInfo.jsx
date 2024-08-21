@@ -1,51 +1,70 @@
 // src/components/CyoaPage/GameAdditionalInfo.jsx
-// v1.2
-// Added upvote functionality
+// v1.4
+// Fixed immediate UI update for upvotes
 
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { useTheme } from '@mui/material/styles';
 import { upvoteGame, removeUpvote } from '../../services/api';
 import authService from '../../services/authService';
 
-function GameAdditionalInfo({ gameId, upvotes, expanded, onExpand, onUpvoteChange }) {
+function GameAdditionalInfo({ gameId, upvotes: initialUpvotes, expanded, onExpand, onUpvoteChange }) {
     const theme = useTheme();
     const [isUpvoted, setIsUpvoted] = useState(false);
-    const [upvoteCount, setUpvoteCount] = useState(upvotes?.length || 0);
+    const [upvotes, setUpvotes] = useState(initialUpvotes || []);
+    const [isLoading, setIsLoading] = useState(false);
     const user = authService.getCurrentUser();
 
     useEffect(() => {
-        if (user && upvotes) {
-            setIsUpvoted(upvotes.includes(user.user.username));
+        if (user && initialUpvotes) {
+            setIsUpvoted(initialUpvotes.includes(user.user.username));
+            setUpvotes(initialUpvotes);
         }
-        setUpvoteCount(upvotes?.length || 0);
-    }, [upvotes, user]);
+    }, [initialUpvotes, user]);
 
-    const handleUpvote = async () => {
+    const handleUpvote = useCallback(async () => {
         if (!user) {
             alert('Please login to vote');
             return;
         }
 
+        setIsLoading(true);
+
+        // Optimistic UI update
+        setIsUpvoted(prevState => !prevState);
+        setUpvotes(prevUpvotes => {
+            if (prevUpvotes.includes(user.user.username)) {
+                return prevUpvotes.filter(name => name !== user.user.username);
+            } else {
+                return [...prevUpvotes, user.user.username];
+            }
+        });
+
         try {
             if (isUpvoted) {
                 await removeUpvote(gameId);
-                setIsUpvoted(false);
-                setUpvoteCount(prev => prev - 1);
             } else {
                 await upvoteGame(gameId);
-                setIsUpvoted(true);
-                setUpvoteCount(prev => prev + 1);
             }
             if (onUpvoteChange) {
                 onUpvoteChange();
             }
         } catch (error) {
-            console.error('Error handling upvote:', error);
+            console.error('Error handling upvote:', error); 
+            setIsUpvoted(prevState => !prevState);
+            setUpvotes(prevUpvotes => {
+                if (isUpvoted) {
+                    return [...prevUpvotes, user.user.username];
+                } else {
+                    return prevUpvotes.filter(name => name !== user.user.username);
+                }
+            });
             alert('There was an error in voting. Please try again later.');
+        } finally {
+            setIsLoading(false);
         }
-    };
+    }, [gameId, isUpvoted, onUpvoteChange, user]);
 
     const expandButtonColor = '#4caf50';
 
@@ -63,16 +82,22 @@ function GameAdditionalInfo({ gameId, upvotes, expanded, onExpand, onUpvoteChang
                         backgroundColor: isUpvoted ? theme.palette.secondary.main : theme.palette.primary.main,
                         '&:hover': {
                             backgroundColor: isUpvoted ? theme.palette.secondary.dark : theme.palette.primary.dark,
-                        }
+                        },
+                        minWidth: '80px',
                     }}
                     onClick={handleUpvote}
+                    disabled={isLoading}
                 >
-                    {isUpvoted ? 'UNVOTE' : 'UPVOTE'}
+                    {isLoading ? (
+                        <CircularProgress size={24} color="inherit" />
+                    ) : (
+                        isUpvoted ? 'UNVOTE' : 'UPVOTE'
+                    )}
                 </Button>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
                     <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
-                        {upvoteCount}
+                        {upvotes.length}
                     </Typography>
                 </Box>
                 <Button

@@ -21,7 +21,7 @@ const CARD_PADDING = 16; // Default padding of CardContent
 const TITLE_MARGIN_BOTTOM = 8;
 const TAGS_MARGIN_BOTTOM = 8;
 const BOTTOM_INFO_MARGIN_TOP = 8;
-const BOTTOM_INFO_MARGIN_BOTTOM = 0; // Adjust this to change the bottom spacing
+const BOTTOM_INFO_MARGIN_BOTTOM = 0;  
 
 const MAX_CACHE_SIZE = 100 * 1024 * 1024;
 const MAX_CACHE_ITEMS = 500;

@@ -16,7 +16,7 @@ export const fetchGames = async (page = 1, pageSize = 12) => {
                 'pagination[page]': page,
                 'pagination[pageSize]': pageSize,
                 'populate': '*',
-                'sort[0]': 'createdAt:desc'  // Sort by creation date in descending order
+                'sort[0]': 'createdAt:desc'   
             }
         });
         console.log('Raw response:', response.data);

@@ -1,6 +1,6 @@
 // src/services/api.js
-// v2.1
-// Updated fetchGames function to sort games by creation date in descending order
+// v2.2
+// Added upvote functionality
 
 import axios from 'axios';
 import authService from './authService';
@@ -16,7 +16,7 @@ export const fetchGames = async (page = 1, pageSize = 12) => {
                 'pagination[page]': page,
                 'pagination[pageSize]': pageSize,
                 'populate': '*',
-                'sort[0]': 'createdAt:desc'   
+                'sort[0]': 'createdAt:desc'
             }
         });
         console.log('Raw response:', response.data);
@@ -66,14 +66,14 @@ export const fetchGameById = async (id) => {
             tags: game.attributes.tags?.data || [],
             img_or_link: game.attributes.img_or_link,
             iframe_url: game.attributes.iframe_url,
-            CYOA_pages: game.attributes.CYOA_pages?.data || []
+            CYOA_pages: game.attributes.CYOA_pages?.data || [],
+            Upvotes: game.attributes.Upvotes || []
         };
     } catch (error) {
         console.error('Error fetching game:', error);
         throw error;
     }
 };
-
 
 export const createGame = async (formData) => {
     try {
@@ -111,21 +111,21 @@ export const createAuthor = async (authorName) => {
 };
 
 export const getTags = async () => {
-    try { 
+    try {
         const firstPageResponse = await axios.get(`${API_URL}/api/tags?populate=tag_category&pagination[pageSize]=100&pagination[page]=1`);
 
         console.log('Tags response (first page):', firstPageResponse.data);
 
         const { data, meta } = firstPageResponse.data;
-         
-        if (meta.pagination.pageCount > 1) { 
+
+        if (meta.pagination.pageCount > 1) {
             const remainingPages = Array.from({ length: meta.pagination.pageCount - 1 }, (_, i) => i + 2);
             const additionalResponses = await Promise.all(
                 remainingPages.map(page =>
                     axios.get(`${API_URL}/api/tags?populate=tag_category&pagination[pageSize]=100&pagination[page]=${page}`)
                 )
             );
-             
+
             const allData = additionalResponses.reduce((acc, response) => {
                 return [...acc, ...response.data.data];
             }, data);
@@ -151,21 +151,6 @@ export const getTagCategories = async () => {
         throw error;
     }
 };
-
-
-
-
-
-
-
-
-
-
-
-
-// comments
-
-
 
 export const postComment = async (gameId, content, parentId = null) => {
     try {
@@ -206,7 +191,7 @@ export const fetchComments = async (gameId) => {
                 'populate[1]': 'threadOf',
                 'populate[2]': 'children.author',
                 'populate[3]': 'children.children.author',
-                'populate[4]': 'children.children.children.author', // I'm not sure if this is involved at all. it might be worth deleting.
+                'populate[4]': 'children.children.children.author',
             }
         });
         console.log('API response:', response.data);
@@ -216,12 +201,6 @@ export const fetchComments = async (gameId) => {
         throw error;
     }
 };
-
-
-
-
-
-
 
 export const editComment = async (gameId, commentId, content) => {
     try {
@@ -271,6 +250,67 @@ export const deleteComment = async (gameId, commentId) => {
         return response.data;
     } catch (error) {
         console.error('Error deleting comment:', error);
+        throw error;
+    }
+};
+
+export const upvoteGame = async (gameId) => {
+    try {
+        const user = authService.getCurrentUser();
+        if (!user) {
+            throw new Error('User not authenticated');
+        }
+
+        const game = await fetchGameById(gameId);
+        const currentUpvotes = game.Upvotes || [];
+
+        if (!currentUpvotes.includes(user.user.username)) {
+            const updatedUpvotes = [...currentUpvotes, user.user.username];
+
+            const response = await axios.put(`${API_URL}/api/games/${gameId}`, {
+                data: {
+                    Upvotes: updatedUpvotes
+                }
+            }, {
+                headers: {
+                    Authorization: `Bearer ${user.jwt}`,
+                },
+            });
+
+            return response.data;
+        } else {
+            console.log('User has already upvoted this game');
+            return game;
+        }
+    } catch (error) {
+        console.error('Error upvoting game:', error);
+        throw error;
+    }
+};
+
+export const removeUpvote = async (gameId) => {
+    try {
+        const user = authService.getCurrentUser();
+        if (!user) {
+            throw new Error('User not authenticated');
+        }
+
+        const game = await fetchGameById(gameId);
+        const updatedUpvotes = (game.Upvotes || []).filter(username => username !== user.user.username);
+
+        const response = await axios.put(`${API_URL}/api/games/${gameId}`, {
+            data: {
+                Upvotes: updatedUpvotes
+            }
+        }, {
+            headers: {
+                Authorization: `Bearer ${user.jwt}`,
+            },
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error('Error removing upvote:', error);
         throw error;
     }
 };

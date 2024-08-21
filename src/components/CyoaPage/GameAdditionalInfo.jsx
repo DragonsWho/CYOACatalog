@@ -1,15 +1,17 @@
 // src/components/CyoaPage/GameAdditionalInfo.jsx
-// v1.0
-// Component for additional game information and upvotes
+// v1.1
+// Added expand images button
 
 import React from 'react';
 import { Box, Typography, Button } from '@mui/material';
-import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteIcon from '@mui/icons-material/Favorite'; 
 import { useTheme } from '@mui/material/styles';
 
-function GameAdditionalInfo({ gameId, upvotes }) {
+function GameAdditionalInfo({ gameId, upvotes, expanded, onExpand }) {
     const theme = useTheme();
     const gameUpvoteCount = upvotes?.length || 0;
+
+    const expandButtonColor = '#4caf50'; // Зеленый цвет для кнопки расширения
 
     return (
         <Box sx={{ mt: 2 }}>
@@ -21,6 +23,7 @@ function GameAdditionalInfo({ gameId, upvotes }) {
                 <Button
                     variant="contained"
                     size="small"
+                    sx={{ backgroundColor: theme.palette.primary.main }}
                 >
                     UPVOTE
                 </Button>
@@ -30,6 +33,19 @@ function GameAdditionalInfo({ gameId, upvotes }) {
                         {gameUpvoteCount}
                     </Typography>
                 </Box>
+                <Button
+                    variant="contained"
+                    size="small"
+                    onClick={onExpand}
+                    startIcon={expanded ? 'Fit Images' : 'Full Size Image'}
+                    sx={{
+                        backgroundColor: expandButtonColor,
+                        '&:hover': {
+                            backgroundColor: '#45a049',
+                        },
+                    }}
+                > 
+                </Button>
             </Box>
         </Box>
     );

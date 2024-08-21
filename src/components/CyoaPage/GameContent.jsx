@@ -1,18 +1,49 @@
 ﻿// src/components/CyoaPage/GameContent.jsx
-// v1.8
-// Simplified lightbox with scrollable content
+// v2.3
+// Added collapse button for expanded iframe
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const API_URL = 'http://localhost:1337';
 
-const GameContent = ({ attributes }) => {
+const GameContent = ({ attributes, expanded, onExpand }) => {
     const [loadingImages, setLoadingImages] = useState(attributes.CYOA_pages?.data?.length || 0);
     const [imageErrors, setImageErrors] = useState({});
-    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [imageSizes, setImageSizes] = useState({});
+    const [iframeStyle, setIframeStyle] = useState({});
 
-    const handleImageLoad = (id) => {
+    useEffect(() => {
+        if (attributes.img_or_link === 'link') {
+            if (expanded) {
+                setIframeStyle({
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    zIndex: 9999
+                });
+            } else {
+                setIframeStyle({
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%'
+                });
+            }
+        }
+    }, [expanded, attributes.img_or_link]);
+
+    const handleImageLoad = (id, event) => {
         setLoadingImages(prev => prev - 1);
+        setImageSizes(prev => ({
+            ...prev,
+            [id]: {
+                width: event.target.naturalWidth,
+                height: event.target.naturalHeight
+            }
+        }));
     };
 
     const handleImageError = (id) => {
@@ -20,120 +51,89 @@ const GameContent = ({ attributes }) => {
         setLoadingImages(prev => prev - 1);
     };
 
-    const modalStyles = {
+    const collapseButtonStyle = {
         position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        overflowY: 'auto',
-        zIndex: 1000,
-    };
-
-    const modalContentStyles = {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '20px',
-    };
-
-    const closeButtonStyles = {
-        position: 'fixed',
-        top: '10px',
-        right: '10px',
-        background: 'none',
-        border: 'none',
+        bottom: '20px',
+        right: '20px',
+        zIndex: 10000,
+        padding: '10px 20px',
+        backgroundColor: '#007bff',
         color: 'white',
-        fontSize: '1.5rem',
+        border: 'none',
+        borderRadius: '5px',
         cursor: 'pointer',
-        zIndex: 1001,
     };
 
     return (
         <div style={{ backgroundColor: '#121212' }}>
             {attributes.img_or_link === 'img' && attributes.CYOA_pages?.data ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                    {loadingImages > 0 && <div>Loading...</div>}
-                    {attributes.CYOA_pages.data.map((image, index) => (
-                        <div
-                            key={image.id}
-                            style={{
-                                width: '100%',
-                                display: 'flex',
-                                justifyContent: 'center',
-                                backgroundColor: '#121212'
-                            }}
-                        >
-                            {!imageErrors[image.id] && (
-                                <img
-                                    src={`${API_URL}${image.attributes.url}`}
-                                    alt={`Game content ${index + 1}`}
-                                    style={{
-                                        maxWidth: '100%',
-                                        height: 'auto',
-                                        display: loadingImages > 0 ? 'none' : 'block',
-                                        cursor: 'pointer'
-                                    }}
-                                    onLoad={() => handleImageLoad(image.id)}
-                                    onError={() => handleImageError(image.id)}
-                                    onClick={() => setLightboxOpen(true)}
-                                />
-                            )}
-                            {imageErrors[image.id] && (
-                                <div style={{ color: 'red' }}>
-                                    Failed to load image {index + 1}
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                    {lightboxOpen && (
-                        <div style={modalStyles}>
-                            <button
-                                onClick={() => setLightboxOpen(false)}
-                                style={closeButtonStyles}
+                <div>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '1rem',
+                        transition: 'all 0.3s ease'
+                    }}>
+                        {loadingImages > 0 && <div>Loading...</div>}
+                        {attributes.CYOA_pages.data.map((image, index) => (
+                            <div
+                                key={image.id}
+                                style={{
+                                    width: '100%',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    backgroundColor: '#121212',
+                                    transition: 'all 0.3s ease'
+                                }}
                             >
-                                ✕
-                            </button>
-                            <div style={modalContentStyles}>
-                                {attributes.CYOA_pages.data.map((image, index) => (
+                                {!imageErrors[image.id] && (
                                     <img
-                                        key={image.id}
                                         src={`${API_URL}${image.attributes.url}`}
                                         alt={`Game content ${index + 1}`}
                                         style={{
-                                            maxWidth: '90%',
+                                            maxWidth: expanded ? 'none' : '100%',
+                                            width: expanded ? 'auto' : (imageSizes[image.id]?.width > window.innerWidth ? '100%' : 'auto'),
                                             height: 'auto',
-                                            marginBottom: '20px'
+                                            display: loadingImages > 0 ? 'none' : 'block',
+                                            transition: 'all 0.3s ease'
                                         }}
+                                        onLoad={(event) => handleImageLoad(image.id, event)}
+                                        onError={() => handleImageError(image.id)}
                                     />
-                                ))}
+                                )}
+                                {imageErrors[image.id] && (
+                                    <div style={{ color: 'red' }}>
+                                        Failed to load image {index + 1}
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    )}
+                        ))}
+                    </div>
                 </div>
             ) : attributes.img_or_link === 'link' && attributes.iframe_url ? (
                 <div style={{
                     width: '100%',
                     height: 0,
-                    paddingBottom: '56.25%', // 16:9 aspect ratio
+                    paddingBottom: expanded ? '0' : '56.25%', // 16:9 aspect ratio when not expanded
                     position: 'relative',
                     overflow: 'hidden',
                 }}>
                     <iframe
                         src={attributes.iframe_url}
-                        style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            border: 'none'
-                        }}
+                        style={iframeStyle}
                         title="Game content"
                         allowFullScreen
                         loading="lazy"
                     />
+                    {expanded && (
+                        <button
+                            style={collapseButtonStyle}
+                            onClick={() => onExpand(false)}
+                        >
+                            Collapse
+                        </button>
+                    )}
                 </div>
             ) : (
                 <div>No game content available</div>

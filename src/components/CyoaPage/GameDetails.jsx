@@ -1,6 +1,6 @@
 // src/components/CyoaPage/GameDetails.jsx
-// v3.8
-// Updated layout and integrated GameAdditionalInfo component
+// v3.9
+// Allow GameContent to expand beyond its container
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
@@ -17,6 +17,7 @@ function GameDetails() {
     const [game, setGame] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [expanded, setExpanded] = useState(false);
     const { id } = useParams();
     const theme = useTheme();
 
@@ -43,6 +44,10 @@ function GameDetails() {
     if (!game) return <Typography>Game not found</Typography>;
 
     const { attributes } = game;
+
+    const handleExpand = () => {
+        setExpanded(!expanded);
+    };
 
     return (
         <Container maxWidth="lg" disableGutters>
@@ -115,7 +120,12 @@ function GameDetails() {
                             </Box>
                         )}
 
-                        <GameAdditionalInfo gameId={id} upvotes={attributes.Upvotes} />
+                        <GameAdditionalInfo
+                            gameId={id}
+                            upvotes={attributes.Upvotes}
+                            expanded={expanded}
+                            onExpand={handleExpand}
+                        />
                     </Grid>
                 </Grid>
 
@@ -141,13 +151,18 @@ function GameDetails() {
                     mt: 3,
                     borderRadius: theme.custom.borderRadius,
                     boxShadow: theme.custom.boxShadow,
-                    overflow: 'hidden'
+                    overflow: expanded ? 'visible' : 'hidden',
+                    transition: 'all 0.3s ease'
                 }}
             >
-                <GameContent attributes={attributes} />
+                <GameContent
+                    attributes={attributes}
+                    expanded={expanded}
+                    onExpand={handleExpand}
+                />
             </Box>
 
-            <Box  sx={{  }}>
+            <Box sx={{}}>
                 <SimpleComments gameId={id} />
             </Box>
         </Container>

@@ -1,6 +1,6 @@
 // src/components/GameList.jsx
-// v2.6
-// Changes: Added separate requests for games and tag categories
+// v2.7
+// Changes: Reduced space between header and "Recent Uploads" title, added comment for manual adjustment
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Typography, Box, Grid, useTheme } from '@mui/material';
@@ -37,7 +37,7 @@ function GameList() {
                 const categories = await getTagCategories();
                 setTagCategories(categories);
             } catch (error) {
-                console.error('Error fetching tag categories:', error); 
+                console.error('Error fetching tag categories:', error);
             }
         };
 
@@ -52,7 +52,7 @@ function GameList() {
                 setLoading(true);
                 const { games: fetchedGames, totalCount: fetchedTotalCount } = await fetchGames(page, ITEMS_PER_PAGE);
 
-                setGames(prevGames => { 
+                setGames(prevGames => {
                     const newGames = fetchedGames.filter(
                         newGame => !prevGames.some(existingGame => existingGame.id === newGame.id)
                     );
@@ -79,9 +79,10 @@ function GameList() {
     return (
         <Box sx={{ width: '100%', p: 3 }}>
             <Typography
-                variant="h4"
-                sx={{
-                    mb: 3,
+                variant="h3"
+                sx={{ 
+                    mt: -4,  
+                    mb: 2,
                     textAlign: 'center',
                     ...theme.custom.cardTitle,
                 }}

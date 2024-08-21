@@ -1,11 +1,12 @@
 // src/components/Header/SearchBar.jsx
-// Version 1.1
-// split the header into functions
+// Version 1.2
+// Reduced vertical padding, darkened search field, increased text contrast
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Autocomplete, CircularProgress } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import { searchGames, fetchAllGames } from '../../services/searchService';
+import { useTheme } from '@mui/material/styles';
 
 function SearchBar() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -13,6 +14,7 @@ function SearchBar() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
+    const theme = useTheme();
 
     useEffect(() => {
         const delayDebounce = setTimeout(() => {
@@ -68,18 +70,28 @@ function SearchBar() {
                     sx={{
                         width: 200,
                         mr: 2,
-                        backgroundColor: 'white',
+                        backgroundColor: theme.palette.grey[600], // Darker background
                         borderRadius: 1,
                         '& .MuiOutlinedInput-root': {
                             '& fieldset': {
-                                borderColor: 'white',
+                                borderColor: 'transparent',
                             },
                             '&:hover fieldset': {
-                                borderColor: 'white',
+                                borderColor: 'transparent',
                             },
                             '&.Mui-focused fieldset': {
-                                borderColor: 'white',
+                                borderColor: 'transparent',
                             },
+                            // Reduce vertical padding
+                            '& input': {
+                                padding: '4px 14px',
+                                color: theme.palette.text.primary, // More contrasting text color
+                            },
+                        },
+                        // Increase placeholder contrast
+                        '& .MuiInputBase-input::placeholder': {
+                            color: theme.palette.text.secondary,
+                            opacity: 0.8,
                         },
                     }}
                 />

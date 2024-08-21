@@ -11,7 +11,7 @@ function GameAdditionalInfo({ gameId, upvotes, expanded, onExpand }) {
     const theme = useTheme();
     const gameUpvoteCount = upvotes?.length || 0;
 
-    const expandButtonColor = '#4caf50'; // Зеленый цвет для кнопки расширения
+    const expandButtonColor = '#4caf50';  
 
     return (
         <Box sx={{ mt: 2 }}>
@@ -28,8 +28,8 @@ function GameAdditionalInfo({ gameId, upvotes, expanded, onExpand }) {
                     UPVOTE
                 </Button>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <FavoriteIcon sx={{ color: theme.palette.primary.main, fontSize: '1rem', mr: 0.5 }} />
-                    <Typography variant="body2" sx={{ color: theme.palette.primary.main, fontWeight: 'bold' }}>
+                    <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
+                    <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
                         {gameUpvoteCount}
                     </Typography>
                 </Box>

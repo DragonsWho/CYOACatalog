@@ -8,10 +8,10 @@ const theme = createTheme({
     palette: {
         mode: 'dark',
         primary: {
-            main: '#ff4081',
+            main: '#fc3447', 
         },
         secondary: {
-            main: '#7e57c2',
+            main: '#ff4081',
         },
         background: {
             default: '#121212',
@@ -55,7 +55,7 @@ const theme = createTheme({
     },
     custom: {
         cardTitle: {
-            color: '#ff4081',
+            color: '#fc3447',
             textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
         },
         cardText: {

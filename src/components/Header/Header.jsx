@@ -1,22 +1,26 @@
 // src/components/Header/Header.jsx
-// Version: 1.3.0
-// Description: Enhanced Header component with prop types, memoization, and accessibility improvements
+// Version: 1.7.0
+// Description: Changed title to look like a link instead of a button, removed Material-UI button animation, added hover effect
 
 import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { AppBar, Toolbar, Button, Box, Tooltip } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Tooltip, useTheme } from '@mui/material';
 import { Link } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserMenu from './UserMenu';
 import Login from './Login';
+import Button from '@mui/material/Button';
 
-const SITE_TITLE = "CYOA Catalog";
+const SITE_TITLE = "CYOA CAFE";
 const ADD_CYOA_TEXT = "Add CYOA";
 const LOGIN_TEXT = "Login";
 const LOGIN_TOOLTIP = "Login to add a CYOA";
 
-const Header = React.memo(function Header({ isAuthenticated, user, onLogout, onLoginSuccess }) {
+const DEFAULT_HEADER_HEIGHT = 56;
+
+const Header = React.memo(function Header({ isAuthenticated, user, onLogout, onLoginSuccess, headerHeight = DEFAULT_HEADER_HEIGHT }) {
     const [loginOpen, setLoginOpen] = useState(false);
+    const theme = useTheme();
 
     const handleLoginOpen = useCallback(() => setLoginOpen(true), []);
     const handleLoginClose = useCallback(() => setLoginOpen(false), []);
@@ -29,15 +33,32 @@ const Header = React.memo(function Header({ isAuthenticated, user, onLogout, onL
     return (
         <>
             <AppBar position="static" sx={{ width: '100%' }}>
-                <Toolbar sx={{ width: '100%', maxWidth: 'xl', margin: '0 auto', justifyContent: 'space-between' }}>
-                    <Button
-                        color="inherit"
+                <Toolbar
+                    sx={{
+                        width: '100%',
+                        maxWidth: 'xl',
+                        margin: '0 auto',
+                        justifyContent: 'space-between',
+                        minHeight: headerHeight,
+                        px: 2
+                    }}
+                >
+                    <Typography
                         component={Link}
                         to="/"
-                        sx={{ fontSize: '1.25rem', fontWeight: 'bold' }}
+                        variant="h5"
+                        sx={{
+                            color: theme.palette.primary.main,
+                            textDecoration: 'none',
+                            fontWeight: 'bold',
+                            '&:hover': {
+                                color: theme.palette.primary.main,
+                            },
+                            transition: 'color 0.3s ease',
+                        }}
                     >
                         {SITE_TITLE}
-                    </Button>
+                    </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <SearchBar />
                         <Tooltip title={isAuthenticated ? "" : LOGIN_TOOLTIP} arrow>
@@ -47,11 +68,13 @@ const Header = React.memo(function Header({ isAuthenticated, user, onLogout, onL
                                     component={Link}
                                     to="/create"
                                     sx={{
-                                        mr: 2,
+                                        ml: 2,
+                                        mr: 1,
                                         opacity: isAuthenticated ? 1 : 0.5,
                                         '&.Mui-disabled': {
                                             color: 'inherit',
                                         },
+                                        fontSize: '0.875rem',
                                     }}
                                     disabled={!isAuthenticated}
                                     aria-label={ADD_CYOA_TEXT}
@@ -94,6 +117,7 @@ Header.propTypes = {
     user: PropTypes.object,
     onLogout: PropTypes.func.isRequired,
     onLoginSuccess: PropTypes.func.isRequired,
+    headerHeight: PropTypes.number,
 };
 
 export default Header;

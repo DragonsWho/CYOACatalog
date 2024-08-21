@@ -28,6 +28,40 @@ const MAX_CACHE_ITEMS = 500;
 
 const CATEGORY_ORDER = ['Rating', 'Interactivity', 'POV', 'Player Sexual Role', 'Playtime', 'Status', 'Genre', 'Setting', 'Tone', 'Extra',  'Kinks'];
 
+const CATEGORY_COLORS = {
+    'Rating': 'rgba(0, 0, 0, 0.4)',
+    'Interactivity': 'rgba(0, 0, 0, 0.4)',
+    'POV': 'rgba(0, 0, 0, 0.4)',
+    'Player Sexual Role': 'rgba(0, 0, 0, 0.4)',
+    'Playtime': 'rgba(255, 140, 0, 0.4)',
+    'Status': 'rgba(0, 0, 0, 0.4)',
+    'Genre': 'rgba(138, 43, 226, 0.4)',
+    'Setting': 'rgba(0, 0, 0, 0.4)',
+    'Tone': 'rgba(0, 0, 0, 0.4)',
+
+    'Extra': 'rgba(0, 0, 0, 0.4)',
+    'Kinks': 'rgba(255, 69, 0, 0.4)'
+};
+
+/* const CATEGORY_COLORS = {
+    'Rating': 'rgba(255, 215, 0, 0.3)',
+    'Interactivity': 'rgba(0, 206, 209, 0.3)',
+    'POV': 'rgba(255, 105, 180, 0.3)',
+    'Player Sexual Role': 'rgba(50, 205, 50, 0.3)',
+    'Playtime': 'rgba(255, 140, 0, 0.3)',
+    'Status': 'rgba(65, 105, 225, 0.3)',
+    'Genre': 'rgba(138, 43, 226, 0.3)',
+    'Setting': 'rgba(32, 178, 170, 0.3)',
+    'Tone': 'rgba(220, 20, 60, 0.3)',
+
+    'Extra': 'rgba(0, 0, 0, 0.3)',
+    
+    'Extra': 'rgba(112, 128, 144, 0.3)',
+    'Kinks': 'rgba(255, 69, 0, 0.3)'
+}; */
+
+
+
 const GameCard = memo(({ game, tagCategories }) => {
     const theme = useTheme();
     const navigate = useNavigate();
@@ -130,6 +164,7 @@ const GameCard = memo(({ game, tagCategories }) => {
                 overflow: 'hidden',
                 backgroundColor: theme.palette.background.paper,
                 paddingTop: CARD_ASPECT_RATIO,
+                boxShadow: theme.shadows[3],  
             }}
         >
             {isLoading ? (
@@ -182,7 +217,7 @@ const GameCard = memo(({ game, tagCategories }) => {
                 }}
             >
                 <Typography
-                    variant="h6"
+                    variant="h3"
                     component="div"
                     align="center"
                     sx={{
@@ -220,18 +255,24 @@ const GameCard = memo(({ game, tagCategories }) => {
                         height: TAG_SECTION_HEIGHT,
                         overflow: 'hidden'
                     }}>
-                        {sortedTags.map((tag, index) => (
-                            <Chip
-                                key={index}
-                                label={tag.attributes.Name}
-                                size="small"
-                                sx={{
-                                    fontSize: '0.7rem',
-                                    backgroundColor: 'rgba(3, 3, 3, 0.4)',
-                                    color: 'white',
-                                }}
-                            />
-                        ))}
+                        {sortedTags.map((tag, index) => {
+                            const category = tagCategories.find(cat =>
+                                cat.attributes.tags.data.some(t => t.id === tag.id)
+                            )?.attributes.Name;
+                            return (
+                                <Chip
+                                    key={index}
+                                    label={tag.attributes.Name}
+                                    size="small"
+                                    sx={{
+                                        fontSize: '0.7rem',
+                                        backgroundColor: `${CATEGORY_COLORS[category] || 'transparent'}`,
+                                        color: theme.palette.text.primary,
+                                        textShadow: '1px 1px 2px rgba(0,0,0,0.5)', 
+                                    }}
+                                />
+                            );
+                        })}
                     </Box>
 
                     <Box sx={{
@@ -241,12 +282,21 @@ const GameCard = memo(({ game, tagCategories }) => {
                         mt: `${BOTTOM_INFO_MARGIN_TOP}px`,
                         mb: `${BOTTOM_INFO_MARGIN_BOTTOM}px`,
                     }}>
-                        <Typography variant="body2" sx={theme.custom.cardText}>
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                ...theme.custom.cardText,
+                                textShadow: '1px 1px 3px rgba(3, 3, 3, 1)',  
+                            }}
+                        >
                             {game.authors && game.authors.length > 0 ? game.authors[0].name : 'Anonymous'}
                         </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <FavoriteIcon sx={{ color: theme.palette.primary.main, fontSize: '1rem', mr: 0.5 }} />
-                            <Typography variant="body2" sx={{ color: theme.palette.primary.main, fontWeight: 'bold' }}>
+                        <Box sx={{
+                            display: 'flex',
+                            alignItems: 'center', 
+                        }}>
+                            <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
+                            <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold', textShadow: '1px 1px 2px rgba(3,3,3,1)' }}>
                                 {gameUpvoteCount}
                             </Typography>
                         </Box>

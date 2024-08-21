@@ -1,6 +1,6 @@
 // src/theme.js
-// v1.4
-// Changes: Added custom values for box shadow and border radius
+// v1.6
+// Changes: Updated comment section styles, adjusted button color
 
 import { createTheme } from '@mui/material/styles';
 
@@ -8,7 +8,7 @@ const theme = createTheme({
     palette: {
         mode: 'dark',
         primary: {
-            main: '#fc3447', 
+            main: '#fc3447',
         },
         secondary: {
             main: '#ff4081',
@@ -23,6 +23,23 @@ const theme = createTheme({
         },
     },
     components: {
+        MuiAppBar: {
+            styleOverrides: {
+                root: {
+                    minHeight: '48px',
+                },
+            },
+        },
+        MuiToolbar: {
+            styleOverrides: {
+                root: {
+                    minHeight: '48px !important',
+                    '@media (min-width: 600px)': {
+                        minHeight: '48px !important',
+                    },
+                },
+            },
+        },
         MuiCardContent: {
             styleOverrides: {
                 root: {
@@ -64,6 +81,19 @@ const theme = createTheme({
         },
         boxShadow: '0 3px 5px 2px rgba(0, 0, 0, .3)',
         borderRadius: '3px',
+        comments: {
+            backgroundColor: '#121212',
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+            color: '#e0e0e0',
+            inputBackground: '#1e1e1e',
+            inputBorder: '1px solid #3c3c3c',
+            buttonBackground: '#ff4081',
+            buttonHoverBackground: '#f50057',
+            replyBackground: '#1a1a1a',
+            avatarBorder: '2px solid #fc3447',
+            counterColor: '#a0a0a0',
+        },
     },
 });
 

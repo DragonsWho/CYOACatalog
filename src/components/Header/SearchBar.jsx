@@ -1,6 +1,6 @@
 // src/components/Header/SearchBar.jsx
-// Version 1.2
-// Reduced vertical padding, darkened search field, increased text contrast
+// Version 1.4
+// Description: Restored width, kept darker background
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Autocomplete, CircularProgress } from '@mui/material';
@@ -68,9 +68,9 @@ function SearchBar() {
                         ),
                     }}
                     sx={{
-                        width: 200,
+                        width: 200, // Restored width
                         mr: 2,
-                        backgroundColor: theme.palette.grey[600], // Darker background
+                        backgroundColor: theme.palette.grey[800], // Kept darker background
                         borderRadius: 1,
                         '& .MuiOutlinedInput-root': {
                             '& fieldset': {
@@ -82,13 +82,12 @@ function SearchBar() {
                             '&.Mui-focused fieldset': {
                                 borderColor: 'transparent',
                             },
-                            // Reduce vertical padding
                             '& input': {
-                                padding: '4px 14px',
-                                color: theme.palette.text.primary, // More contrasting text color
+                                padding: '7px 14px', // Adjusted padding
+                                color: theme.palette.text.primary,
+                                fontSize: '0.875rem',
                             },
                         },
-                        // Increase placeholder contrast
                         '& .MuiInputBase-input::placeholder': {
                             color: theme.palette.text.secondary,
                             opacity: 0.8,

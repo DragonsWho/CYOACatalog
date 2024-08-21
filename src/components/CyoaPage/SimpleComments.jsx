@@ -1,9 +1,9 @@
 // src/components/CyoaPage/SimpleComments.jsx
-// v3.31
-// Added edit and delete functionality
+// v3.34
+// Changes: Updated button color and removed emoji
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { CommentSection } from 'react-comments-section';
 import 'react-comments-section/dist/index.css';
 import { fetchComments, postComment, editComment, deleteComment } from '../../services/api';
@@ -12,6 +12,7 @@ import authService from '../../services/authService';
 const SimpleComments = ({ gameId }) => {
     const [comments, setComments] = useState([]);
     const [user, setUser] = useState(null);
+    const theme = useTheme();
 
     useEffect(() => {
         loadComments();
@@ -22,15 +23,12 @@ const SimpleComments = ({ gameId }) => {
     const loadComments = async () => {
         try {
             const fetchedComments = await fetchComments(gameId);
-            console.log('Fetched comments:', fetchedComments);
             const formattedComments = formatComments(fetchedComments);
-            console.log('Formatted comments:', formattedComments);
             setComments(formattedComments);
         } catch (error) {
             console.error('Error loading comments:', error);
         }
     };
-
 
     const formatComments = (commentsData) => {
         const flattenComments = (comment, parentId = null, depth = 0) => {
@@ -38,7 +36,7 @@ const SimpleComments = ({ gameId }) => {
                 userId: comment.author?.id?.toString() || 'anonymous',
                 comId: comment.id.toString(),
                 fullName: comment.author?.name || 'Anonymous',
-                avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author?.name || 'Anonymous')}`,
+                avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author?.name || 'Anonymous')}&background=1a1a1a&color=fc3447`,
                 text: comment.content,
                 replies: [],
                 parentId: parentId
@@ -49,10 +47,8 @@ const SimpleComments = ({ gameId }) => {
             if (comment.children && comment.children.length > 0) {
                 comment.children.forEach(childComment => {
                     if (depth === 0) {
-                        // For top-level comments, keep one level of nesting
                         formattedComment.replies.push(...flattenComments(childComment, formattedComment.comId, depth + 1));
                     } else {
-                        // For deeper levels, flatten the structure
                         result.push(...flattenComments(childComment, depth === 1 ? formattedComment.comId : parentId, depth + 1));
                     }
                 });
@@ -84,45 +80,43 @@ const SimpleComments = ({ gameId }) => {
 
     const handleDeleteComment = async (data) => {
         try {
-            console.log('Attempting to delete comment:', data);
             await deleteComment(gameId, data.comId);
-            console.log('Comment deleted successfully');
             await loadComments();
         } catch (error) {
             console.error('Error deleting comment:', error);
-            if (error.response) {
-                console.error('Error response:', error.response.data);
-                console.error('Error status:', error.response.status);
-            } else if (error.request) {
-                console.error('Error request:', error.request);
-            } else {
-                console.error('Error message:', error.message);
-            }
         }
     };
 
+    
+
     return (
-        <Box>
+        <Box sx={{ mt: 4, p: 2, backgroundColor: theme.custom.comments.backgroundColor, borderRadius: theme.custom.comments.borderRadius }}>
             {user ? (
                 <CommentSection
                     currentUser={{
                         currentUserId: user.user.id.toString(),
-                        currentUserImg: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user.username)}`,
+                        currentUserImg: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user.username)}&background=1a1a1a&color=fc3447`,
                         currentUserFullName: user.user.username
                     }}
                     commentData={comments}
                     onSubmitAction={(data) => handleSubmitComment(data, data.parentId)}
                     onReplyAction={(data) => handleSubmitComment(data, data.repliedToCommentId)}
                     onEditAction={handleEditComment}
-                    onDeleteAction={handleDeleteComment}
+                    onDeleteAction={handleDeleteComment} 
+                    hrStyle={{ border: 'none' }}
+                    currentData={(data) => console.log('Current data:', data)}
+                    removeEmoji={true}
+                    submitBtnStyle={{ border: '1px solid gray', backgroundColor: 'gray', color: 'black' }}
+                    cancelBtnStyle={{ border: '1px solid gray', backgroundColor: 'gray', color: 'black' }}
+                    titleStyle={{ color: 'gray' }}
+                     
+                    replyInputStyle={{   color: 'theme.palette.text.primary' }}
+                    formStyle={{ backgroundColor: '#1e1e1e' }}
                 />
             ) : (
-                <>
-                    <Typography variant="h6" gutterBottom>
-                        Comments ({comments.length})
-                    </Typography>
-                    <Typography>Please log in to post comments.</Typography>
-                </>
+                <Typography sx={{ color: theme.custom.comments.color }}>
+                    Please log in to post comments.
+                </Typography>
             )}
         </Box>
     );

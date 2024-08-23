@@ -3,7 +3,7 @@
 
 import { getFromCache, saveToCache } from './cacheService';
 
-const API_URL = 'http://localhost:1337/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://cyoa.cafe';
 
 export const fetchAllGames = async () => {
     const cachedGames = getFromCache();

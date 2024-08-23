@@ -11,7 +11,7 @@ import GameContent from './GameContent';
 import SimpleComments from './SimpleComments';
 import GameAdditionalInfo from './GameAdditionalInfo';
 
-const API_URL = 'http://localhost:1337';
+const API_URL = process.env.REACT_APP_API_URL || 'https://cyoa.cafe';
 
 function GameDetails() {
     const [game, setGame] = useState(null);

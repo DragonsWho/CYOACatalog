@@ -7,7 +7,7 @@ import { Container, Typography, Chip, Box, CircularProgress, Button } from '@mui
 import TagDisplay from './TagDisplay';
 import GameContent from './GameContent';
 import SimpleComments from './SimpleComments';
-const API_URL = 'http://localhost:1337';
+const API_URL = process.env.REACT_APP_API_URL || 'https://cyoa.cafe';
 function GameDetails() {
     const [game, setGame] = useState(null);
     const [loading, setLoading] = useState(true);

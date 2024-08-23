@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 
-const API_URL = 'http://localhost:1337';
+const API_URL = process.env.REACT_APP_API_URL || 'https://cyoa.cafe';
 
 const GameContent = ({ attributes, expanded, onExpand }) => {
     const [loadingImages, setLoadingImages] = useState(attributes.CYOA_pages?.data?.length || 0);

@@ -2,15 +2,15 @@
 // v2.3
 // Added collapse button for expanded iframe
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://cyoa.cafe';
+const API_URL = process.env.REACT_APP_API_URL || 'https://cyoa.cafe'
 
 const GameContent = ({ attributes, expanded, onExpand }) => {
-    const [loadingImages, setLoadingImages] = useState(attributes.CYOA_pages?.data?.length || 0);
-    const [imageErrors, setImageErrors] = useState({});
-    const [imageSizes, setImageSizes] = useState({});
-    const [iframeStyle, setIframeStyle] = useState({});
+    const [loadingImages, setLoadingImages] = useState(attributes.CYOA_pages?.data?.length || 0)
+    const [imageErrors, setImageErrors] = useState({})
+    const [imageSizes, setImageSizes] = useState({})
+    const [iframeStyle, setIframeStyle] = useState({})
 
     useEffect(() => {
         if (attributes.img_or_link === 'link') {
@@ -21,35 +21,35 @@ const GameContent = ({ attributes, expanded, onExpand }) => {
                     left: 0,
                     width: '100vw',
                     height: '100vh',
-                    zIndex: 9999
-                });
+                    zIndex: 9999,
+                })
             } else {
                 setIframeStyle({
                     position: 'absolute',
                     top: 0,
                     left: 0,
                     width: '100%',
-                    height: '100%'
-                });
+                    height: '100%',
+                })
             }
         }
-    }, [expanded, attributes.img_or_link]);
+    }, [expanded, attributes.img_or_link])
 
     const handleImageLoad = (id, event) => {
-        setLoadingImages(prev => prev - 1);
-        setImageSizes(prev => ({
+        setLoadingImages((prev) => prev - 1)
+        setImageSizes((prev) => ({
             ...prev,
             [id]: {
                 width: event.target.naturalWidth,
-                height: event.target.naturalHeight
-            }
-        }));
-    };
+                height: event.target.naturalHeight,
+            },
+        }))
+    }
 
     const handleImageError = (id) => {
-        setImageErrors(prev => ({ ...prev, [id]: true }));
-        setLoadingImages(prev => prev - 1);
-    };
+        setImageErrors((prev) => ({ ...prev, [id]: true }))
+        setLoadingImages((prev) => prev - 1)
+    }
 
     const collapseButtonStyle = {
         position: 'fixed',
@@ -62,19 +62,21 @@ const GameContent = ({ attributes, expanded, onExpand }) => {
         border: 'none',
         borderRadius: '5px',
         cursor: 'pointer',
-    };
+    }
 
     return (
         <div style={{ backgroundColor: '#121212' }}>
             {attributes.img_or_link === 'img' && attributes.CYOA_pages?.data ? (
                 <div>
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '1rem',
-                        transition: 'all 0.3s ease'
-                    }}>
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            transition: 'all 0.3s ease',
+                        }}
+                    >
                         {loadingImages > 0 && <div>Loading...</div>}
                         {attributes.CYOA_pages.data.map((image, index) => (
                             <div
@@ -84,7 +86,7 @@ const GameContent = ({ attributes, expanded, onExpand }) => {
                                     display: 'flex',
                                     justifyContent: 'center',
                                     backgroundColor: '#121212',
-                                    transition: 'all 0.3s ease'
+                                    transition: 'all 0.3s ease',
                                 }}
                             >
                                 {!imageErrors[image.id] && (
@@ -93,32 +95,36 @@ const GameContent = ({ attributes, expanded, onExpand }) => {
                                         alt={`Game content ${index + 1}`}
                                         style={{
                                             maxWidth: expanded ? 'none' : '100%',
-                                            width: expanded ? 'auto' : (imageSizes[image.id]?.width > window.innerWidth ? '100%' : 'auto'),
+                                            width: expanded
+                                                ? 'auto'
+                                                : imageSizes[image.id]?.width > window.innerWidth
+                                                ? '100%'
+                                                : 'auto',
                                             height: 'auto',
                                             display: loadingImages > 0 ? 'none' : 'block',
-                                            transition: 'all 0.3s ease'
+                                            transition: 'all 0.3s ease',
                                         }}
                                         onLoad={(event) => handleImageLoad(image.id, event)}
                                         onError={() => handleImageError(image.id)}
                                     />
                                 )}
                                 {imageErrors[image.id] && (
-                                    <div style={{ color: 'red' }}>
-                                        Failed to load image {index + 1}
-                                    </div>
+                                    <div style={{ color: 'red' }}>Failed to load image {index + 1}</div>
                                 )}
                             </div>
                         ))}
                     </div>
                 </div>
             ) : attributes.img_or_link === 'link' && attributes.iframe_url ? (
-                <div style={{
-                    width: '100%',
-                    height: 0,
-                    paddingBottom: expanded ? '0' : '56.25%', // 16:9 aspect ratio when not expanded
-                    position: 'relative',
-                    overflow: 'hidden',
-                }}>
+                <div
+                    style={{
+                        width: '100%',
+                        height: 0,
+                        paddingBottom: expanded ? '0' : '56.25%', // 16:9 aspect ratio when not expanded
+                        position: 'relative',
+                        overflow: 'hidden',
+                    }}
+                >
                     <iframe
                         src={attributes.iframe_url}
                         style={iframeStyle}
@@ -127,10 +133,7 @@ const GameContent = ({ attributes, expanded, onExpand }) => {
                         loading="lazy"
                     />
                     {expanded && (
-                        <button
-                            style={collapseButtonStyle}
-                            onClick={() => onExpand(false)}
-                        >
+                        <button style={collapseButtonStyle} onClick={() => onExpand(false)}>
                             Collapse
                         </button>
                     )}
@@ -139,7 +142,7 @@ const GameContent = ({ attributes, expanded, onExpand }) => {
                 <div>No game content available</div>
             )}
         </div>
-    );
-};
+    )
+}
 
-export default GameContent;
+export default GameContent

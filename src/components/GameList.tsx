@@ -1,6 +1,6 @@
-// src/components/GameList.jsx
-// v2.7
-// Changes: Reduced space between header and "Recent Uploads" title, added comment for manual adjustment
+// src/components/GameList.tsx
+// v2.8
+// Converted to TypeScript and reduced space between header and "Recent Uploads" title
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Typography, Box, Grid, useTheme } from '@mui/material'
@@ -9,19 +9,28 @@ import { fetchGames, getTagCategories } from '../services/api'
 
 const ITEMS_PER_PAGE = 25 // 5 cards per row, 5 rows
 
-function GameList() {
+interface Game {
+    id: string;
+    // Add other game properties here
+}
+
+interface TagCategory {
+    // Add tag category properties here
+}
+
+const GameList: React.FC = () => {
     const theme = useTheme()
-    const [games, setGames] = useState([])
+    const [games, setGames] = useState<Game[]>([])
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
+    const [error, setError] = useState<string | null>(null)
     const [page, setPage] = useState(1)
     const [hasMore, setHasMore] = useState(true)
     const [totalCount, setTotalCount] = useState(0)
-    const [tagCategories, setTagCategories] = useState([])
+    const [tagCategories, setTagCategories] = useState<TagCategory[]>([])
 
-    const observer = useRef()
+    const observer = useRef<IntersectionObserver | null>(null)
     const lastGameElementRef = useCallback(
-        (node) => {
+        (node: HTMLElement | null) => {
             if (loading) return
             if (observer.current) observer.current.disconnect()
             observer.current = new IntersectionObserver((entries) => {

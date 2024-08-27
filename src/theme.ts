@@ -1,10 +1,10 @@
-// src/theme.js
-// v1.6
-// Changes: Updated comment section styles, adjusted button color
+// src/theme.ts
+// v1.7
+// Changes: Updated comment section styles, adjusted button color, converted to TypeScript
 
-import { createTheme } from '@mui/material/styles';
+import { createTheme, ThemeOptions } from '@mui/material/styles';
 
-const theme = createTheme({
+const themeOptions: ThemeOptions = {
     palette: {
         mode: 'dark',
         primary: {
@@ -23,7 +23,6 @@ const theme = createTheme({
         },
     },
     components: {
-
         MuiTextField: {
             styleOverrides: {
                 root: {
@@ -40,7 +39,7 @@ const theme = createTheme({
                     },
                 },
             },
-        }, 
+        },
         MuiAppBar: {
             styleOverrides: {
                 root: {
@@ -113,6 +112,8 @@ const theme = createTheme({
             counterColor: '#a0a0a0',
         },
     },
-});
+};
+
+const theme = createTheme(themeOptions);
 
 export default theme;

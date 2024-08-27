@@ -1,13 +1,23 @@
-// src/components/Header/UserMenu.jsx
+// src/components/Header/UserMenu.tsx
+// Version 1.0.0
+// Converted to TypeScript
+
 import React, { useState } from 'react'
 import { Button, Menu, MenuItem, Avatar } from '@mui/material'
 import { Link, useNavigate } from 'react-router-dom'
 
-function UserMenu({ currentUser, onLogout }) {
-    const [anchorEl, setAnchorEl] = useState(null)
+interface UserMenuProps {
+    currentUser: {
+        username: string;
+    };
+    onLogout: () => void;
+}
+
+const UserMenu: React.FC<UserMenuProps> = ({ currentUser, onLogout }) => {
+    const [anchorEl, setAnchorEl] = useState < null | HTMLElement > (null)
     const navigate = useNavigate()
 
-    const handleMenuOpen = (event) => {
+    const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
         setAnchorEl(event.currentTarget)
     }
 

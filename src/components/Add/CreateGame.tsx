@@ -1,8 +1,8 @@
-// src/components/Add/CreateGame.jsx
-// Version 1.9.1
-// Updated to..
+// src/components/Add/CreateGame.tsx
+// Version 2.0.0
+// Updated to TypeScript, added type definitions and interfaces
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react'
 import {
     TextField,
     Button,
@@ -14,6 +14,7 @@ import {
     InputLabel,
     FormControl,
     Alert,
+    SelectChangeEvent,
 } from '@mui/material'
 import { createGame, getAuthors, getTagCategories } from '../../services/api'
 import { useNavigate } from 'react-router-dom'
@@ -22,25 +23,41 @@ import TagSelector from './TagSelector'
 import CyoaImageUploader from './CyoaImageUploader'
 import ImageCompressor from './ImageCompressor'
 
+interface Author {
+    id: number;
+    name: string;
+}
+
+interface TagCategory {
+    id: number;
+    attributes: {
+        Name: string;
+        MinTags: number;
+        tags: {
+            data: Array<{ id: number }>;
+        };
+    };
+}
+
 /**
  * CreateGame component for creating a new game entry
  * @returns {JSX.Element} The CreateGame form
  */
-function CreateGame() {
-    const [title, setTitle] = useState('')
-    const [description, setDescription] = useState('')
-    const [cardImage, setCardImage] = useState(null)
-    const [cyoaImages, setCyoaImages] = useState([])
-    const [imgOrLink, setImgOrLink] = useState('img')
-    const [iframeUrl, setIframeUrl] = useState('')
-    const [authors, setAuthors] = useState([])
-    const [availableAuthors, setAvailableAuthors] = useState([])
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
-    const [selectedTags, setSelectedTags] = useState([])
-    const [tagsLoaded, setTagsLoaded] = useState(false)
-    const [tagCategories, setTagCategories] = useState([])
-    const [initialDataLoading, setInitialDataLoading] = useState(true)
+function CreateGame(): JSX.Element {
+    const [title, setTitle] = useState < string > ('')
+    const [description, setDescription] = useState < string > ('')
+    const [cardImage, setCardImage] = useState < File | null > (null)
+    const [cyoaImages, setCyoaImages] = useState < File[] > ([])
+    const [imgOrLink, setImgOrLink] = useState < 'img' | 'link' > ('img')
+    const [iframeUrl, setIframeUrl] = useState < string > ('')
+    const [authors, setAuthors] = useState < Author[] > ([])
+    const [availableAuthors, setAvailableAuthors] = useState < Author[] > ([])
+    const [loading, setLoading] = useState < boolean > (false)
+    const [error, setError] = useState < string | null > (null)
+    const [selectedTags, setSelectedTags] = useState < number[] > ([])
+    const [tagsLoaded, setTagsLoaded] = useState < boolean > (false)
+    const [tagCategories, setTagCategories] = useState < TagCategory[] > ([])
+    const [initialDataLoading, setInitialDataLoading] = useState < boolean > (true)
 
     const navigate = useNavigate()
 
@@ -48,7 +65,7 @@ function CreateGame() {
         const fetchInitialData = async () => {
             try {
                 const [authorsData, categoriesData] = await Promise.all([getAuthors(), getTagCategories()])
-                setAvailableAuthors(authorsData.map((author) => ({ id: author.id, name: author.attributes.Name })))
+                setAvailableAuthors(authorsData.map((author: any) => ({ id: author.id, name: author.attributes.Name })))
                 setTagCategories(categoriesData)
             } catch (error) {
                 console.error('Error fetching initial data:', error)
@@ -61,11 +78,11 @@ function CreateGame() {
         fetchInitialData()
     }, [])
 
-    const handleCardImageChange = (compressedImage) => {
+    const handleCardImageChange = (compressedImage: File) => {
         setCardImage(compressedImage)
     }
 
-    const handleCyoaImagesChange = (newImages) => {
+    const handleCyoaImagesChange = (newImages: File[]) => {
         setCyoaImages(newImages)
     }
 
@@ -73,8 +90,8 @@ function CreateGame() {
      * Validates the selected tags against the minimum required for each category
      * @returns {string[]} Array of error messages, empty if no errors
      */
-    const validateTags = () => {
-        const errors = []
+    const validateTags = (): string[] => {
+        const errors: string[] = []
         tagCategories.forEach((category) => {
             const categoryTags = selectedTags.filter((tagId) =>
                 category.attributes.tags.data.some((tag) => tag.id === tagId),
@@ -86,7 +103,7 @@ function CreateGame() {
         return errors
     }
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         setLoading(true)
         setError(null)
@@ -166,7 +183,7 @@ function CreateGame() {
             const result = await createGame(formData)
             console.log('Created game:', result)
             navigate('/')
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creating game:', error)
             if (error.response) {
                 console.error('Error response:', error.response.data)
@@ -192,7 +209,7 @@ function CreateGame() {
                 fullWidth
                 label="Title"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
                 margin="normal"
                 required
             />
@@ -200,7 +217,7 @@ function CreateGame() {
                 fullWidth
                 label="Description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)}
                 margin="normal"
                 required
                 multiline
@@ -211,7 +228,7 @@ function CreateGame() {
                 <Select
                     labelId="img-or-link-label"
                     value={imgOrLink}
-                    onChange={(e) => setImgOrLink(e.target.value)}
+                    onChange={(e: SelectChangeEvent<'img' | 'link'>) => setImgOrLink(e.target.value as 'img' | 'link')}
                     label="Image or Link"
                 >
                     <MenuItem value="img">Image</MenuItem>
@@ -223,7 +240,7 @@ function CreateGame() {
                     fullWidth
                     label="iframe URL"
                     value={iframeUrl}
-                    onChange={(e) => setIframeUrl(e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setIframeUrl(e.target.value)}
                     margin="normal"
                     required
                 />

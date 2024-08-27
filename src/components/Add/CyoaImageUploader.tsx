@@ -1,5 +1,6 @@
-// src/components/Add/CyoaImageUploader.jsx
-// Version 1.1.0
+// src/components/Add/CyoaImageUploader.tsx
+// Version 1.2.0
+// Converted to TypeScript
 
 import React, { useState, useCallback } from 'react'
 import {
@@ -15,11 +16,19 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 
-const CyoaImageUploader = ({ onImagesChange }) => {
-    const [images, setImages] = useState([])
+interface CyoaImageUploaderProps {
+    onImagesChange: (files: File[]) => void;
+}
 
-    const processImage = useCallback(async (file) => {
-        //
+interface ImageItem {
+    file: File;
+    preview: string;
+}
+
+const CyoaImageUploader: React.FC<CyoaImageUploaderProps> = ({ onImagesChange }) => {
+    const [images, setImages] = useState < ImageItem[] > ([])
+
+    const processImage = useCallback(async (file: File): Promise<File> => {
         if (file.size <= 10 * 1024 * 1024) {
             return file
         }
@@ -32,9 +41,9 @@ const CyoaImageUploader = ({ onImagesChange }) => {
                 canvas.height = img.height
 
                 const ctx = canvas.getContext('2d')
-                ctx.drawImage(img, 0, 0)
+                ctx?.drawImage(img, 0, 0)
 
-                const process = (quality) => {
+                const process = (quality: number) => {
                     canvas.toBlob(
                         (blob) => {
                             if (blob) {
@@ -63,8 +72,8 @@ const CyoaImageUploader = ({ onImagesChange }) => {
         })
     }, [])
 
-    const handleFileChange = async (event) => {
-        const files = Array.from(event.target.files)
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(event.target.files || [])
         const processedImages = await Promise.all(
             files.map(async (file) => {
                 console.log(`Original file size: ${file.size} bytes`)
@@ -80,16 +89,16 @@ const CyoaImageUploader = ({ onImagesChange }) => {
         onImagesChange([...images, ...processedImages].map((img) => img.file))
     }
 
-    const handleDragStart = (e, index) => {
-        e.dataTransfer.setData('text/plain', index)
+    const handleDragStart = (e: React.DragEvent<HTMLLIElement>, index: number) => {
+        e.dataTransfer.setData('text/plain', index.toString())
     }
 
-    const handleDragOver = (e) => {
+    const handleDragOver = (e: React.DragEvent<HTMLLIElement>) => {
         e.preventDefault()
     }
 
     const handleDrop = useCallback(
-        (e, dropIndex) => {
+        (e: React.DragEvent<HTMLLIElement>, dropIndex: number) => {
             e.preventDefault()
             const dragIndex = Number(e.dataTransfer.getData('text/plain'))
             const newImages = [...images]
@@ -102,7 +111,7 @@ const CyoaImageUploader = ({ onImagesChange }) => {
     )
 
     const removeImage = useCallback(
-        (index) => {
+        (index: number) => {
             const newImages = images.filter((_, i) => i !== index)
             setImages(newImages)
             onImagesChange(newImages.map((img) => img.file))

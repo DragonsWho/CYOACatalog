@@ -1,11 +1,11 @@
-// src/components/Footer/PatreonWordmark.jsx
-// Version: 1.1.0
-// Description: Updated Patreon icon component with official logo
+// src/components/Footer/PatreonWordmark.tsx
+// Version: 1.2.0
+// Description: Updated Patreon wordmark component with official logo, converted to TypeScript
 
 import React from 'react'
-import SvgIcon from '@mui/material/SvgIcon'
+import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon'
 
-const PatreonWordmark = (props) => (
+const PatreonWordmark: React.FC<SvgIconProps> = (props) => (
     <SvgIcon {...props} viewBox="0 0 1826.3 619.9">
         <path
             fill="currentColor"

@@ -38,7 +38,6 @@ function CreateGame() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
     const [selectedTags, setSelectedTags] = useState([])
-    const [tagsLoaded, setTagsLoaded] = useState(false)
     const [tagCategories, setTagCategories] = useState([])
     const [initialDataLoading, setInitialDataLoading] = useState(true)
 
@@ -157,7 +156,7 @@ function CreateGame() {
 
             // Append CYOA page images if "img" is selected
             if (imgOrLink === 'img') {
-                cyoaImages.forEach((image, index) => {
+                cyoaImages.forEach((image) => {
                     formData.append('files.CYOA_pages', image)
                 })
             }
@@ -234,12 +233,7 @@ function CreateGame() {
 
             <Box sx={{ mt: 2 }}>
                 <Typography variant="h6">Select Tags</Typography>
-                <TagSelector
-                    selectedTags={selectedTags}
-                    onTagsChange={setSelectedTags}
-                    onLoad={() => setTagsLoaded(true)}
-                    tagCategories={tagCategories}
-                />
+                <TagSelector selectedTags={selectedTags} onTagsChange={setSelectedTags} tagCategories={tagCategories} />
             </Box>
 
             <Box sx={{ mt: 2 }}>

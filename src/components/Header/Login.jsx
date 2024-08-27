@@ -25,7 +25,7 @@ const DiscordIcon = (props) => (
     </SvgIcon>
 )
 
-const DiscordButton = styled(Button)(({}) => ({
+const DiscordButton = styled(Button)(() => ({
     backgroundColor: '#5865F2',
     color: 'white',
     '&:hover': {

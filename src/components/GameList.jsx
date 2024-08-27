@@ -16,7 +16,6 @@ function GameList() {
     const [error, setError] = useState(null)
     const [page, setPage] = useState(1)
     const [hasMore, setHasMore] = useState(true)
-    const [totalCount, setTotalCount] = useState(0)
     const [tagCategories, setTagCategories] = useState([])
 
     const observer = useRef()
@@ -62,7 +61,6 @@ function GameList() {
                     return [...prevGames, ...newGames]
                 })
 
-                setTotalCount(fetchedTotalCount)
                 setHasMore(games.length + fetchedGames.length < fetchedTotalCount)
             } catch (error) {
                 console.error('Error fetching games:', error)

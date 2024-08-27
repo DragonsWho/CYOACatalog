@@ -9,6 +9,13 @@ export default [
   pluginJs.configs.recommended,
   pluginReact.configs.flat.recommended,
   {
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+    
     rules: {
       'quotes': [
       2,

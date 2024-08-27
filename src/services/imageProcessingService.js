@@ -40,8 +40,8 @@ export const processImage = async (file, maxWidth = 1920, maxHeight = 1080) => {
     const { binary } = await image.encodedWith.avif;
 
     // Create a new File object with the processed image
-    const processedFile = new File([binary], file.name.replace(/\.[^/.]+$/, ".avif"), {
-        type: "image/avif"
+    const processedFile = new File([binary], file.name.replace(/\.[^/.]+$/, '.avif'), {
+        type: 'image/avif'
     });
 
     return processedFile;

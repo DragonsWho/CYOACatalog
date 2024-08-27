@@ -2,52 +2,66 @@
 // v2.1
 // Updated to display category name and tags on the same line
 
-import React from 'react';
-import { Box, Chip, Typography } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import React from 'react'
+import { Box, Chip, Typography } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 
-const CATEGORY_ORDER = ['Rating', 'Interactivity', 'POV', 'Player Sexual Role', 'Playtime', 'Status', 'Genre', 'Setting', 'Tone', 'Extra', 'Narrative Structure', 'Power Level', 'Visual Style', 'Language', 'Kinks'];
+const CATEGORY_ORDER = [
+    'Rating',
+    'Interactivity',
+    'POV',
+    'Player Sexual Role',
+    'Playtime',
+    'Status',
+    'Genre',
+    'Setting',
+    'Tone',
+    'Extra',
+    'Narrative Structure',
+    'Power Level',
+    'Visual Style',
+    'Language',
+    'Kinks',
+]
 
-const CHIP_HEIGHT = '24px';
-const CHIP_FONT_SIZE = '0.8125rem';
-const CHIP_PADDING = '0 8px';
-const CHIP_BORDER_RADIUS = '4px';
-const GAP = 0.75; // Gap between chips
-const CATEGORY_FONT_WEIGHT = '500';
-const SECTION_GAP = 0.5; // Gap between sections
+const CHIP_HEIGHT = '24px'
+const CHIP_FONT_SIZE = '0.8125rem'
+const CHIP_PADDING = '0 8px'
+const CHIP_BORDER_RADIUS = '4px'
+const GAP = 0.75 // Gap between chips
+const CATEGORY_FONT_WEIGHT = '500'
+const SECTION_GAP = 0.5 // Gap between sections
 
 const TagDisplay = ({ tags, chipProps = {} }) => {
-    const theme = useTheme();
+    const theme = useTheme()
 
     if (!tags || tags.length === 0) {
-        return null;
+        return null
     }
 
     // Group tags by their category
     const groupedTags = tags.reduce((acc, tag) => {
-        if (!tag || !tag.attributes) return acc;
+        if (!tag || !tag.attributes) return acc
 
-        const categoryData = tag.attributes.tag_category && tag.attributes.tag_category.data;
-        const categoryName = categoryData && categoryData.attributes
-            ? categoryData.attributes.Name
-            : 'Uncategorized';
+        const categoryData = tag.attributes.tag_category && tag.attributes.tag_category.data
+        const categoryName = categoryData && categoryData.attributes ? categoryData.attributes.Name : 'Uncategorized'
 
         if (!acc[categoryName]) {
-            acc[categoryName] = [];
+            acc[categoryName] = []
         }
-        acc[categoryName].push(tag);
-        return acc;
-    }, {});
+        acc[categoryName].push(tag)
+        return acc
+    }, {})
 
     // Sort categories based on CATEGORY_ORDER
     const sortedCategories = Object.keys(groupedTags).sort((a, b) => {
-        const indexA = CATEGORY_ORDER.indexOf(a);
-        const indexB = CATEGORY_ORDER.indexOf(b);
-        if (indexA === -1 && indexB === -1) return 0;
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-        return indexA - indexB;
-    });
+        const indexA = CATEGORY_ORDER.indexOf(a)
+        const indexB = CATEGORY_ORDER.indexOf(b)
+        if (indexA === -1 && indexB === -1) return 0
+        if (indexA === -1) return 1
+        if (indexB === -1) return -1
+        return indexA - indexB
+    })
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
@@ -61,7 +75,7 @@ const TagDisplay = ({ tags, chipProps = {} }) => {
                             alignItems: 'center',
                             mr: 1,
                             minWidth: 'max-content',
-                            color: theme.palette.text.primary, // Применяем цвет текста из темы
+                            color: theme.palette.text.primary, // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ
                         }}
                     >
                         {category}:
@@ -78,7 +92,7 @@ const TagDisplay = ({ tags, chipProps = {} }) => {
                                     fontSize: CHIP_FONT_SIZE,
                                     padding: CHIP_PADDING,
                                 },
-                                ...chipProps.sx
+                                ...chipProps.sx,
                             }}
                             {...chipProps}
                         />
@@ -86,7 +100,7 @@ const TagDisplay = ({ tags, chipProps = {} }) => {
                 </Box>
             ))}
         </Box>
-    );
-};
+    )
+}
 
-export default TagDisplay;
+export default TagDisplay

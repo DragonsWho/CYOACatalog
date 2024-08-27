@@ -2,38 +2,38 @@
 // Version: 1.0.0
 // Description: Component for handling email confirmation
 
-import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Typography, Container, CircularProgress } from '@mui/material';
-import authService from '../services/authService';
+import React, { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Typography, Container, CircularProgress } from '@mui/material'
+import authService from '../services/authService'
 
 const EmailConfirmation = () => {
-    const [status, setStatus] = useState('confirming');
-    const location = useLocation();
-    const navigate = useNavigate();
+    const [status, setStatus] = useState('confirming')
+    const location = useLocation()
+    const navigate = useNavigate()
 
     useEffect(() => {
         const confirmEmail = async () => {
-            const searchParams = new URLSearchParams(location.search);
-            const confirmationToken = searchParams.get('confirmation');
+            const searchParams = new URLSearchParams(location.search)
+            const confirmationToken = searchParams.get('confirmation')
 
             if (!confirmationToken) {
-                setStatus('error');
-                return;
+                setStatus('error')
+                return
             }
 
             try {
-                await authService.confirmEmail(confirmationToken);
-                setStatus('success');
-                setTimeout(() => navigate('/'), 3000);  
+                await authService.confirmEmail(confirmationToken)
+                setStatus('success')
+                setTimeout(() => navigate('/'), 3000)
             } catch (error) {
-                console.error('Email confirmation error:', error);
-                setStatus('error');
+                console.error('Email confirmation error:', error)
+                setStatus('error')
             }
-        };
+        }
 
-        confirmEmail();
-    }, [location, navigate]);
+        confirmEmail()
+    }, [location, navigate])
 
     return (
         <Container maxWidth="sm" style={{ textAlign: 'center', marginTop: '50px' }}>
@@ -56,7 +56,7 @@ const EmailConfirmation = () => {
                 </Typography>
             )}
         </Container>
-    );
-};
+    )
+}
 
-export default EmailConfirmation;
+export default EmailConfirmation

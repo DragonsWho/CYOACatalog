@@ -2,47 +2,47 @@
 // Version 1.4
 // Description: Restored width, kept darker background
 
-import React, { useState, useEffect } from 'react';
-import { TextField, Autocomplete, CircularProgress } from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
-import { searchGames, fetchAllGames } from '../../services/searchService';
-import { useTheme } from '@mui/material/styles';
+import React, { useState, useEffect } from 'react'
+import { TextField, Autocomplete, CircularProgress } from '@mui/material'
+import { Link, useNavigate } from 'react-router-dom'
+import { searchGames } from '../../services/searchService'
+import { useTheme } from '@mui/material/styles'
 
 function SearchBar() {
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const navigate = useNavigate();
-    const theme = useTheme();
+    const [searchQuery, setSearchQuery] = useState('')
+    const [searchResults, setSearchResults] = useState([])
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState(null)
+    const navigate = useNavigate()
+    const theme = useTheme()
 
     useEffect(() => {
         const delayDebounce = setTimeout(() => {
             if (searchQuery) {
-                performSearch();
+                performSearch()
             } else {
-                setSearchResults([]);
-                setError(null);
+                setSearchResults([])
+                setError(null)
             }
-        }, 300);
+        }, 300)
 
-        return () => clearTimeout(delayDebounce);
-    }, [searchQuery]);
+        return () => clearTimeout(delayDebounce)
+    }, [searchQuery])
 
     const performSearch = async () => {
-        setIsLoading(true);
-        setError(null);
+        setIsLoading(true)
+        setError(null)
         try {
-            const results = await searchGames(searchQuery);
-            setSearchResults(results);
+            const results = await searchGames(searchQuery)
+            setSearchResults(results)
         } catch (error) {
-            console.error('Error performing search:', error);
-            setError('An error occurred while searching. Please try again.');
-            setSearchResults([]);
+            console.error('Error performing search:', error)
+            setError('An error occurred while searching. Please try again.')
+            setSearchResults([])
         } finally {
-            setIsLoading(false);
+            setIsLoading(false)
         }
-    };
+    }
 
     return (
         <Autocomplete
@@ -95,10 +95,10 @@ function SearchBar() {
                     }}
                 />
             )}
-            onChange={(event, newValue) => {
+            onChange={(newValue) => {
                 if (newValue && newValue.id) {
-                    console.log('Selected game:', newValue);
-                    navigate(`/game/${newValue.id}`);
+                    console.log('Selected game:', newValue)
+                    navigate(`/game/${newValue.id}`)
                 }
             }}
             renderOption={(props, option) => (
@@ -109,7 +109,7 @@ function SearchBar() {
                 </li>
             )}
         />
-    );
+    )
 }
 
-export default SearchBar;
+export default SearchBar

@@ -6,7 +6,6 @@ const CACHE_KEY = 'gameList';
 const CACHE_TIMESTAMP_KEY = 'gameListTimestamp';
 const CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
 
-const IMAGE_CACHE_PREFIX = 'cyoa_img_cache_';
 const IMAGE_CACHE_EXPIRATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 const MAX_CACHE_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -28,14 +27,14 @@ const openDB = () => {
             return;
         }
         const request = indexedDB.open(DB_NAME, 1);
-        request.onerror = (event) => reject("IndexedDB error: " + event.target.error);
+        request.onerror = (event) => reject('IndexedDB error: ' + event.target.error);
         request.onsuccess = (event) => {
             db = event.target.result;
             resolve(db);
         };
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
-            db.createObjectStore(STORE_NAME, { keyPath: "url" });
+            db.createObjectStore(STORE_NAME, { keyPath: 'url' });
         };
     });
 };

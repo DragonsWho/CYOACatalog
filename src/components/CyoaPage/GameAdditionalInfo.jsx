@@ -2,61 +2,61 @@
 // v1.8
 // Implemented local vote count for optimistic UI updates
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import { useTheme } from '@mui/material/styles';
-import { upvoteGame, removeUpvote } from '../../services/api';
-import authService from '../../services/authService';
+import React, { useState, useEffect, useCallback } from 'react'
+import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material'
+import FavoriteIcon from '@mui/icons-material/Favorite'
+import { useTheme } from '@mui/material/styles'
+import { upvoteGame, removeUpvote } from '../../services/api'
+import authService from '../../services/authService'
 
-const LOGIN_TOOLTIP = "Login to upvote";
+const LOGIN_TOOLTIP = 'Login to upvote'
 
 function GameAdditionalInfo({ gameId, upvotes: initialUpvotes, expanded, onExpand, onUpvoteChange }) {
-    const theme = useTheme();
-    const [isUpvoted, setIsUpvoted] = useState(false);
-    const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvotes?.length || 0);
-    const [isLoading, setIsLoading] = useState(false);
-    const user = authService.getCurrentUser();
+    const theme = useTheme()
+    const [isUpvoted, setIsUpvoted] = useState(false)
+    const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvotes?.length || 0)
+    const [isLoading, setIsLoading] = useState(false)
+    const user = authService.getCurrentUser()
 
     useEffect(() => {
         if (user && initialUpvotes) {
-            setIsUpvoted(initialUpvotes.includes(user.user.username));
-            setLocalUpvoteCount(initialUpvotes.length);
+            setIsUpvoted(initialUpvotes.includes(user.user.username))
+            setLocalUpvoteCount(initialUpvotes.length)
         }
-    }, []);   
+    }, [])
 
     const handleUpvote = useCallback(async () => {
         if (!user) {
-            return;
+            return
         }
 
-        setIsLoading(true);
+        setIsLoading(true)
 
         // Optimistic UI update
-        const newIsUpvoted = !isUpvoted;
-        setIsUpvoted(newIsUpvoted);
-        setLocalUpvoteCount(prevCount => newIsUpvoted ? prevCount + 1 : prevCount - 1);
+        const newIsUpvoted = !isUpvoted
+        setIsUpvoted(newIsUpvoted)
+        setLocalUpvoteCount((prevCount) => (newIsUpvoted ? prevCount + 1 : prevCount - 1))
 
         try {
             if (newIsUpvoted) {
-                await upvoteGame(gameId);
+                await upvoteGame(gameId)
             } else {
-                await removeUpvote(gameId);
+                await removeUpvote(gameId)
             }
             if (onUpvoteChange) {
-                onUpvoteChange();
+                onUpvoteChange()
             }
         } catch (error) {
-            console.error('Error handling upvote:', error); 
-            setIsUpvoted(!newIsUpvoted);
-            setLocalUpvoteCount(prevCount => newIsUpvoted ? prevCount - 1 : prevCount + 1);
-            alert('There was an error in voting. Please try again later.');
+            console.error('Error handling upvote:', error)
+            setIsUpvoted(!newIsUpvoted)
+            setLocalUpvoteCount((prevCount) => (newIsUpvoted ? prevCount - 1 : prevCount + 1))
+            alert('There was an error in voting. Please try again later.')
         } finally {
-            setIsLoading(false);
+            setIsLoading(false)
         }
-    }, [gameId, isUpvoted, onUpvoteChange, user]);
+    }, [gameId, isUpvoted, onUpvoteChange, user])
 
-    const expandButtonColor = '#4caf50';
+    const expandButtonColor = '#4caf50'
 
     return (
         <Box sx={{ mt: 2 }}>
@@ -65,7 +65,7 @@ function GameAdditionalInfo({ gameId, upvotes: initialUpvotes, expanded, onExpan
             </Typography>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Tooltip title={user ? "" : LOGIN_TOOLTIP} arrow>
+                <Tooltip title={user ? '' : LOGIN_TOOLTIP} arrow>
                     <span>
                         <Button
                             variant="contained"
@@ -73,7 +73,9 @@ function GameAdditionalInfo({ gameId, upvotes: initialUpvotes, expanded, onExpan
                             sx={{
                                 backgroundColor: isUpvoted ? theme.palette.secondary.main : theme.palette.primary.main,
                                 '&:hover': {
-                                    backgroundColor: isUpvoted ? theme.palette.secondary.dark : theme.palette.primary.dark,
+                                    backgroundColor: isUpvoted
+                                        ? theme.palette.secondary.dark
+                                        : theme.palette.primary.dark,
                                 },
                                 '&.Mui-disabled': {
                                     color: 'rgba(255, 255, 255, 0.7)',
@@ -86,8 +88,10 @@ function GameAdditionalInfo({ gameId, upvotes: initialUpvotes, expanded, onExpan
                         >
                             {isLoading ? (
                                 <CircularProgress size={24} color="inherit" />
+                            ) : isUpvoted ? (
+                                'UNVOTE'
                             ) : (
-                                isUpvoted ? 'UNVOTE' : 'UPVOTE'
+                                'UPVOTE'
                             )}
                         </Button>
                     </span>
@@ -113,7 +117,7 @@ function GameAdditionalInfo({ gameId, upvotes: initialUpvotes, expanded, onExpan
                 </Button>
             </Box>
         </Box>
-    );
+    )
 }
 
-export default GameAdditionalInfo;
+export default GameAdditionalInfo

@@ -1,6 +1,6 @@
 // src/components/Add/CyoaImageUploader.tsx
-// Version 1.2.0
-// Converted to TypeScript
+// Version 1.4.0
+// Changes: Removed immediate image processing, added function to get images for upload
 
 import React, { useState, useCallback } from 'react'
 import {
@@ -18,6 +18,7 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 
 interface CyoaImageUploaderProps {
     onImagesChange: (files: File[]) => void;
+    getImages: () => File[];
 }
 
 interface ImageItem {
@@ -25,68 +26,18 @@ interface ImageItem {
     preview: string;
 }
 
-const CyoaImageUploader: React.FC<CyoaImageUploaderProps> = ({ onImagesChange }) => {
-    const [images, setImages] = useState < ImageItem[] > ([])
+const CyoaImageUploader: React.FC<CyoaImageUploaderProps> = ({ onImagesChange, getImages }) => {
+    const [images, setImages] = useState<ImageItem[]>([])
 
-    const processImage = useCallback(async (file: File): Promise<File> => {
-        if (file.size <= 10 * 1024 * 1024) {
-            return file
-        }
-
-        return new Promise((resolve, reject) => {
-            const img = new Image()
-            img.onload = () => {
-                const canvas = document.createElement('canvas')
-                canvas.width = img.width
-                canvas.height = img.height
-
-                const ctx = canvas.getContext('2d')
-                ctx?.drawImage(img, 0, 0)
-
-                const process = (quality: number) => {
-                    canvas.toBlob(
-                        (blob) => {
-                            if (blob) {
-                                if (blob.size <= 10 * 1024 * 1024 || quality <= 0.7) {
-                                    const processedFile = new File([blob], file.name, {
-                                        type: file.type,
-                                        lastModified: Date.now(),
-                                    })
-                                    resolve(processedFile)
-                                } else {
-                                    process(quality - 0.05)
-                                }
-                            } else {
-                                reject(new Error('Canvas to Blob conversion failed'))
-                            }
-                        },
-                        file.type,
-                        quality,
-                    )
-                }
-
-                process(1) //
-            }
-            img.onerror = (error) => reject(error)
-            img.src = URL.createObjectURL(file)
-        })
-    }, [])
-
-    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(event.target.files || [])
-        const processedImages = await Promise.all(
-            files.map(async (file) => {
-                console.log(`Original file size: ${file.size} bytes`)
-                const processedFile = await processImage(file)
-                console.log(`Processed file size: ${processedFile.size} bytes`)
-                return {
-                    file: processedFile,
-                    preview: URL.createObjectURL(processedFile),
-                }
-            }),
-        )
-        setImages((prevImages) => [...prevImages, ...processedImages])
-        onImagesChange([...images, ...processedImages].map((img) => img.file))
+        const newImages = files.map(file => ({
+            file,
+            preview: URL.createObjectURL(file),
+        }))
+
+        setImages(prevImages => [...prevImages, ...newImages])
+        onImagesChange([...images, ...newImages].map(img => img.file))
     }
 
     const handleDragStart = (e: React.DragEvent<HTMLLIElement>, index: number) => {

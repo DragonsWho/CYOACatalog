@@ -1,8 +1,8 @@
-// src/App.jsx
-// Version: 1.4.0
+// src/App.tsx
+// Version: 1.5.0
 // Description: Main application component with routing, authentication state management, and Footer
 
-import { React, useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import { Container, Box } from '@mui/material'
 import Header from './components/Header/Header'
@@ -15,9 +15,16 @@ import Profile from './components/Profile/Profile'
 import AuthCallback from './components/AuthCallback'
 import authService from './services/authService'
 
-function App() {
-    const [isAuthenticated, setIsAuthenticated] = useState(false)
-    const [user, setUser] = useState(null)
+interface User {
+    id: string;
+    username: string;
+    email: string;
+    // Add other user properties as needed
+}
+
+const App: React.FC = () => {
+    const [isAuthenticated, setIsAuthenticated] = useState < boolean > (false)
+    const [user, setUser] = useState < User | null > (null)
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -32,7 +39,7 @@ function App() {
         checkAuth()
     }, [])
 
-    const handleLoginSuccess = (userData) => {
+    const handleLoginSuccess = (userData: { user: User }) => {
         setIsAuthenticated(true)
         setUser(userData.user)
     }

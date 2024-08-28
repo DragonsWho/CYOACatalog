@@ -1,6 +1,6 @@
-// src/components/Footer/Footer.jsx
-// Version: 1.4.0
-// Description: Further adjusted Footer component to improve logo spacing and alignment
+// src/components/Footer/Footer.tsx
+// Version: 1.5.0
+// Description: Further adjusted Footer component to improve logo spacing and alignment, converted to TypeScript
 
 import React from 'react'
 import { Box, Container, Typography, Link as MuiLink } from '@mui/material'
@@ -12,7 +12,7 @@ import PatreonWordmark from './PatreonWordmark'
 const StyledFooter = styled('footer')(({ theme }) => ({
     backgroundColor: theme.palette.primary.main,
     color: theme.palette.primary.contrastText,
-    padding: theme.spacing(0.5, 0), // ��� ������� ��������� ������������ padding
+    padding: theme.spacing(0.5, 0),
     marginTop: 'auto',
 }))
 
@@ -33,7 +33,7 @@ const IconWrapper = styled('span')({
     alignItems: 'center',
 })
 
-const Footer = () => {
+const Footer: React.FC = () => {
     return (
         <StyledFooter>
             <Container maxWidth="lg">

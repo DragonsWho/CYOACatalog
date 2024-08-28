@@ -1,25 +1,81 @@
-// src/components/CyoaPage/GameDetails.jsx
-// v3.9
-// Allow GameContent to expand beyond its container
+// src/components/CyoaPage/GameDetails.tsx
+// v4.1
+// Fixed TypeScript errors and improved type safety
 
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { Container, Typography, Box, CircularProgress, Grid, Paper } from '@mui/material'
+import { Container, Typography, Box, CircularProgress, Grid, Paper, Theme } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import TagDisplay from './TagDisplay'
 import GameContent from './GameContent'
 import SimpleComments from './SimpleComments'
 import GameAdditionalInfo from './GameAdditionalInfo'
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://cyoa.cafe'
+const API_URL = process.env.REACT_APP_API_URL || 'https://api.cyoa.cafe'
+
+interface Author {
+    attributes: {
+        Name: string;
+    };
+}
+
+interface Tag {
+    id: number;
+    attributes: {
+        Name: string;
+        tag_category: {
+            data: {
+                attributes: {
+                    Name: string;
+                };
+            };
+        };
+    };
+}
+
+interface Image {
+    data: {
+        attributes: {
+            url: string;
+        };
+    };
+}
+
+interface GameAttributes {
+    Title: string;
+    Description: Array<{ children: Array<{ text: string }> }>;
+    authors: { data: Author[] };
+    tags: { data: Tag[] };
+    Image: Image;
+    CYOA_pages: { data: any[] };
+    Upvotes: string[];
+    img_or_link: 'img' | 'link';
+    iframe_url?: string;
+}
+
+interface Game {
+    id: string;
+    attributes: GameAttributes;
+}
+
+interface CustomTheme extends Theme {
+    custom?: {
+        borderRadius?: string;
+        boxShadow?: string;
+        comments?: {
+            backgroundColor?: string;
+            borderRadius?: string;
+        };
+    };
+}
 
 function GameDetails() {
-    const [game, setGame] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
-    const [expanded, setExpanded] = useState(false)
-    const { id } = useParams()
-    const theme = useTheme()
+    const [game, setGame] = useState<Game | null>(null)
+    const [loading, setLoading] = useState<boolean>(true)
+    const [error, setError] = useState<string | null>(null)
+    const [expanded, setExpanded] = useState<boolean>(false)
+    const { id } = useParams<{ id: string }>()
+    const theme = useTheme<CustomTheme>()
 
     useEffect(() => {
         const fetchGameDetails = async () => {
@@ -32,7 +88,7 @@ function GameDetails() {
                 setGame(data.data)
             } catch (error) {
                 console.error('Error fetching game details:', error)
-                setError(error.message)
+                setError((error as Error).message)
             } finally {
                 setLoading(false)
             }
@@ -155,8 +211,8 @@ function GameDetails() {
                 sx={{
                     mb: 3,
                     mt: 3,
-                    borderRadius: theme.custom.borderRadius,
-                    boxShadow: theme.custom.boxShadow,
+                    borderRadius: theme.custom?.borderRadius,
+                    boxShadow: theme.custom?.boxShadow,
                     overflow: expanded ? 'visible' : 'hidden',
                     transition: 'all 0.3s ease',
                 }}

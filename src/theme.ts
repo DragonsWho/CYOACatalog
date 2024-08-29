@@ -1,9 +1,9 @@
 // src/theme.ts
-// v1.7
-// Changes: Updated comment section styles, adjusted button color, converted to TypeScript
+// v1.8
+// Changes: Added variants for Chip component states
 
 import { createTheme, ThemeOptions } from '@mui/material/styles';
- 
+
 const themeOptions: ThemeOptions = {
     palette: {
         mode: 'dark',
@@ -90,8 +90,34 @@ const themeOptions: ThemeOptions = {
                             backgroundColor: 'rgba(255, 255, 255, 0.2)',
                         },
                     },
+                    '&.Mui-disabled': {
+                        opacity: 0.5,
+                        color: 'rgba(255, 255, 255, 0.5)',
+                    },
                 },
             },
+            variants: [
+                {
+                    props: { variant: 'selected' },
+                    style: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        color: '#fc3447',
+                        '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        },
+                    },
+                },
+                {
+                    props: { variant: 'inactive' },
+                    style: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        },
+                    },
+                },
+            ],
         },
     },
     custom: {

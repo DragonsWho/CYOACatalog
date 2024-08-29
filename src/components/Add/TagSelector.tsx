@@ -1,6 +1,6 @@
 // src/components/Add/TagSelector.tsx
-// Version 1.9.1
-// Fixed TypeScript errors and improved type definitions
+// Version 1.9.3
+// Changes: Updated to use new Chip variants from theme
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material'
@@ -176,29 +176,32 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
                         row.slice(0, groupIndex).reduce((sum, size) => sum + size, 0)
                     const groupTags = category.tags.slice(startIndex, startIndex + groupSize)
 
-                    return groupTags.map((tag) => (
-                        <DelayedTooltip key={tag.id} title={tag.attributes.Description || 'No description available'}>
-                            <Chip
-                                label={tag.attributes.Name}
-                                onClick={() => handleTagToggle(tag.id, category.id)}
-                                color={selectedTags.includes(tag.id) ? 'primary' : 'default'}
-                                size="small"
-                                sx={{
-                                    height: CHIP_HEIGHT,
-                                    borderRadius: CHIP_BORDER_RADIUS,
-                                    '& .MuiChip-label': {
-                                        fontSize: CHIP_FONT_SIZE,
-                                        padding: CHIP_PADDING,
-                                    },
-                                }}
-                                disabled={
-                                    !selectedTags.includes(tag.id) &&
-                                    selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id))
-                                        .length >= category.MaxTags
-                                }
-                            />
-                        </DelayedTooltip>
-                    ))
+                    return groupTags.map((tag) => {
+                        const isSelected = selectedTags.includes(tag.id)
+                        const isDisabled = !isSelected &&
+                            selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id))
+                                .length >= category.MaxTags
+
+                        return (
+                            <DelayedTooltip key={tag.id} title={tag.attributes.Description || 'No description available'}>
+                                <Chip
+                                    label={tag.attributes.Name}
+                                    onClick={() => handleTagToggle(tag.id, category.id)}
+                                    variant={isSelected ? 'selected' : isDisabled ? 'inactive' : undefined}
+                                    size="small"
+                                    sx={{
+                                        height: CHIP_HEIGHT,
+                                        borderRadius: CHIP_BORDER_RADIUS,
+                                        '& .MuiChip-label': {
+                                            fontSize: CHIP_FONT_SIZE,
+                                            padding: CHIP_PADDING,
+                                        },
+                                    }}
+                                    disabled={isDisabled}
+                                />
+                            </DelayedTooltip>
+                        )
+                    })
                 })}
             </Box>
         ))

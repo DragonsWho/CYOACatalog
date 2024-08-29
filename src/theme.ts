@@ -3,7 +3,7 @@
 // Changes: Updated comment section styles, adjusted button color, converted to TypeScript
 
 import { createTheme, ThemeOptions } from '@mui/material/styles';
-
+ 
 const themeOptions: ThemeOptions = {
     palette: {
         mode: 'dark',
@@ -82,6 +82,13 @@ const themeOptions: ThemeOptions = {
                     color: '#ffffff',
                     '&:hover': {
                         backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&.MuiChip-colorPrimary': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        color: '#fc3447',
+                        '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        },
                     },
                 },
             },

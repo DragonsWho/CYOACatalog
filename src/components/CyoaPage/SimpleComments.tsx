@@ -130,6 +130,9 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
             console.error('Error deleting comment:', error)
         }
     }
+    const inputStyle = {
+        color: '#dcdcdc', 
+    };
 
     return (
         <Box
@@ -163,6 +166,7 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
                     titleStyle={{ color: 'gray' }}
                     replyInputStyle={{ color: theme.palette.text.primary }}
                     formStyle={{ backgroundColor: '#1e1e1e' }}
+                    inputStyle={inputStyle}
                 />
             ) : (
                 <Typography sx={{ color: theme.custom?.comments?.color }}>Please log in to post comments.</Typography>
@@ -170,5 +174,4 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
         </Box>
     )
 }
-
 export default SimpleComments

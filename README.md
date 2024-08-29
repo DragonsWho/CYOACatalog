@@ -1,3 +1,29 @@
+# Things to install
+
+[bun](https://bun.sh/)
+
+[go](https://golang.org/)
+
+# For *nix
+
+`make install` to install dependencies
+
+`make dev` to start development server
+
+`make build` to build the project
+
+`make run` to run the build
+
+# For windows
+
+`bun install` to install dependencies
+
+`bun dev` to start development server
+
+`bun run build` to build the project
+
+`bun preview` to serve the build
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

@@ -4,7 +4,7 @@ install:
 
 .PHONY: dev
 dev:
-	NODE_ENV='development' ./node_modules/.bin/concurrently -n "server,client" -c "bgBlue.bold,bgMagenta.bold" "CGO_ENABLED=0 go run main.go serve" "bun run dev --port 8091"
+	NODE_ENV='development' ./node_modules/.bin/concurrently -n "server,client" -c "bgBlue.bold,bgMagenta.bold" "CGO_ENABLED=0 go run main.go serve" "./node_modules/.bin/vite --port 8091"
 
 .PHONY: build
 build:

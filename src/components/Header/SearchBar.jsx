@@ -1,6 +1,6 @@
 // src/components/Header/SearchBar.jsx
-// Version 1.4
-// Description: Restored width, kept darker background
+// Version 1.5
+// Description: Improved error handling and logging
 
 import React, { useState, useEffect } from 'react'
 import { TextField, Autocomplete, CircularProgress } from '@mui/material'
@@ -33,7 +33,9 @@ function SearchBar() {
         setIsLoading(true)
         setError(null)
         try {
+            console.log('Performing search for:', searchQuery);
             const results = await searchGames(searchQuery)
+            console.log('Search results:', results);
             setSearchResults(results)
         } catch (error) {
             console.error('Error performing search:', error)
@@ -68,9 +70,9 @@ function SearchBar() {
                         ),
                     }}
                     sx={{
-                        width: 200, // Restored width
+                        width: 200,
                         mr: 2,
-                        backgroundColor: theme.palette.grey[800], // Kept darker background
+                        backgroundColor: theme.palette.grey[800],
                         borderRadius: 1,
                         '& .MuiOutlinedInput-root': {
                             '& fieldset': {
@@ -83,7 +85,7 @@ function SearchBar() {
                                 borderColor: 'transparent',
                             },
                             '& input': {
-                                padding: '7px 14px', // Adjusted padding
+                                padding: '7px 14px',
                                 color: theme.palette.text.primary,
                                 fontSize: '0.875rem',
                             },
@@ -95,7 +97,7 @@ function SearchBar() {
                     }}
                 />
             )}
-            onChange={(newValue) => {
+            onChange={(event, newValue) => {
                 if (newValue && newValue.id) {
                     console.log('Selected game:', newValue)
                     navigate(`/game/${newValue.id}`)

@@ -1,6 +1,6 @@
-// src/components/Add/TagSelector.jsx
-// Version 1.8.8
-//
+// src/components/Add/TagSelector.tsx
+// Version 1.9.3
+// Changes: Updated to use new Chip variants from theme
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material'
@@ -24,7 +24,7 @@ const CATEGORY_ORDER = [
     'Kinks',
 ]
 
-const TAG_GROUPS = {
+const TAG_GROUPS: { [key: string]: number[][] } = {
     Rating: [[4]],
     Playtime: [[4]],
     Interactivity: [[4]],
@@ -43,9 +43,39 @@ const CATEGORY_TITLE_MARGIN_BOTTOM = 0
 const CATEGORY_TITLE_FONT_WEIGHT = '500'
 const SECTION_GAP = 0.5 // Gap between sections
 
-function DelayedTooltip({ title, children, placement = 'bottom' }) {
+interface Tag {
+    id: number;
+    attributes: {
+        Name: string;
+        Description: string;
+    };
+}
+
+interface Category {
+    id: number;
+    Name: string;
+    Description: string;
+    MinTags: number;
+    MaxTags: number;
+    AllowNewTags: boolean;
+    tags: Tag[];
+}
+
+interface TagSelectorProps {
+    selectedTags: number[];
+    onTagsChange: (tags: number[]) => void;
+    onLoad: () => void;
+}
+
+interface DelayedTooltipProps {
+    title: string;
+    children: React.ReactElement;
+    placement?: 'bottom' | 'bottom-start';
+}
+
+const DelayedTooltip: React.FC<DelayedTooltipProps> = ({ title, children, placement = 'bottom' }) => {
     const [isOpen, setIsOpen] = useState(false)
-    const [timer, setTimer] = useState(null)
+    const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
 
     const handleMouseEnter = () => {
         const newTimer = setTimeout(() => {
@@ -70,19 +100,19 @@ function DelayedTooltip({ title, children, placement = 'bottom' }) {
     )
 }
 
-function TagSelector({ selectedTags, onTagsChange, onLoad }) {
-    const [tagCategories, setTagCategories] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
+const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, onLoad }) => {
+    const [tagCategories, setTagCategories] = useState<Category[]>([])
+    const [loading, setLoading] = useState<boolean>(true)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         const fetchTagData = async () => {
             try {
                 const [tagsData, categoriesData] = await Promise.all([getTags(), getTagCategories()])
-                const categoriesWithTags = categoriesData.map((category) => ({
+                const categoriesWithTags = categoriesData.map((category: any) => ({
                     ...category.attributes,
                     id: category.id,
-                    tags: tagsData.filter((tag) => tag.attributes.tag_category.data?.id === category.id),
+                    tags: tagsData.filter((tag: any) => tag.attributes.tag_category.data?.id === category.id),
                 }))
                 setTagCategories(categoriesWithTags)
                 onLoad()
@@ -108,8 +138,10 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
         })
     }, [tagCategories])
 
-    const handleTagToggle = (tagId, categoryId) => {
+    const handleTagToggle = (tagId: number, categoryId: number) => {
         const category = tagCategories.find((cat) => cat.id === categoryId)
+        if (!category) return
+
         const categoryTags = selectedTags.filter((id) => category.tags.some((tag) => tag.id === id))
 
         if (selectedTags.includes(tagId)) {
@@ -121,11 +153,11 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
         }
     }
 
-    const handleAddTag = (categoryId, newTagName) => {
+    const handleAddTag = (categoryId: number, newTagName: string) => {
         console.log(`Add new tag "${newTagName}" to category ${categoryId}`)
     }
 
-    const renderTagGroups = (category, groupConfig) => {
+    const renderTagGroups = (category: Category, groupConfig: number[][] | undefined) => {
         if (!groupConfig || groupConfig.length === 0) {
             groupConfig = [[category.tags.length]] // Default to all tags in one row
         }
@@ -133,46 +165,49 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
         return groupConfig.map((row, rowIndex) => (
             <Box
                 key={rowIndex}
-                sx={{ display: 'flex', flexWrap: 'wrap', gap: GAP, mb: rowIndex < groupConfig.length - 1 ? GAP : 0 }}
+                sx={{ display: 'flex', flexWrap: 'wrap', gap: GAP, mb: rowIndex < groupConfig!.length - 1 ? GAP : 0 }}
             >
                 {row.map((groupSize, groupIndex) => {
                     const startIndex =
-                        groupConfig
+                        groupConfig!
                             .slice(0, rowIndex)
                             .flat()
                             .reduce((sum, size) => sum + size, 0) +
                         row.slice(0, groupIndex).reduce((sum, size) => sum + size, 0)
                     const groupTags = category.tags.slice(startIndex, startIndex + groupSize)
 
-                    return groupTags.map((tag) => (
-                        <DelayedTooltip key={tag.id} title={tag.attributes.Description || 'No description available'}>
-                            <Chip
-                                label={tag.attributes.Name}
-                                onClick={() => handleTagToggle(tag.id, category.id)}
-                                color={selectedTags.includes(tag.id) ? 'primary' : 'default'}
-                                size="small"
-                                sx={{
-                                    height: CHIP_HEIGHT,
-                                    borderRadius: CHIP_BORDER_RADIUS,
-                                    '& .MuiChip-label': {
-                                        fontSize: CHIP_FONT_SIZE,
-                                        padding: CHIP_PADDING,
-                                    },
-                                }}
-                                disabled={
-                                    !selectedTags.includes(tag.id) &&
-                                    selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id))
-                                        .length >= category.MaxTags
-                                }
-                            />
-                        </DelayedTooltip>
-                    ))
+                    return groupTags.map((tag) => {
+                        const isSelected = selectedTags.includes(tag.id)
+                        const isDisabled = !isSelected &&
+                            selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id))
+                                .length >= category.MaxTags
+
+                        return (
+                            <DelayedTooltip key={tag.id} title={tag.attributes.Description || 'No description available'}>
+                                <Chip
+                                    label={tag.attributes.Name}
+                                    onClick={() => handleTagToggle(tag.id, category.id)}
+                                    variant={isSelected ? 'selected' : isDisabled ? 'inactive' : undefined}
+                                    size="small"
+                                    sx={{
+                                        height: CHIP_HEIGHT,
+                                        borderRadius: CHIP_BORDER_RADIUS,
+                                        '& .MuiChip-label': {
+                                            fontSize: CHIP_FONT_SIZE,
+                                            padding: CHIP_PADDING,
+                                        },
+                                    }}
+                                    disabled={isDisabled}
+                                />
+                            </DelayedTooltip>
+                        )
+                    })
                 })}
             </Box>
         ))
     }
 
-    const isMinimumTagsSelected = (category) => {
+    const isMinimumTagsSelected = (category: Category) => {
         const selectedTagsInCategory = selectedTags.filter((id) => category.tags.some((tag) => tag.id === id)).length
         return selectedTagsInCategory >= category.MinTags
     }
@@ -217,10 +252,10 @@ function TagSelector({ selectedTags, onTagsChange, onLoad }) {
                             <TextField
                                 size="small"
                                 placeholder="Add a tag..."
-                                onKeyPress={(e) => {
+                                onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
                                     if (e.key === 'Enter') {
-                                        handleAddTag(category.id, e.target.value)
-                                        e.target.value = ''
+                                        handleAddTag(category.id, (e.target as HTMLInputElement).value)
+                                            ; (e.target as HTMLInputElement).value = ''
                                     }
                                 }}
                                 sx={{

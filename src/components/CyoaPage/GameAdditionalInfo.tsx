@@ -1,6 +1,6 @@
-// src/components/CyoaPage/GameAdditionalInfo.jsx
-// v1.8
-// Implemented local vote count for optimistic UI updates
+// src/components/CyoaPage/GameAdditionalInfo.tsx
+// v1.9
+// Converted to TypeScript
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material'
@@ -11,7 +11,15 @@ import authService from '../../services/authService'
 
 const LOGIN_TOOLTIP = 'Login to upvote'
 
-function GameAdditionalInfo({ gameId, upvotes: initialUpvotes, expanded, onExpand, onUpvoteChange }) {
+interface GameAdditionalInfoProps {
+    gameId: string;
+    upvotes: string[];
+    expanded: boolean;
+    onExpand: () => void;
+    onUpvoteChange?: () => void;
+}
+
+function GameAdditionalInfo({ gameId, upvotes: initialUpvotes, expanded, onExpand, onUpvoteChange }: GameAdditionalInfoProps) {
     const theme = useTheme()
     const [isUpvoted, setIsUpvoted] = useState(false)
     const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvotes?.length || 0)

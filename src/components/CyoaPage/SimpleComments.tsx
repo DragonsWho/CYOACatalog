@@ -1,18 +1,52 @@
-// src/components/CyoaPage/SimpleComments.jsx
-// v3.34
-// Changes: Updated button color and removed emoji
+// src/components/CyoaPage/SimpleComments.tsx
+// v3.36
+// Fixed TypeScript errors and improved type safety
 
 import React, { useState, useEffect } from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
+import { Box, Typography, useTheme, Theme } from '@mui/material'
 import { CommentSection } from 'react-comments-section'
 import 'react-comments-section/dist/index.css'
 import { fetchComments, postComment, editComment, deleteComment } from '../../services/api'
 import authService from '../../services/authService'
 
-const SimpleComments = ({ gameId }) => {
-    const [comments, setComments] = useState([])
-    const [user, setUser] = useState(null)
-    const theme = useTheme()
+interface SimpleCommentsProps {
+    gameId: string;
+}
+
+interface Comment {
+    id: number;
+    author?: {
+        id: number;
+        name: string;
+    };
+    content: string;
+    children?: Comment[];
+}
+
+interface FormattedComment {
+    userId: string;
+    comId: string;
+    fullName: string;
+    avatarUrl: string;
+    text: string;
+    replies: FormattedComment[];
+    parentId: string | null;
+}
+
+interface CustomTheme extends Theme {
+    custom?: {
+        comments?: {
+            backgroundColor?: string;
+            borderRadius?: string;
+            color?: string;
+        };
+    };
+}
+
+const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
+    const [comments, setComments] = useState<FormattedComment[]>([])
+    const [user, setUser] = useState<any>(null)
+    const theme = useTheme<CustomTheme>()
 
     useEffect(() => {
         loadComments()
@@ -30,9 +64,9 @@ const SimpleComments = ({ gameId }) => {
         }
     }
 
-    const formatComments = (commentsData) => {
-        const flattenComments = (comment, parentId = null, depth = 0) => {
-            const formattedComment = {
+    const formatComments = (commentsData: Comment[]): FormattedComment[] => {
+        const flattenComments = (comment: Comment, parentId: string | null = null, depth = 0): FormattedComment[] => {
+            const formattedComment: FormattedComment = {
                 userId: comment.author?.id?.toString() || 'anonymous',
                 comId: comment.id.toString(),
                 fullName: comment.author?.name || 'Anonymous',
@@ -70,16 +104,16 @@ const SimpleComments = ({ gameId }) => {
         return commentsData.flatMap((comment) => flattenComments(comment))
     }
 
-    const handleSubmitComment = async (data, parentCommentId = null) => {
+    const handleSubmitComment = async (data: { text: string; parentId?: string }) => {
         try {
-            await postComment(gameId, data.text, parentCommentId)
+            await postComment(gameId, data.text, data.parentId || null)
             await loadComments()
         } catch (error) {
             console.error('Error posting comment:', error)
         }
     }
 
-    const handleEditComment = async (data) => {
+    const handleEditComment = async (data: { comId: string; text: string }) => {
         try {
             await editComment(gameId, data.comId, data.text)
             await loadComments()
@@ -88,7 +122,7 @@ const SimpleComments = ({ gameId }) => {
         }
     }
 
-    const handleDeleteComment = async (data) => {
+    const handleDeleteComment = async (data: { comId: string }) => {
         try {
             await deleteComment(gameId, data.comId)
             await loadComments()
@@ -96,14 +130,17 @@ const SimpleComments = ({ gameId }) => {
             console.error('Error deleting comment:', error)
         }
     }
+    const inputStyle = {
+        color: '#dcdcdc', 
+    };
 
     return (
         <Box
             sx={{
                 mt: 4,
                 p: 2,
-                backgroundColor: theme.custom.comments.backgroundColor,
-                borderRadius: theme.custom.comments.borderRadius,
+                backgroundColor: theme.custom?.comments?.backgroundColor,
+                borderRadius: theme.custom?.comments?.borderRadius,
             }}
         >
             {user ? (
@@ -116,24 +153,25 @@ const SimpleComments = ({ gameId }) => {
                         currentUserFullName: user.user.username,
                     }}
                     commentData={comments}
-                    onSubmitAction={(data) => handleSubmitComment(data, data.parentId)}
-                    onReplyAction={(data) => handleSubmitComment(data, data.repliedToCommentId)}
+                    onSubmitAction={(data: { text: string; parentId?: string }) => handleSubmitComment(data)}
+                    onReplyAction={(data: { text: string; repliedToCommentId: string }) =>
+                        handleSubmitComment({ text: data.text, parentId: data.repliedToCommentId })}
                     onEditAction={handleEditComment}
                     onDeleteAction={handleDeleteComment}
                     hrStyle={{ border: 'none' }}
-                    currentData={(data) => console.log('Current data:', data)}
+                    currentData={(data: any) => console.log('Current data:', data)}
                     removeEmoji={true}
                     submitBtnStyle={{ border: '1px solid gray', backgroundColor: 'gray', color: 'black' }}
                     cancelBtnStyle={{ border: '1px solid gray', backgroundColor: 'gray', color: 'black' }}
                     titleStyle={{ color: 'gray' }}
-                    replyInputStyle={{ color: 'theme.palette.text.primary' }}
+                    replyInputStyle={{ color: theme.palette.text.primary }}
                     formStyle={{ backgroundColor: '#1e1e1e' }}
+                    inputStyle={inputStyle}
                 />
             ) : (
-                <Typography sx={{ color: theme.custom.comments.color }}>Please log in to post comments.</Typography>
+                <Typography sx={{ color: theme.custom?.comments?.color }}>Please log in to post comments.</Typography>
             )}
         </Box>
     )
 }
-
 export default SimpleComments

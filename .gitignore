@@ -30,3 +30,4 @@ dist-ssr
 *.vcxproj.filters
 nul
 /Scripts_for_AI
+.env 

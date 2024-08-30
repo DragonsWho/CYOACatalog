@@ -1,16 +1,44 @@
-﻿// src/components/CyoaPage/GameContent.jsx
-// v2.3
-// Added collapse button for expanded iframe
+// src/components/CyoaPage/GameContent.tsx
+// v2.6
+// Added sorting of CYOA pages by filename
 
 import React, { useState, useEffect } from 'react'
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://cyoa.cafe'
+const API_URL = process.env.REACT_APP_API_URL || 'https://api.cyoa.cafe'
 
-const GameContent = ({ attributes, expanded, onExpand }) => {
+interface GameAttributes {
+    img_or_link: 'img' | 'link';
+    CYOA_pages?: {
+        data: Array<{
+            id: number;
+            attributes: {
+                url: string;
+                name: string; // Add this line to include the filename
+            };
+        }>;
+    };
+    iframe_url?: string;
+}
+
+interface GameContentProps {
+    attributes: GameAttributes;
+    expanded: boolean;
+    onExpand: (expanded: boolean) => void;
+}
+
+interface ImageSizes {
+    [key: number]: {
+        width: number;
+        height: number;
+    };
+}
+
+const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpand }) => {
     const [loadingImages, setLoadingImages] = useState(attributes.CYOA_pages?.data?.length || 0)
-    const [imageErrors, setImageErrors] = useState({})
-    const [imageSizes, setImageSizes] = useState({})
-    const [iframeStyle, setIframeStyle] = useState({})
+    const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
+    const [imageSizes, setImageSizes] = useState<ImageSizes>({})
+    const [iframeStyle, setIframeStyle] = useState<React.CSSProperties>({})
+    const [sortedImages, setSortedImages] = useState(attributes.CYOA_pages?.data || [])
 
     useEffect(() => {
         if (attributes.img_or_link === 'link') {
@@ -33,25 +61,33 @@ const GameContent = ({ attributes, expanded, onExpand }) => {
                 })
             }
         }
-    }, [expanded, attributes.img_or_link])
 
-    const handleImageLoad = (id, event) => {
+        // Sort images by filename
+        if (attributes.CYOA_pages?.data) {
+            const sorted = [...attributes.CYOA_pages.data].sort((a, b) =>
+                a.attributes.name.localeCompare(b.attributes.name, undefined, { numeric: true, sensitivity: 'base' })
+            );
+            setSortedImages(sorted);
+        }
+    }, [expanded, attributes.img_or_link, attributes.CYOA_pages?.data])
+
+    const handleImageLoad = (id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) => {
         setLoadingImages((prev) => prev - 1)
         setImageSizes((prev) => ({
             ...prev,
             [id]: {
-                width: event.target.naturalWidth,
-                height: event.target.naturalHeight,
+                width: (event.target as HTMLImageElement).naturalWidth,
+                height: (event.target as HTMLImageElement).naturalHeight,
             },
         }))
     }
 
-    const handleImageError = (id) => {
+    const handleImageError = (id: number) => {
         setImageErrors((prev) => ({ ...prev, [id]: true }))
         setLoadingImages((prev) => prev - 1)
     }
 
-    const collapseButtonStyle = {
+    const collapseButtonStyle: React.CSSProperties = {
         position: 'fixed',
         bottom: '20px',
         right: '20px',
@@ -66,7 +102,7 @@ const GameContent = ({ attributes, expanded, onExpand }) => {
 
     return (
         <div style={{ backgroundColor: '#121212' }}>
-            {attributes.img_or_link === 'img' && attributes.CYOA_pages?.data ? (
+            {attributes.img_or_link === 'img' && sortedImages.length > 0 ? (
                 <div>
                     <div
                         style={{
@@ -78,7 +114,7 @@ const GameContent = ({ attributes, expanded, onExpand }) => {
                         }}
                     >
                         {loadingImages > 0 && <div>Loading...</div>}
-                        {attributes.CYOA_pages.data.map((image, index) => (
+                        {sortedImages.map((image, index) => (
                             <div
                                 key={image.id}
                                 style={{
@@ -98,8 +134,8 @@ const GameContent = ({ attributes, expanded, onExpand }) => {
                                             width: expanded
                                                 ? 'auto'
                                                 : imageSizes[image.id]?.width > window.innerWidth
-                                                ? '100%'
-                                                : 'auto',
+                                                    ? '100%'
+                                                    : 'auto',
                                             height: 'auto',
                                             display: loadingImages > 0 ? 'none' : 'block',
                                             transition: 'all 0.3s ease',

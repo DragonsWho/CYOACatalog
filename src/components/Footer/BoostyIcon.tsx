@@ -1,11 +1,11 @@
-// src/components/Footer/BoostyIcon.jsx
-// Version: 1.2.0
-// Description: Updated Boosty icon component with official logo and fixed colors
+// src/components/Footer/BoostyIcon.tsx
+// Version: 1.3.0
+// Description: Updated Boosty icon component with official logo and fixed colors, converted to TypeScript
 
 import React from 'react'
-import SvgIcon from '@mui/material/SvgIcon'
+import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon'
 
-const BoostyIcon = (props) => (
+const BoostyIcon: React.FC<SvgIconProps> = (props) => (
     <SvgIcon {...props} viewBox="0 0 715.8 317.4">
         <path
             fill="#FFFFFF"

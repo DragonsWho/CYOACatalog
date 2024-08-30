@@ -1,6 +1,6 @@
-// src/components/Add/ImageCompressor.jsx
-// v2.2
-// Changes: Centered crop button, used theme color, fixed crop area sizing
+// src/components/Add/ImageCompressor.tsx
+// v2.4
+// Fixed TypeScript errors and improved type definitions
 
 import React, { useCallback, useState, useRef, useEffect } from 'react'
 import { Button, Typography, Box, CircularProgress, Alert } from '@mui/material'
@@ -9,18 +9,34 @@ import { useTheme } from '@mui/material/styles'
 const aspectRatio = 3 / 4
 const maxWidth = 600 // Maximum width for initial resize
 
-const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', quality = 0.8 }) => {
+interface ImageCompressorProps {
+    onImageChange: (file: File | null) => void;
+    buttonText?: string;
+    quality?: number;
+}
+
+interface FileInfo {
+    originalSize: number;
+    compressedSize?: number;
+}
+
+interface CanvasSize {
+    width: number;
+    height: number;
+}
+
+const ImageCompressor: React.FC<ImageCompressorProps> = ({ onImageChange, buttonText = 'Upload Image', quality = 0.8 }) => {
     const theme = useTheme()
-    const [isCompressing, setIsCompressing] = useState(false)
-    const [error, setError] = useState(null)
-    const [preview, setPreview] = useState(null)
-    const [fileInfo, setFileInfo] = useState(null)
-    const [image, setImage] = useState(null)
-    const [crop, setCrop] = useState({ y: 0 })
-    const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
-    const canvasRef = useRef(null)
-    const imageRef = useRef(null)
-    const cropAreaRef = useRef(null)
+    const [isCompressing, setIsCompressing] = useState<boolean>(false)
+    const [error, setError] = useState<string | null>(null)
+    const [preview, setPreview] = useState<string | null>(null)
+    const [fileInfo, setFileInfo] = useState<FileInfo | null>(null)
+    const [image, setImage] = useState<string | null>(null)
+    const [crop, setCrop] = useState<{ y: number }>({ y: 0 })
+    const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 0, height: 0 })
+    const canvasRef = useRef<HTMLCanvasElement | null>(null)
+    const imageRef = useRef<HTMLImageElement | null>(null)
+    const cropAreaRef = useRef<HTMLDivElement | null>(null)
 
     useEffect(() => {
         if (image && canvasRef.current) {
@@ -37,7 +53,7 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', quality =
                 canvas.width = width
                 canvas.height = height
                 setCanvasSize({ width, height })
-                ctx.drawImage(img, 0, 0, width, height)
+                ctx?.drawImage(img, 0, 0, width, height)
                 imageRef.current = img
                 setCrop({ y: 0 })
             }
@@ -45,15 +61,15 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', quality =
         }
     }, [image])
 
-    const handleImageChange = useCallback(async (event) => {
-        const file = event.target.files[0]
+    const handleImageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
         if (file) {
             setIsCompressing(true)
             setError(null)
             try {
                 const reader = new FileReader()
                 reader.onload = (e) => {
-                    setImage(e.target.result)
+                    setImage(e.target?.result as string)
                     setFileInfo({
                         originalSize: file.size,
                     })
@@ -77,7 +93,7 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', quality =
             canvas.height = cropHeight
             const ctx = canvas.getContext('2d')
 
-            ctx.drawImage(canvasRef.current, 0, crop.y, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height)
+            ctx?.drawImage(canvasRef.current, 0, crop.y, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height)
 
             canvas.toBlob(
                 (blob) => {
@@ -87,7 +103,7 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', quality =
                         setFileInfo((prevState) => ({
                             ...prevState,
                             compressedSize: blob.size,
-                        }))
+                        } as FileInfo))
                         const compressedFile = new File([blob], 'cropped_image.jpg', { type: 'image/jpeg' })
                         onImageChange(compressedFile)
                     }
@@ -99,12 +115,12 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', quality =
     }, [crop, quality, onImageChange, canvasSize])
 
     const handleMouseDown = useCallback(
-        (e) => {
+        (e: React.MouseEvent<HTMLDivElement>) => {
             const startY = e.clientY
             const startTop = crop.y
             const maxY = canvasSize.height - canvasSize.width / aspectRatio
 
-            const handleMouseMove = (moveEvent) => {
+            const handleMouseMove = (moveEvent: MouseEvent) => {
                 const deltaY = moveEvent.clientY - startY
                 setCrop(() => ({
                     y: Math.max(0, Math.min(startTop + deltaY, maxY)),
@@ -159,9 +175,9 @@ const ImageCompressor = ({ onImageChange, buttonText = 'Upload Image', quality =
                         onClick={handleCrop}
                         sx={{
                             position: 'absolute',
-                            top: crop.y - 40, // Positioned above the crop area
+                            top: crop.y - 40,
                             left: '50%',
-                            transform: 'translateX(-50%)', // Center the button
+                            transform: 'translateX(-50%)',
                             zIndex: 1,
                             backgroundColor: theme.palette.primary.main,
                             color: theme.palette.primary.contrastText,

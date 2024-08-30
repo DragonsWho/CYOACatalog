@@ -1,8 +1,8 @@
-// src/components/Add/CreateGame.jsx
-// Version 1.9.1
-// Updated to..
+// src/components/Add/CreateGame.tsx
+// Version 2.2.0
+// Updated to handle sequential image uploads
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react'
 import {
     TextField,
     Button,
@@ -14,6 +14,7 @@ import {
     InputLabel,
     FormControl,
     Alert,
+    SelectChangeEvent,
 } from '@mui/material'
 import { createGame, getAuthors, getTagCategories } from '../../services/api'
 import { useNavigate } from 'react-router-dom'
@@ -22,24 +23,37 @@ import TagSelector from './TagSelector'
 import CyoaImageUploader from './CyoaImageUploader'
 import ImageCompressor from './ImageCompressor'
 
-/**
- * CreateGame component for creating a new game entry
- * @returns {JSX.Element} The CreateGame form
- */
-function CreateGame() {
-    const [title, setTitle] = useState('')
-    const [description, setDescription] = useState('')
-    const [cardImage, setCardImage] = useState(null)
-    const [cyoaImages, setCyoaImages] = useState([])
-    const [imgOrLink, setImgOrLink] = useState('img')
-    const [iframeUrl, setIframeUrl] = useState('')
-    const [authors, setAuthors] = useState([])
-    const [availableAuthors, setAvailableAuthors] = useState([])
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
-    const [selectedTags, setSelectedTags] = useState([])
-    const [tagCategories, setTagCategories] = useState([])
-    const [initialDataLoading, setInitialDataLoading] = useState(true)
+interface Author {
+    id: number
+    name: string
+}
+
+interface TagCategory {
+    id: number
+    attributes: {
+        Name: string
+        MinTags: number
+        tags: {
+            data: Array<{ id: number }>
+        }
+    }
+}
+
+function CreateGame(): JSX.Element {
+    const [title, setTitle] = useState<string>('')
+    const [description, setDescription] = useState<string>('')
+    const [cardImage, setCardImage] = useState<File | null>(null)
+    const [cyoaImages, setCyoaImages] = useState<File[]>([])
+    const [imgOrLink, setImgOrLink] = useState<'img' | 'link'>('img')
+    const [iframeUrl, setIframeUrl] = useState<string>('')
+    const [authors, setAuthors] = useState<Author[]>([])
+    const [availableAuthors, setAvailableAuthors] = useState<Author[]>([])
+    const [loading, setLoading] = useState<boolean>(false)
+    const [error, setError] = useState<string | null>(null)
+    const [selectedTags, setSelectedTags] = useState<number[]>([])
+    const [tagsLoaded, setTagsLoaded] = useState<boolean>(false)
+    const [tagCategories, setTagCategories] = useState<TagCategory[]>([])
+    const [initialDataLoading, setInitialDataLoading] = useState<boolean>(true)
 
     const navigate = useNavigate()
 
@@ -47,7 +61,7 @@ function CreateGame() {
         const fetchInitialData = async () => {
             try {
                 const [authorsData, categoriesData] = await Promise.all([getAuthors(), getTagCategories()])
-                setAvailableAuthors(authorsData.map((author) => ({ id: author.id, name: author.attributes.Name })))
+                setAvailableAuthors(authorsData.map((author: any) => ({ id: author.id, name: author.attributes.Name })))
                 setTagCategories(categoriesData)
             } catch (error) {
                 console.error('Error fetching initial data:', error)
@@ -60,20 +74,16 @@ function CreateGame() {
         fetchInitialData()
     }, [])
 
-    const handleCardImageChange = (compressedImage) => {
+    const handleCardImageChange = (compressedImage: File) => {
         setCardImage(compressedImage)
     }
 
-    const handleCyoaImagesChange = (newImages) => {
+    const handleCyoaImagesChange = (newImages: File[]) => {
         setCyoaImages(newImages)
     }
 
-    /**
-     * Validates the selected tags against the minimum required for each category
-     * @returns {string[]} Array of error messages, empty if no errors
-     */
-    const validateTags = () => {
-        const errors = []
+    const validateTags = (): string[] => {
+        const errors: string[] = []
         tagCategories.forEach((category) => {
             const categoryTags = selectedTags.filter((tagId) =>
                 category.attributes.tags.data.some((tag) => tag.id === tagId),
@@ -85,7 +95,51 @@ function CreateGame() {
         return errors
     }
 
-    const handleSubmit = async (e) => {
+    const processImage = async (file: File): Promise<File> => {
+        if (file.size <= 10 * 1024 * 1024) {
+            return file
+        }
+
+        return new Promise((resolve, reject) => {
+            const img = new Image()
+            img.onload = () => {
+                const canvas = document.createElement('canvas')
+                canvas.width = img.width
+                canvas.height = img.height
+
+                const ctx = canvas.getContext('2d')
+                ctx?.drawImage(img, 0, 0)
+
+                const process = (quality: number) => {
+                    canvas.toBlob(
+                        (blob) => {
+                            if (blob) {
+                                if (blob.size <= 10 * 1024 * 1024 || quality <= 0.7) {
+                                    const processedFile = new File([blob], file.name, {
+                                        type: file.type,
+                                        lastModified: Date.now(),
+                                    })
+                                    resolve(processedFile)
+                                } else {
+                                    process(quality - 0.05)
+                                }
+                            } else {
+                                reject(new Error('Canvas to Blob conversion failed'))
+                            }
+                        },
+                        file.type,
+                        quality,
+                    )
+                }
+
+                process(1)
+            }
+            img.onerror = (error) => reject(error)
+            img.src = URL.createObjectURL(file)
+        })
+    }
+
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         setLoading(true)
         setError(null)
@@ -156,16 +210,20 @@ function CreateGame() {
 
             // Append CYOA page images if "img" is selected
             if (imgOrLink === 'img') {
-                cyoaImages.forEach((image) => {
-                    formData.append('files.CYOA_pages', image)
-                })
+                for (let i = 0; i < cyoaImages.length; i++) {
+                    const processedImage = await processImage(cyoaImages[i])
+                    formData.append(`files.CYOA_pages`, processedImage, `CYOA_page_${i + 1}`)
+
+                    // Add a delay of 500ms between each image upload
+                    await new Promise((resolve) => setTimeout(resolve, 500))
+                }
             }
 
             console.log('Submitting game data:', Object.fromEntries(formData))
             const result = await createGame(formData)
             console.log('Created game:', result)
             navigate('/')
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creating game:', error)
             if (error.response) {
                 console.error('Error response:', error.response.data)
@@ -191,7 +249,7 @@ function CreateGame() {
                 fullWidth
                 label="Title"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
                 margin="normal"
                 required
             />
@@ -199,7 +257,7 @@ function CreateGame() {
                 fullWidth
                 label="Description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)}
                 margin="normal"
                 required
                 multiline
@@ -210,7 +268,7 @@ function CreateGame() {
                 <Select
                     labelId="img-or-link-label"
                     value={imgOrLink}
-                    onChange={(e) => setImgOrLink(e.target.value)}
+                    onChange={(e: SelectChangeEvent<'img' | 'link'>) => setImgOrLink(e.target.value as 'img' | 'link')}
                     label="Image or Link"
                 >
                     <MenuItem value="img">Image</MenuItem>
@@ -222,7 +280,7 @@ function CreateGame() {
                     fullWidth
                     label="iframe URL"
                     value={iframeUrl}
-                    onChange={(e) => setIframeUrl(e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setIframeUrl(e.target.value)}
                     margin="normal"
                     required
                 />
@@ -251,7 +309,7 @@ function CreateGame() {
             </Box>
             {imgOrLink === 'img' && (
                 <Box sx={{ mt: 2 }}>
-                    <CyoaImageUploader onImagesChange={handleCyoaImagesChange} />
+                    <CyoaImageUploader onImagesChange={handleCyoaImagesChange} getImages={() => cyoaImages} />
                 </Box>
             )}
             <Button type="submit" variant="contained" color="primary" sx={{ mt: 3 }} disabled={loading}>

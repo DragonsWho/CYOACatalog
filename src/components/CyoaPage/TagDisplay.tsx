@@ -1,6 +1,6 @@
-// src/components/CyoaPage/TagDisplay.jsx
-// v2.1
-// Updated to display category name and tags on the same line
+// src/components/CyoaPage/TagDisplay.tsx
+// v2.2
+// Converted to TypeScript
 
 import React from 'react'
 import { Box, Chip, Typography } from '@mui/material'
@@ -32,7 +32,29 @@ const GAP = 0.75 // Gap between chips
 const CATEGORY_FONT_WEIGHT = '500'
 const SECTION_GAP = 0.5 // Gap between sections
 
-const TagDisplay = ({ tags, chipProps = {} }) => {
+interface Tag {
+    id: number;
+    attributes: {
+        Name: string;
+        tag_category: {
+            data: {
+                attributes: {
+                    Name: string;
+                };
+            };
+        };
+    };
+}
+
+interface TagDisplayProps {
+    tags: Tag[];
+    chipProps?: {
+        size?: 'small' | 'medium';
+        sx?: React.CSSProperties;
+    };
+}
+
+const TagDisplay: React.FC<TagDisplayProps> = ({ tags, chipProps = {} }) => {
     const theme = useTheme()
 
     if (!tags || tags.length === 0) {
@@ -40,7 +62,7 @@ const TagDisplay = ({ tags, chipProps = {} }) => {
     }
 
     // Group tags by their category
-    const groupedTags = tags.reduce((acc, tag) => {
+    const groupedTags = tags.reduce < Record < string, Tag[]>> ((acc, tag) => {
         if (!tag || !tag.attributes) return acc
 
         const categoryData = tag.attributes.tag_category && tag.attributes.tag_category.data
@@ -75,7 +97,7 @@ const TagDisplay = ({ tags, chipProps = {} }) => {
                             alignItems: 'center',
                             mr: 1,
                             minWidth: 'max-content',
-                            color: theme.palette.text.primary, // ��������� ���� ������ �� ����
+                            color: theme.palette.text.primary,
                         }}
                     >
                         {category}:

@@ -1,10 +1,10 @@
-// src/theme.js
-// v1.6
-// Changes: Updated comment section styles, adjusted button color
+// src/theme.ts
+// v1.8
+// Changes: Added variants for Chip component states
 
-import { createTheme } from '@mui/material/styles';
+import { createTheme, ThemeOptions } from '@mui/material/styles';
 
-const theme = createTheme({
+const themeOptions: ThemeOptions = {
     palette: {
         mode: 'dark',
         primary: {
@@ -23,7 +23,6 @@ const theme = createTheme({
         },
     },
     components: {
-
         MuiTextField: {
             styleOverrides: {
                 root: {
@@ -40,7 +39,7 @@ const theme = createTheme({
                     },
                 },
             },
-        }, 
+        },
         MuiAppBar: {
             styleOverrides: {
                 root: {
@@ -84,8 +83,41 @@ const theme = createTheme({
                     '&:hover': {
                         backgroundColor: 'rgba(255, 255, 255, 0.2)',
                     },
+                    '&.MuiChip-colorPrimary': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        color: '#fc3447',
+                        '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        },
+                    },
+                    '&.Mui-disabled': {
+                        opacity: 0.5,
+                        color: 'rgba(255, 255, 255, 0.5)',
+                    },
                 },
             },
+            variants: [
+                {
+                    props: { variant: 'selected' },
+                    style: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        color: '#fc3447',
+                        '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        },
+                    },
+                },
+                {
+                    props: { variant: 'inactive' },
+                    style: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        },
+                    },
+                },
+            ],
         },
     },
     custom: {
@@ -113,6 +145,8 @@ const theme = createTheme({
             counterColor: '#a0a0a0',
         },
     },
-});
+};
+
+const theme = createTheme(themeOptions);
 
 export default theme;

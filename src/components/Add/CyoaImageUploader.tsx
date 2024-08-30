@@ -1,5 +1,6 @@
-// src/components/Add/CyoaImageUploader.jsx
-// Version 1.1.0
+// src/components/Add/CyoaImageUploader.tsx
+// Version 1.4.0
+// Changes: Removed immediate image processing, added function to get images for upload
 
 import React, { useState, useCallback } from 'react'
 import {
@@ -15,81 +16,40 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 
-const CyoaImageUploader = ({ onImagesChange }) => {
-    const [images, setImages] = useState([])
+interface CyoaImageUploaderProps {
+    onImagesChange: (files: File[]) => void;
+    getImages: () => File[];
+}
 
-    const processImage = useCallback(async (file) => {
-        //
-        if (file.size <= 10 * 1024 * 1024) {
-            return file
-        }
+interface ImageItem {
+    file: File;
+    preview: string;
+}
 
-        return new Promise((resolve, reject) => {
-            const img = new Image()
-            img.onload = () => {
-                const canvas = document.createElement('canvas')
-                canvas.width = img.width
-                canvas.height = img.height
+const CyoaImageUploader: React.FC<CyoaImageUploaderProps> = ({ onImagesChange, getImages }) => {
+    const [images, setImages] = useState<ImageItem[]>([])
 
-                const ctx = canvas.getContext('2d')
-                ctx.drawImage(img, 0, 0)
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(event.target.files || [])
+        const newImages = files.map(file => ({
+            file,
+            preview: URL.createObjectURL(file),
+        }))
 
-                const process = (quality) => {
-                    canvas.toBlob(
-                        (blob) => {
-                            if (blob) {
-                                if (blob.size <= 10 * 1024 * 1024 || quality <= 0.7) {
-                                    const processedFile = new File([blob], file.name, {
-                                        type: file.type,
-                                        lastModified: Date.now(),
-                                    })
-                                    resolve(processedFile)
-                                } else {
-                                    process(quality - 0.05)
-                                }
-                            } else {
-                                reject(new Error('Canvas to Blob conversion failed'))
-                            }
-                        },
-                        file.type,
-                        quality,
-                    )
-                }
-
-                process(1) //
-            }
-            img.onerror = (error) => reject(error)
-            img.src = URL.createObjectURL(file)
-        })
-    }, [])
-
-    const handleFileChange = async (event) => {
-        const files = Array.from(event.target.files)
-        const processedImages = await Promise.all(
-            files.map(async (file) => {
-                console.log(`Original file size: ${file.size} bytes`)
-                const processedFile = await processImage(file)
-                console.log(`Processed file size: ${processedFile.size} bytes`)
-                return {
-                    file: processedFile,
-                    preview: URL.createObjectURL(processedFile),
-                }
-            }),
-        )
-        setImages((prevImages) => [...prevImages, ...processedImages])
-        onImagesChange([...images, ...processedImages].map((img) => img.file))
+        setImages(prevImages => [...prevImages, ...newImages])
+        onImagesChange([...images, ...newImages].map(img => img.file))
     }
 
-    const handleDragStart = (e, index) => {
-        e.dataTransfer.setData('text/plain', index)
+    const handleDragStart = (e: React.DragEvent<HTMLLIElement>, index: number) => {
+        e.dataTransfer.setData('text/plain', index.toString())
     }
 
-    const handleDragOver = (e) => {
+    const handleDragOver = (e: React.DragEvent<HTMLLIElement>) => {
         e.preventDefault()
     }
 
     const handleDrop = useCallback(
-        (e, dropIndex) => {
+        (e: React.DragEvent<HTMLLIElement>, dropIndex: number) => {
             e.preventDefault()
             const dragIndex = Number(e.dataTransfer.getData('text/plain'))
             const newImages = [...images]
@@ -102,7 +62,7 @@ const CyoaImageUploader = ({ onImagesChange }) => {
     )
 
     const removeImage = useCallback(
-        (index) => {
+        (index: number) => {
             const newImages = images.filter((_, i) => i !== index)
             setImages(newImages)
             onImagesChange(newImages.map((img) => img.file))

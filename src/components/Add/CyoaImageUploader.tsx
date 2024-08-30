@@ -17,27 +17,26 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 
 interface CyoaImageUploaderProps {
-    onImagesChange: (files: File[]) => void;
-    getImages: () => File[];
+    onImagesChange: (files: File[]) => void
 }
 
 interface ImageItem {
-    file: File;
-    preview: string;
+    file: File
+    preview: string
 }
 
-const CyoaImageUploader: React.FC<CyoaImageUploaderProps> = ({ onImagesChange, getImages }) => {
+const CyoaImageUploader: React.FC<CyoaImageUploaderProps> = ({ onImagesChange }) => {
     const [images, setImages] = useState<ImageItem[]>([])
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(event.target.files || [])
-        const newImages = files.map(file => ({
+        const newImages = files.map((file) => ({
             file,
             preview: URL.createObjectURL(file),
         }))
 
-        setImages(prevImages => [...prevImages, ...newImages])
-        onImagesChange([...images, ...newImages].map(img => img.file))
+        setImages((prevImages) => [...prevImages, ...newImages])
+        onImagesChange([...images, ...newImages].map((img) => img.file))
     }
 
     const handleDragStart = (e: React.DragEvent<HTMLLIElement>, index: number) => {

@@ -25,7 +25,6 @@ const GameList: React.FC = () => {
     const [error, setError] = useState<string | null>(null)
     const [page, setPage] = useState(1)
     const [hasMore, setHasMore] = useState(true)
-    const [totalCount, setTotalCount] = useState(0)
     const [tagCategories, setTagCategories] = useState<TagCategory[]>([])
 
     const observer = useRef<IntersectionObserver | null>(null)

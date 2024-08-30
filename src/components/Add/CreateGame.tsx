@@ -51,7 +51,6 @@ function CreateGame(): JSX.Element {
     const [loading, setLoading] = useState<boolean>(false)
     const [error, setError] = useState<string | null>(null)
     const [selectedTags, setSelectedTags] = useState<number[]>([])
-    const [tagsLoaded, setTagsLoaded] = useState<boolean>(false)
     const [tagCategories, setTagCategories] = useState<TagCategory[]>([])
     const [initialDataLoading, setInitialDataLoading] = useState<boolean>(true)
 
@@ -212,7 +211,7 @@ function CreateGame(): JSX.Element {
             if (imgOrLink === 'img') {
                 for (let i = 0; i < cyoaImages.length; i++) {
                     const processedImage = await processImage(cyoaImages[i])
-                    formData.append(`files.CYOA_pages`, processedImage, `CYOA_page_${i + 1}`)
+                    formData.append('files.CYOA_pages', processedImage, `CYOA_page_${i + 1}`)
 
                     // Add a delay of 500ms between each image upload
                     await new Promise((resolve) => setTimeout(resolve, 500))

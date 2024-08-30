@@ -10,37 +10,37 @@ import { fetchComments, postComment, editComment, deleteComment } from '../../se
 import authService from '../../services/authService'
 
 interface SimpleCommentsProps {
-    gameId: string;
+    gameId: string
 }
 
 interface Comment {
-    id: number;
+    id: number
     author?: {
-        id: number;
-        name: string;
-    };
-    content: string;
-    children?: Comment[];
+        id: number
+        name: string
+    }
+    content: string
+    children?: Comment[]
 }
 
 interface FormattedComment {
-    userId: string;
-    comId: string;
-    fullName: string;
-    avatarUrl: string;
-    text: string;
-    replies: FormattedComment[];
-    parentId: string | null;
+    userId: string
+    comId: string
+    fullName: string
+    avatarUrl: string
+    text: string
+    replies: FormattedComment[]
+    parentId: string | null
 }
 
 interface CustomTheme extends Theme {
     custom?: {
         comments?: {
-            backgroundColor?: string;
-            borderRadius?: string;
-            color?: string;
-        };
-    };
+            backgroundColor?: string
+            borderRadius?: string
+            color?: string
+        }
+    }
 }
 
 const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
@@ -78,7 +78,7 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
                 parentId: parentId,
             }
 
-            let result = [formattedComment]
+            const result = [formattedComment]
 
             if (comment.children && comment.children.length > 0) {
                 comment.children.forEach((childComment) => {
@@ -131,8 +131,8 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
         }
     }
     const inputStyle = {
-        color: '#dcdcdc', 
-    };
+        color: '#dcdcdc',
+    }
 
     return (
         <Box
@@ -155,7 +155,8 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
                     commentData={comments}
                     onSubmitAction={(data: { text: string; parentId?: string }) => handleSubmitComment(data)}
                     onReplyAction={(data: { text: string; repliedToCommentId: string }) =>
-                        handleSubmitComment({ text: data.text, parentId: data.repliedToCommentId })}
+                        handleSubmitComment({ text: data.text, parentId: data.repliedToCommentId })
+                    }
                     onEditAction={handleEditComment}
                     onDeleteAction={handleDeleteComment}
                     hrStyle={{ border: 'none' }}

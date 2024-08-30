@@ -5,7 +5,6 @@ import pluginReact from 'eslint-plugin-react';
 
 export default [
   {files: ['**/*.{js,mjs,cjs,jsx}']},
-  {languageOptions: { globals: globals.browser }},
   pluginJs.configs.recommended,
   pluginReact.configs.flat.recommended,
   {
@@ -15,7 +14,11 @@ export default [
         ...globals.node,
       },
     },
-    
+    settings: {
+      react: {
+        version: 'detect', // Automatically detect the React version
+      },
+    },
     rules: {
       'quotes': [
       2,

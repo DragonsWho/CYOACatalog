@@ -10,7 +10,7 @@ import { fetchGames, getTagCategories } from '../services/api'
 const ITEMS_PER_PAGE = 25 // 5 cards per row, 5 rows
 
 interface Game {
-    id: string;
+    id: string
     // Add other game properties here
 }
 
@@ -25,7 +25,6 @@ const GameList: React.FC = () => {
     const [error, setError] = useState<string | null>(null)
     const [page, setPage] = useState(1)
     const [hasMore, setHasMore] = useState(true)
-    const [totalCount, setTotalCount] = useState(0)
     const [tagCategories, setTagCategories] = useState<TagCategory[]>([])
 
     const observer = useRef<IntersectionObserver | null>(null)
@@ -71,7 +70,6 @@ const GameList: React.FC = () => {
                     return [...prevGames, ...newGames]
                 })
 
-                setTotalCount(fetchedTotalCount)
                 setHasMore(games.length + fetchedGames.length < fetchedTotalCount)
             } catch (error) {
                 console.error('Error fetching games:', error)

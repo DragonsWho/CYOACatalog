@@ -1,14 +1,26 @@
 import globals from 'globals';
 import pluginJs from '@eslint/js';
+import tseslint from 'typescript-eslint';
 import pluginReact from 'eslint-plugin-react';
 
 
 export default [
-  {files: ['**/*.{js,mjs,cjs,jsx}']},
-  {languageOptions: { globals: globals.browser }},
+  {files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}']},
   pluginJs.configs.recommended,
+  ...tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
   {
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+    settings: {
+      react: {
+        version: 'detect', // Automatically detect the React version
+      },
+    },
     rules: {
       'quotes': [
       2,
@@ -18,6 +30,11 @@ export default [
       }
     ],
       'react/prop-types': 0,
+    },
+    'settings': { 
+      'react': {
+        'version': 'detect'
+      },
     },
   },
 ];

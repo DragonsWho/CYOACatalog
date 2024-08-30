@@ -30,7 +30,7 @@ const DiscordCallback = ({ onLoginSuccess }) => {
                     const userData = await authService.handleDiscordCallback(token)
                     onLoginSuccess(userData)
                     navigate('/')
-                } catch (error) {
+                } catch {
                     setError('Failed to authenticate')
                 }
             } else {

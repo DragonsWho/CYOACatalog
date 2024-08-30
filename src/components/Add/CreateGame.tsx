@@ -24,19 +24,19 @@ import CyoaImageUploader from './CyoaImageUploader'
 import ImageCompressor from './ImageCompressor'
 
 interface Author {
-    id: number;
-    name: string;
+    id: number
+    name: string
 }
 
 interface TagCategory {
-    id: number;
+    id: number
     attributes: {
-        Name: string;
-        MinTags: number;
+        Name: string
+        MinTags: number
         tags: {
-            data: Array<{ id: number }>;
-        };
-    };
+            data: Array<{ id: number }>
+        }
+    }
 }
 
 function CreateGame(): JSX.Element {
@@ -51,7 +51,6 @@ function CreateGame(): JSX.Element {
     const [loading, setLoading] = useState<boolean>(false)
     const [error, setError] = useState<string | null>(null)
     const [selectedTags, setSelectedTags] = useState<number[]>([])
-    const [tagsLoaded, setTagsLoaded] = useState<boolean>(false)
     const [tagCategories, setTagCategories] = useState<TagCategory[]>([])
     const [initialDataLoading, setInitialDataLoading] = useState<boolean>(true)
 
@@ -212,10 +211,10 @@ function CreateGame(): JSX.Element {
             if (imgOrLink === 'img') {
                 for (let i = 0; i < cyoaImages.length; i++) {
                     const processedImage = await processImage(cyoaImages[i])
-                    formData.append(`files.CYOA_pages`, processedImage, `CYOA_page_${i + 1}`)
-                    
+                    formData.append('files.CYOA_pages', processedImage, `CYOA_page_${i + 1}`)
+
                     // Add a delay of 500ms between each image upload
-                    await new Promise(resolve => setTimeout(resolve, 500))
+                    await new Promise((resolve) => setTimeout(resolve, 500))
                 }
             }
 
@@ -291,12 +290,7 @@ function CreateGame(): JSX.Element {
 
             <Box sx={{ mt: 2 }}>
                 <Typography variant="h6">Select Tags</Typography>
-                <TagSelector
-                    selectedTags={selectedTags}
-                    onTagsChange={setSelectedTags}
-                    onLoad={() => setTagsLoaded(true)}
-                    tagCategories={tagCategories}
-                />
+                <TagSelector selectedTags={selectedTags} onTagsChange={setSelectedTags} tagCategories={tagCategories} />
             </Box>
 
             <Box sx={{ mt: 2 }}>

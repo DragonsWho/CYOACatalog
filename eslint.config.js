@@ -16,7 +16,11 @@ export default [
         ...globals.node,
       },
     },
-    
+    settings: {
+      react: {
+        version: 'detect', // Automatically detect the React version
+      },
+    },
     rules: {
       'quotes': [
       2,

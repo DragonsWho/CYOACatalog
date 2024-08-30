@@ -1,5 +1,5 @@
 // src/components/Add/CreateGame.tsx
-// Version 2.1.0
+// Version 2.2.0
 // Updated to handle sequential image uploads
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react'
@@ -212,8 +212,8 @@ function CreateGame(): JSX.Element {
             if (imgOrLink === 'img') {
                 for (let i = 0; i < cyoaImages.length; i++) {
                     const processedImage = await processImage(cyoaImages[i])
-                    formData.append('files.CYOA_pages', processedImage)
-
+                    formData.append(`files.CYOA_pages`, processedImage, `CYOA_page_${i + 1}`)
+                    
                     // Add a delay of 500ms between each image upload
                     await new Promise(resolve => setTimeout(resolve, 500))
                 }

@@ -1,6 +1,6 @@
-﻿// src/components/CyoaPage/GameContent.tsx
-// v2.5
-// Fixed TypeScript errors and improved type safety
+// src/components/CyoaPage/GameContent.tsx
+// v2.6
+// Added sorting of CYOA pages by filename
 
 import React, { useState, useEffect } from 'react'
 
@@ -13,6 +13,7 @@ interface GameAttributes {
             id: number;
             attributes: {
                 url: string;
+                name: string; // Add this line to include the filename
             };
         }>;
     };
@@ -37,6 +38,7 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
     const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
     const [imageSizes, setImageSizes] = useState<ImageSizes>({})
     const [iframeStyle, setIframeStyle] = useState<React.CSSProperties>({})
+    const [sortedImages, setSortedImages] = useState(attributes.CYOA_pages?.data || [])
 
     useEffect(() => {
         if (attributes.img_or_link === 'link') {
@@ -59,7 +61,15 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
                 })
             }
         }
-    }, [expanded, attributes.img_or_link])
+
+        // Sort images by filename
+        if (attributes.CYOA_pages?.data) {
+            const sorted = [...attributes.CYOA_pages.data].sort((a, b) =>
+                a.attributes.name.localeCompare(b.attributes.name, undefined, { numeric: true, sensitivity: 'base' })
+            );
+            setSortedImages(sorted);
+        }
+    }, [expanded, attributes.img_or_link, attributes.CYOA_pages?.data])
 
     const handleImageLoad = (id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) => {
         setLoadingImages((prev) => prev - 1)
@@ -92,7 +102,7 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
 
     return (
         <div style={{ backgroundColor: '#121212' }}>
-            {attributes.img_or_link === 'img' && attributes.CYOA_pages?.data ? (
+            {attributes.img_or_link === 'img' && sortedImages.length > 0 ? (
                 <div>
                     <div
                         style={{
@@ -104,7 +114,7 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
                         }}
                     >
                         {loadingImages > 0 && <div>Loading...</div>}
-                        {attributes.CYOA_pages.data.map((image, index) => (
+                        {sortedImages.map((image, index) => (
                             <div
                                 key={image.id}
                                 style={{

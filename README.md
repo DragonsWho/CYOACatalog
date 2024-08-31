@@ -1,7 +1,7 @@
 Hi, this is the frontend for CYOA.cafe (NSFW), an online catalog I'm stubbornly trying to create. 
 
-
-# How to run it
+<details>
+  <summary># How to run it</summary>
 
 1. Download Visual Studio
 2. Clone this Git
@@ -53,4 +53,44 @@ and tasks.json
 
 * Or not. Currently it may not display content because the API is blocking external requests. Maybe this will change in the future or I'll post the back-end for local launch.
 
-# How to contribute 
+<summary># How to contribute </summary>
+For now, it's simple and obvious enough so you can add a few ideas to Issues or, better yet, implement a couple!
+Or support the project on [boosty](https://boosty.to/dragonswhore) or [patreon!](https://www.patreon.com/DragonsWhore)
+Either way - you can ask me here or find me in the [discord channel](https://discord.gg/9stHNfEskG)!
+
+<summary># ROADMAP</summary>
+Current tasks:
+
+* Getting rid of bugs.
+* Switching to typescript
+* changing CMS
+* customizing servers
+* workflow customization (I think it's mostly about me >_>). 
+* Must have a dev server with shared access.
+
+For version 1.0 we need to:
+1. search system by tags
+2. sfw\nsfw switcher in header
+3. warning about NSFW
+4. registration via reddit, mail and anonymously with delay.
+5. figure out lossless picture conversion.
+6. Move to cloudflare to increase speed and availability.
+7. minimal user account customization. display nickname, change password, avatar
+
+Further goals:
+* Optimizing the code and getting rid of unnecessary queries. 
+* Notifications (games from your favorite author, reply to your comment, etc.)
+* Personal messages in the form of a small chat. probably integration with discord (if possible).
+* Builds saver. With comments and the ability to insert small illustrations.
+* Notes and dices for static CYOA
+* Integration of interactive CYOA, possibility to upload them to the server
+
+* Section for all kinds of instructions and manuals for creating CYOA
+* A section for CYOAs developers where they can brag about their progress, organize polls, etc.
+* Section for game search
+* Section for game stories
+* Section for translators
+* Possibly integration of all this as a feed as an alternative mode of the site. 
+ 
+
+</details>

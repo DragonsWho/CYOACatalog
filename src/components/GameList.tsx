@@ -1,16 +1,23 @@
 // src/components/GameList.tsx
-// v2.8
-// Converted to TypeScript and reduced space between header and "Recent Uploads" title
+// v2.9
+// Updated Game interface to include commentCount
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Typography, Box, Grid, useTheme } from '@mui/material'
 import GameCard from './GameCard'
 import { fetchGames, getTagCategories } from '../services/api'
 
-const ITEMS_PER_PAGE = 25 // 5 cards per row, 5 rows
+const ITEMS_PER_PAGE = 15 // 5 cards per row, 3 rows
 
 interface Game {
     id: string
+    title: string
+    description: any
+    image: string
+    tags: any[]
+    authors: { name: string }[]
+    Upvotes: any[]
+    commentCount: number
     // Add other game properties here
 }
 

@@ -1,12 +1,13 @@
-// src/components/GameCard.jsx
-// v3.5
-// Implemented tag caching
+// src/components/GameCard.tsx
+// v3.7
+// Added comment count display and updated TypeScript types
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { Card, CardContent, Typography, Chip, Box, Skeleton, useTheme } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { getCachedImage, cacheImage, cacheTagCategoryMap, getCachedTagCategoryMap } from '../services/cacheService'
 import FavoriteIcon from '@mui/icons-material/Favorite'
+import CommentIcon from '@mui/icons-material/Comment'
 
 // Design variables
 const CARD_ASPECT_RATIO = '133.33%' // 3:4 aspect ratio
@@ -50,32 +51,51 @@ const CATEGORY_COLORS = {
     Genre: 'rgba(138, 43, 226, 0.4)',
     Setting: 'rgba(0, 0, 0, 0.4)',
     Tone: 'rgba(0, 0, 0, 0.4)',
-
     Extra: 'rgba(0, 0, 0, 0.4)',
     Kinks: 'rgba(255, 69, 0, 0.4)',
 }
 
-/* const CATEGORY_COLORS = {
-    'Rating': 'rgba(255, 215, 0, 0.3)',
-    'Interactivity': 'rgba(0, 206, 209, 0.3)',
-    'POV': 'rgba(255, 105, 180, 0.3)',
-    'Player Sexual Role': 'rgba(50, 205, 50, 0.3)',
-    'Playtime': 'rgba(255, 140, 0, 0.3)',
-    'Status': 'rgba(65, 105, 225, 0.3)',
-    'Genre': 'rgba(138, 43, 226, 0.3)',
-    'Setting': 'rgba(32, 178, 170, 0.3)',
-    'Tone': 'rgba(220, 20, 60, 0.3)',
+interface Tag {
+    id: number
+    attributes: {
+        Name: string
+    }
+}
 
-    'Extra': 'rgba(0, 0, 0, 0.3)',
-    
-    'Extra': 'rgba(112, 128, 144, 0.3)',
-    'Kinks': 'rgba(255, 69, 0, 0.3)'
-}; */
+interface Author {
+    id: number
+    name: string
+}
 
-const GameCard = memo(({ game, tagCategories }) => {
+interface Game {
+    id: string
+    title: string
+    description: string | { children: { type: string; text: string }[] }
+    image: string | null
+    tags: Tag[]
+    authors: Author[]
+    Upvotes: any[]
+    commentCount: number
+}
+
+interface TagCategory {
+    attributes: {
+        Name: string
+        tags: {
+            data: Tag[]
+        }
+    }
+}
+
+interface GameCardProps {
+    game: Game
+    tagCategories: TagCategory[]
+}
+
+const GameCard: React.FC<GameCardProps> = memo(({ game, tagCategories }) => {
     const theme = useTheme()
     const navigate = useNavigate()
-    const [imageUrl, setImageUrl] = useState(null)
+    const [imageUrl, setImageUrl] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     const loadImage = useCallback(async () => {
@@ -93,8 +113,8 @@ const GameCard = memo(({ game, tagCategories }) => {
                 if (blob.size <= MAX_CACHE_SIZE / MAX_CACHE_ITEMS) {
                     const reader = new FileReader()
                     reader.onloadend = () => {
-                        const base64data = reader.result
-                        cacheImage(game.image, base64data)
+                        const base64data = reader.result as string
+                        cacheImage(game.image!, base64data)
                         setImageUrl(base64data)
                         setIsLoading(false)
                     }
@@ -118,7 +138,7 @@ const GameCard = memo(({ game, tagCategories }) => {
         loadImage()
     }, [loadImage])
 
-    const getDescription = useCallback((description) => {
+    const getDescription = useCallback((description: string | { children: { type: string; text: string }[] }) => {
         if (typeof description === 'string') {
             return description
         }
@@ -278,7 +298,7 @@ const GameCard = memo(({ game, tagCategories }) => {
                                     size="small"
                                     sx={{
                                         fontSize: '0.7rem',
-                                        backgroundColor: `${CATEGORY_COLORS[category] || 'transparent'}`,
+                                        backgroundColor: `${CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'transparent'}`,
                                         color: theme.palette.text.primary,
                                         textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
                                     }}
@@ -311,6 +331,13 @@ const GameCard = memo(({ game, tagCategories }) => {
                                 alignItems: 'center',
                             }}
                         >
+                            <CommentIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
+                            <Typography
+                                variant="body2"
+                                sx={{ color: 'white', fontWeight: 'bold', textShadow: '1px 1px 2px rgba(3,3,3,1)', mr: 1 }}
+                            >
+                                {game.commentCount}
+                            </Typography>
                             <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
                             <Typography
                                 variant="body2"
@@ -318,6 +345,7 @@ const GameCard = memo(({ game, tagCategories }) => {
                             >
                                 {gameUpvoteCount}
                             </Typography>
+                            
                         </Box>
                     </Box>
                 </Box>

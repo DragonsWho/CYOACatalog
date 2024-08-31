@@ -1,6 +1,6 @@
 // src/services/api.js
-// v2.2
-// Added upvote functionality
+// v2.3
+// Added comments counter functionality
 
 import axios from 'axios';
 import authService from './authService';
@@ -8,6 +8,18 @@ import authService from './authService';
 axios.defaults.withCredentials = true;
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://api.cyoa.cafe';
+
+const countComments = (comments) => {
+  return comments.reduce((total, comment) => {
+    // Считаем текущий комментарий
+    let count = 1;
+    // Если у комментария есть дочерние элементы, рекурсивно считаем их
+    if (comment.children && comment.children.length > 0) {
+      count += countComments(comment.children);
+    }
+    return total + count;
+  }, 0);
+};
 
 export const fetchGames = async (page = 1, pageSize = 12) => {
     try {
@@ -21,21 +33,32 @@ export const fetchGames = async (page = 1, pageSize = 12) => {
         });
         console.log('Raw response:', response.data);
 
-        const games = response.data.data.map(game => ({
-            id: game.id,
-            title: game.attributes.Title,
-            description: Array.isArray(game.attributes.Description)
-                ? game.attributes.Description[0]
-                : game.attributes.Description,
-            image: game.attributes.Image?.data?.attributes?.url
-                ? `${API_URL}${game.attributes.Image.data.attributes.url}`
-                : null,
-            authors: game.attributes.authors?.data?.map(author => ({
-                id: author.id,
-                name: author.attributes.Name
-            })) || [],
-            tags: game.attributes.tags?.data || [],
-            Upvotes: game.attributes.Upvotes || []
+        const games = await Promise.all(response.data.data.map(async game => {
+            let commentCount = 0;
+            try {
+                const commentsResponse = await axios.get(`${API_URL}/api/comments/api::game.game:${game.id}`);
+                commentCount = countComments(commentsResponse.data);
+            } catch (error) {
+                console.error(`Error fetching comments for game ${game.id}:`, error);
+            }
+
+            return {
+                id: game.id,
+                title: game.attributes.Title,
+                description: Array.isArray(game.attributes.Description)
+                    ? game.attributes.Description[0]
+                    : game.attributes.Description,
+                image: game.attributes.Image?.data?.attributes?.url
+                    ? `${API_URL}${game.attributes.Image.data.attributes.url}`
+                    : null,
+                authors: game.attributes.authors?.data?.map(author => ({
+                    id: author.id,
+                    name: author.attributes.Name
+                })) || [],
+                tags: game.attributes.tags?.data || [],
+                Upvotes: game.attributes.Upvotes || [],
+                commentCount: commentCount
+            };
         }));
 
         return {
@@ -47,6 +70,24 @@ export const fetchGames = async (page = 1, pageSize = 12) => {
         throw error;
     }
 };
+
+export const fetchCommentCount = async (gameId) => {
+    try {
+        const response = await axios.get(`${API_URL}/api/comments/count`, {
+            params: {
+                'filters[game][id][$eq]': gameId,
+            },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching comment count:', error);
+        return 0;
+    }
+};
+
+
+
+
 
 export const fetchGameById = async (id) => {
     try {
@@ -314,3 +355,4 @@ export const removeUpvote = async (gameId) => {
         throw error;
     }
 };
+

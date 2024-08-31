@@ -10,15 +10,15 @@ axios.defaults.withCredentials = true
 const API_URL = process.env.REACT_APP_API_URL || 'https://api.cyoa.cafe'
 
 const countComments = (comments) => {
-    return comments.reduce((total, comment) => {
+  return comments.reduce((total, comment) => {
     // Считаем текущий комментарий
-        let count = 1
-        // Если у комментария есть дочерние элементы, рекурсивно считаем их
-        if (comment.children && comment.children.length > 0) {
-            count += countComments(comment.children)
-        }
-        return total + count
-    }, 0)
+    let count = 1
+    // Если у комментария есть дочерние элементы, рекурсивно считаем их
+    if (comment.children && comment.children.length > 0) {
+      count += countComments(comment.children)
+    }
+    return total + count
+  }, 0)
 }
 
 export const fetchGames = async (page = 1, pageSize = 12) => {
@@ -355,4 +355,3 @@ export const removeUpvote = async (gameId) => {
         throw error
     }
 }
-

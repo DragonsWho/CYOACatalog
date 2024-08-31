@@ -16,15 +16,15 @@ import AuthCallback from './components/AuthCallback'
 import authService from './services/authService'
 
 interface User {
-    id: string;
-    username: string;
-    email: string;
+    id: string
+    username: string
+    email: string
     // Add other user properties as needed
 }
 
 const App: React.FC = () => {
-    const [isAuthenticated, setIsAuthenticated] = useState < boolean > (false)
-    const [user, setUser] = useState < User | null > (null)
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
+    const [user, setUser] = useState<User | null>(null)
     const navigate = useNavigate()
 
     useEffect(() => {

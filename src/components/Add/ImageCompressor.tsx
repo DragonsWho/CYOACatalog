@@ -10,22 +10,26 @@ const aspectRatio = 3 / 4
 const maxWidth = 600 // Maximum width for initial resize
 
 interface ImageCompressorProps {
-    onImageChange: (file: File | null) => void;
-    buttonText?: string;
-    quality?: number;
+    onImageChange: (file: File | null) => void
+    buttonText?: string
+    quality?: number
 }
 
 interface FileInfo {
-    originalSize: number;
-    compressedSize?: number;
+    originalSize: number
+    compressedSize?: number
 }
 
 interface CanvasSize {
-    width: number;
-    height: number;
+    width: number
+    height: number
 }
 
-const ImageCompressor: React.FC<ImageCompressorProps> = ({ onImageChange, buttonText = 'Upload Image', quality = 0.8 }) => {
+const ImageCompressor: React.FC<ImageCompressorProps> = ({
+    onImageChange,
+    buttonText = 'Upload Image',
+    quality = 0.8,
+}) => {
     const theme = useTheme()
     const [isCompressing, setIsCompressing] = useState<boolean>(false)
     const [error, setError] = useState<string | null>(null)
@@ -100,10 +104,13 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({ onImageChange, button
                     if (blob) {
                         const croppedImageUrl = URL.createObjectURL(blob)
                         setPreview(croppedImageUrl)
-                        setFileInfo((prevState) => ({
-                            ...prevState,
-                            compressedSize: blob.size,
-                        } as FileInfo))
+                        setFileInfo(
+                            (prevState) =>
+                                ({
+                                    ...prevState,
+                                    compressedSize: blob.size,
+                                } as FileInfo),
+                        )
                         const compressedFile = new File([blob], 'cropped_image.jpg', { type: 'image/jpeg' })
                         onImageChange(compressedFile)
                     }

@@ -8,13 +8,13 @@ import { Link, useNavigate } from 'react-router-dom'
 
 interface UserMenuProps {
     currentUser: {
-        username: string;
-    };
-    onLogout: () => void;
+        username: string
+    }
+    onLogout: () => void
 }
 
 const UserMenu: React.FC<UserMenuProps> = ({ currentUser, onLogout }) => {
-    const [anchorEl, setAnchorEl] = useState < null | HTMLElement > (null)
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
     const navigate = useNavigate()
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {

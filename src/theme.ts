@@ -2,7 +2,7 @@
 // v1.8
 // Changes: Added variants for Chip component states
 
-import { createTheme, ThemeOptions } from '@mui/material/styles';
+import { createTheme, ThemeOptions } from '@mui/material/styles'
 
 const themeOptions: ThemeOptions = {
     palette: {
@@ -145,8 +145,8 @@ const themeOptions: ThemeOptions = {
             counterColor: '#a0a0a0',
         },
     },
-};
+}
 
-const theme = createTheme(themeOptions);
+const theme = createTheme(themeOptions)
 
-export default theme;
+export default theme

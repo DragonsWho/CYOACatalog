@@ -1,6 +1,6 @@
 // src/components/Add/TagSelector.tsx
-// Version 1.9.3
-// Changes: Updated to use new Chip variants from theme
+// Version 1.9.6
+// Changes: Added null check for onLoad function and improved error handling
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material'
@@ -44,33 +44,43 @@ const CATEGORY_TITLE_FONT_WEIGHT = '500'
 const SECTION_GAP = 0.5 // Gap between sections
 
 interface Tag {
-    id: number;
+    id: number
     attributes: {
-        Name: string;
-        Description: string;
-    };
+        Name: string
+        Description: string
+        tag_category: {
+            data: {
+                id: number
+            }
+        }
+    }
 }
 
-interface Category {
-    id: number;
-    Name: string;
-    Description: string;
-    MinTags: number;
-    MaxTags: number;
-    AllowNewTags: boolean;
-    tags: Tag[];
+interface CategoryData {
+    id: number
+    attributes: {
+        Name: string
+        Description: string
+        MinTags: number
+        MaxTags: number
+        AllowNewTags: boolean
+    }
+}
+
+interface Category extends CategoryData {
+    tags: Tag[]
 }
 
 interface TagSelectorProps {
-    selectedTags: number[];
-    onTagsChange: (tags: number[]) => void;
-    onLoad: () => void;
+    selectedTags: number[]
+    onTagsChange: (tags: number[]) => void
+    onLoad?: () => void
 }
 
 interface DelayedTooltipProps {
-    title: string;
-    children: React.ReactElement;
-    placement?: 'bottom' | 'bottom-start';
+    title: string
+    children: React.ReactElement
+    placement?: 'bottom' | 'bottom-start'
 }
 
 const DelayedTooltip: React.FC<DelayedTooltipProps> = ({ title, children, placement = 'bottom' }) => {
@@ -108,17 +118,42 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
     useEffect(() => {
         const fetchTagData = async () => {
             try {
-                const [tagsData, categoriesData] = await Promise.all([getTags(), getTagCategories()])
-                const categoriesWithTags = categoriesData.map((category: any) => ({
-                    ...category.attributes,
-                    id: category.id,
-                    tags: tagsData.filter((tag: any) => tag.attributes.tag_category.data?.id === category.id),
-                }))
-                setTagCategories(categoriesWithTags)
-                onLoad()
+                console.log('Starting to fetch tag data')
+                const tagsData = await getTags()
+                console.log('Tags data fetched:', tagsData)
+                
+                const categoriesData = await getTagCategories()
+                console.log('Categories data fetched:', categoriesData)
+
+                console.log('Type of categoriesData:', typeof categoriesData)
+                console.log('Is categoriesData an array?', Array.isArray(categoriesData))
+
+                if (!Array.isArray(categoriesData)) {
+                    throw new Error('Categories data is not an array')
+                }
+                
+                const processedCategories = categoriesData.map((category: CategoryData) => {
+                    console.log('Processing category:', category)
+                    return {
+                        ...category.attributes,
+                        id: category.id,
+                        tags: Array.isArray(tagsData) 
+                            ? tagsData.filter((tag: Tag) => {
+                                console.log('Checking tag:', tag)
+                                return tag.attributes.tag_category.data?.id === category.id
+                              })
+                            : [],
+                    }
+                })
+                
+                console.log('Processed categories:', processedCategories)
+                setTagCategories(processedCategories)
+                if (onLoad && typeof onLoad === 'function') {
+                    onLoad()
+                }
             } catch (error) {
-                console.error('Error fetching tag data:', error)
-                setError('Failed to load tags. Please try again.')
+                console.error('Error in fetchTagData:', error)
+                setError(`Failed to load tags. Please try again. Error: ${error instanceof Error ? error.message : String(error)}`)
             } finally {
                 setLoading(false)
             }
@@ -178,12 +213,16 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
 
                     return groupTags.map((tag) => {
                         const isSelected = selectedTags.includes(tag.id)
-                        const isDisabled = !isSelected &&
-                            selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id))
-                                .length >= category.MaxTags
+                        const isDisabled =
+                            !isSelected &&
+                            selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id)).length >=
+                                category.MaxTags
 
                         return (
-                            <DelayedTooltip key={tag.id} title={tag.attributes.Description || 'No description available'}>
+                            <DelayedTooltip
+                                key={tag.id}
+                                title={tag.attributes.Description || 'No description available'}
+                            >
                                 <Chip
                                     label={tag.attributes.Name}
                                     onClick={() => handleTagToggle(tag.id, category.id)}
@@ -255,7 +294,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
                                 onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
                                     if (e.key === 'Enter') {
                                         handleAddTag(category.id, (e.target as HTMLInputElement).value)
-                                            ; (e.target as HTMLInputElement).value = ''
+                                        ;(e.target as HTMLInputElement).value = ''
                                     }
                                 }}
                                 sx={{

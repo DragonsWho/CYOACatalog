@@ -1,7 +1,7 @@
-Hi, this is the frontend for CYOA.cafe (NSFW), an online catalog I'm stubbornly trying to create. 
+Hi! 
+This is the frontend for CYOA.cafe (NSFW), an online catalog I'm stubbornly trying to create. 
 
 <details>
-
   <summary># How to run it</summary>
 
 1. Download Visual Studio
@@ -52,11 +52,11 @@ and tasks.json
 ```
 5. Press F5! it should* run!
 
-* Or not. Currently it may not display content because the API is blocking external requests. Maybe this will change in the future or I'll post the back-end for local launch.
+*Or not. Currently it may not display content because the API is blocking external requests. Maybe this will change in the future or I'll post the back-end for local launch.
 
 </details>
 <details>
-<summary># How to contribute</summary>
+  <summary># How to contribute</summary>
 
 For now, it's simple and obvious enough so you can add a few ideas to Issues or, better yet, implement a couple!
 Or support the project on [boosty](https://boosty.to/dragonswhore) or [patreon!](https://www.patreon.com/DragonsWhore)
@@ -64,8 +64,8 @@ Either way - you can ask me here or find me in the [discord channel](https://dis
 
 </details>
 <details>
+  <summary># ROADMAP</summary>
 
-<summary># ROADMAP</summary>
 Current tasks:
 
 * Getting rid of bugs.

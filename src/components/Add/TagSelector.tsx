@@ -1,6 +1,8 @@
 // src/components/Add/TagSelector.tsx
 // Version 1.9.4
 // Changes: Improved type safety, fixed data processing, and error handling
+// Version 1.9.4
+// Changes: Improved type safety, fixed data processing, and error handling
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material'
@@ -53,11 +55,27 @@ interface Tag {
                 id: number
             }
         }
+        tag_category: {
+            data: {
+                id: number
+            }
+        }
     }
 }
 
 interface CategoryData {
+interface CategoryData {
     id: number
+    attributes: {
+        Name: string
+        Description: string
+        MinTags: number
+        MaxTags: number
+        AllowNewTags: boolean
+    }
+}
+
+interface Category extends CategoryData {
     attributes: {
         Name: string
         Description: string
@@ -134,6 +152,8 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
                         ? tagsData.filter((tag: Tag) => tag.attributes.tag_category.data?.id === category.id)
                         : [],
                 }))
+                
+                setTagCategories(processedCategories)
                 
                 setTagCategories(processedCategories)
                 onLoad()

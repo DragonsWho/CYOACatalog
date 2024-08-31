@@ -1,6 +1,6 @@
 // src/components/Add/TagSelector.tsx
-// Version 1.9.3
-// Changes: Updated to use new Chip variants from theme
+// Version 1.9.4
+// Changes: Improved type safety, fixed data processing, and error handling
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material'
@@ -48,16 +48,26 @@ interface Tag {
     attributes: {
         Name: string
         Description: string
+        tag_category: {
+            data: {
+                id: number
+            }
+        }
     }
 }
 
-interface Category {
+interface CategoryData {
     id: number
-    Name: string
-    Description: string
-    MinTags: number
-    MaxTags: number
-    AllowNewTags: boolean
+    attributes: {
+        Name: string
+        Description: string
+        MinTags: number
+        MaxTags: number
+        AllowNewTags: boolean
+    }
+}
+
+interface Category extends CategoryData {
     tags: Tag[]
 }
 
@@ -109,12 +119,14 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
         const fetchTagData = async () => {
             try {
                 const [tagsData, categoriesData] = await Promise.all([getTags(), getTagCategories()])
-                const categoriesWithTags = categoriesData.map((category: any) => ({
+                
+                const processedCategories = categoriesData.data.map((category: CategoryData) => ({
                     ...category.attributes,
                     id: category.id,
-                    tags: tagsData.filter((tag: any) => tag.attributes.tag_category.data?.id === category.id),
+                    tags: tagsData.data.filter((tag: Tag) => tag.attributes.tag_category.data?.id === category.id),
                 }))
-                setTagCategories(categoriesWithTags)
+                
+                setTagCategories(processedCategories)
                 onLoad()
             } catch (error) {
                 console.error('Error fetching tag data:', error)

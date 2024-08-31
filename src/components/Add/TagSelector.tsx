@@ -1,6 +1,6 @@
 // src/components/Add/TagSelector.tsx
-// Version 1.9.5
-// Changes: Added additional error handling and data validation
+// Version 1.9.6
+// Changes: Added null check for onLoad function and improved error handling
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material'
@@ -74,7 +74,7 @@ interface Category extends CategoryData {
 interface TagSelectorProps {
     selectedTags: number[]
     onTagsChange: (tags: number[]) => void
-    onLoad: () => void
+    onLoad?: () => void
 }
 
 interface DelayedTooltipProps {
@@ -118,27 +118,41 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
     useEffect(() => {
         const fetchTagData = async () => {
             try {
-                const [tagsData, categoriesData] = await Promise.all([getTags(), getTagCategories()])
+                console.log('Starting to fetch tag data')
+                const tagsData = await getTags()
+                console.log('Tags data fetched:', tagsData)
                 
-                console.log('Tags data:', tagsData);
-                console.log('Categories data:', categoriesData);
+                const categoriesData = await getTagCategories()
+                console.log('Categories data fetched:', categoriesData)
+
+                console.log('Type of categoriesData:', typeof categoriesData)
+                console.log('Is categoriesData an array?', Array.isArray(categoriesData))
 
                 if (!Array.isArray(categoriesData)) {
-                    throw new Error('Categories data is not an array');
+                    throw new Error('Categories data is not an array')
                 }
                 
-                const processedCategories = categoriesData.map((category: CategoryData) => ({
-                    ...category.attributes,
-                    id: category.id,
-                    tags: Array.isArray(tagsData) 
-                        ? tagsData.filter((tag: Tag) => tag.attributes.tag_category.data?.id === category.id)
-                        : [],
-                }))
+                const processedCategories = categoriesData.map((category: CategoryData) => {
+                    console.log('Processing category:', category)
+                    return {
+                        ...category.attributes,
+                        id: category.id,
+                        tags: Array.isArray(tagsData) 
+                            ? tagsData.filter((tag: Tag) => {
+                                console.log('Checking tag:', tag)
+                                return tag.attributes.tag_category.data?.id === category.id
+                              })
+                            : [],
+                    }
+                })
                 
+                console.log('Processed categories:', processedCategories)
                 setTagCategories(processedCategories)
-                onLoad()
+                if (onLoad && typeof onLoad === 'function') {
+                    onLoad()
+                }
             } catch (error) {
-                console.error('Error fetching tag data:', error)
+                console.error('Error in fetchTagData:', error)
                 setError(`Failed to load tags. Please try again. Error: ${error instanceof Error ? error.message : String(error)}`)
             } finally {
                 setLoading(false)

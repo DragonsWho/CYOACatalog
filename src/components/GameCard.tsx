@@ -298,7 +298,9 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, tagCategories }) => {
                                     size="small"
                                     sx={{
                                         fontSize: '0.7rem',
-                                        backgroundColor: `${CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'transparent'}`,
+                                        backgroundColor: `${
+                                            CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'transparent'
+                                        }`,
                                         color: theme.palette.text.primary,
                                         textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
                                     }}
@@ -334,7 +336,12 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, tagCategories }) => {
                             <CommentIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
                             <Typography
                                 variant="body2"
-                                sx={{ color: 'white', fontWeight: 'bold', textShadow: '1px 1px 2px rgba(3,3,3,1)', mr: 1 }}
+                                sx={{
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    textShadow: '1px 1px 2px rgba(3,3,3,1)',
+                                    mr: 1,
+                                }}
                             >
                                 {game.commentCount}
                             </Typography>
@@ -345,7 +352,6 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, tagCategories }) => {
                             >
                                 {gameUpvoteCount}
                             </Typography>
-                            
                         </Box>
                     </Box>
                 </Box>

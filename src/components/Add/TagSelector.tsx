@@ -44,33 +44,33 @@ const CATEGORY_TITLE_FONT_WEIGHT = '500'
 const SECTION_GAP = 0.5 // Gap between sections
 
 interface Tag {
-    id: number;
+    id: number
     attributes: {
-        Name: string;
-        Description: string;
-    };
+        Name: string
+        Description: string
+    }
 }
 
 interface Category {
-    id: number;
-    Name: string;
-    Description: string;
-    MinTags: number;
-    MaxTags: number;
-    AllowNewTags: boolean;
-    tags: Tag[];
+    id: number
+    Name: string
+    Description: string
+    MinTags: number
+    MaxTags: number
+    AllowNewTags: boolean
+    tags: Tag[]
 }
 
 interface TagSelectorProps {
-    selectedTags: number[];
-    onTagsChange: (tags: number[]) => void;
-    onLoad: () => void;
+    selectedTags: number[]
+    onTagsChange: (tags: number[]) => void
+    onLoad: () => void
 }
 
 interface DelayedTooltipProps {
-    title: string;
-    children: React.ReactElement;
-    placement?: 'bottom' | 'bottom-start';
+    title: string
+    children: React.ReactElement
+    placement?: 'bottom' | 'bottom-start'
 }
 
 const DelayedTooltip: React.FC<DelayedTooltipProps> = ({ title, children, placement = 'bottom' }) => {
@@ -178,12 +178,16 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
 
                     return groupTags.map((tag) => {
                         const isSelected = selectedTags.includes(tag.id)
-                        const isDisabled = !isSelected &&
-                            selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id))
-                                .length >= category.MaxTags
+                        const isDisabled =
+                            !isSelected &&
+                            selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id)).length >=
+                                category.MaxTags
 
                         return (
-                            <DelayedTooltip key={tag.id} title={tag.attributes.Description || 'No description available'}>
+                            <DelayedTooltip
+                                key={tag.id}
+                                title={tag.attributes.Description || 'No description available'}
+                            >
                                 <Chip
                                     label={tag.attributes.Name}
                                     onClick={() => handleTagToggle(tag.id, category.id)}
@@ -255,7 +259,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
                                 onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
                                     if (e.key === 'Enter') {
                                         handleAddTag(category.id, (e.target as HTMLInputElement).value)
-                                            ; (e.target as HTMLInputElement).value = ''
+                                        ;(e.target as HTMLInputElement).value = ''
                                     }
                                 }}
                                 sx={{

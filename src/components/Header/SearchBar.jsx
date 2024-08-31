@@ -33,9 +33,9 @@ function SearchBar() {
         setIsLoading(true)
         setError(null)
         try {
-            console.log('Performing search for:', searchQuery);
+            console.log('Performing search for:', searchQuery)
             const results = await searchGames(searchQuery)
-            console.log('Search results:', results);
+            console.log('Search results:', results)
             setSearchResults(results)
         } catch (error) {
             console.error('Error performing search:', error)

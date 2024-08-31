@@ -86,6 +86,7 @@ For version 1.0 we need to:
 * fix picture cropping
 * Move to cloudflare to increase speed and availability.
 * minimal user account customization. display nickname, change password, avatar
+* the interface must adapt correctly to different screens
 
 Further goals:
 * Optimizing the code and getting rid of unnecessary queries. 

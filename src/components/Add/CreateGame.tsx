@@ -1,6 +1,6 @@
 // src/components/Add/CreateGame.tsx
-// Version 2.2.0
-// Updated to handle sequential image uploads
+// Version 2.2.1
+// Updated to remove 'any' types and improve type safety
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react'
 import {
@@ -22,10 +22,18 @@ import AuthorSelector from './AuthorSelector'
 import TagSelector from './TagSelector'
 import CyoaImageUploader from './CyoaImageUploader'
 import ImageCompressor from './ImageCompressor'
+import axios, { AxiosError } from 'axios'
 
 interface Author {
     id: number
     name: string
+}
+
+interface AuthorData {
+    id: number
+    attributes: {
+        Name: string
+    }
 }
 
 interface TagCategory {
@@ -60,7 +68,7 @@ function CreateGame(): JSX.Element {
         const fetchInitialData = async () => {
             try {
                 const [authorsData, categoriesData] = await Promise.all([getAuthors(), getTagCategories()])
-                setAvailableAuthors(authorsData.map((author: any) => ({ id: author.id, name: author.attributes.Name })))
+                setAvailableAuthors(authorsData.map((author: AuthorData) => ({ id: author.id, name: author.attributes.Name })))
                 setTagCategories(categoriesData)
             } catch (error) {
                 console.error('Error fetching initial data:', error)
@@ -222,9 +230,9 @@ function CreateGame(): JSX.Element {
             const result = await createGame(formData)
             console.log('Created game:', result)
             navigate('/')
-        } catch (error: any) {
+        } catch (error: Error | AxiosError) {
             console.error('Error creating game:', error)
-            if (error.response) {
+            if (axios.isAxiosError(error) && error.response) {
                 console.error('Error response:', error.response.data)
                 setError(`Failed to create game. Server response: ${JSON.stringify(error.response.data)}`)
             } else {

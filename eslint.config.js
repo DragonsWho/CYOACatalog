@@ -1,8 +1,11 @@
+// eslint.config.js
+// v1.1
+// Changes: Removed duplicate 'settings' key, merged settings into one object
+
 import globals from 'globals';
 import pluginJs from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import pluginReact from 'eslint-plugin-react';
-
 
 export default [
   {files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}']},
@@ -18,23 +21,18 @@ export default [
     },
     settings: {
       react: {
-        version: 'detect', // Automatically detect the React version
+        version: 'detect',
       },
     },
     rules: {
       'quotes': [
-      2,
-      'single',
-      {
-        'avoidEscape': true
-      }
-    ],
+        2,
+        'single',
+        {
+          'avoidEscape': true
+        }
+      ],
       'react/prop-types': 0,
-    },
-    'settings': { 
-      'react': {
-        'version': 'detect'
-      },
     },
   },
 ];

@@ -159,6 +159,11 @@ export const getTags = async () => {
 
         const { data, meta } = firstPageResponse.data
 
+        if (!Array.isArray(data)) {
+            console.error('Unexpected tags data format:', data)
+            return []
+        }
+
         if (meta.pagination.pageCount > 1) {
             const remainingPages = Array.from({ length: meta.pagination.pageCount - 1 }, (_, i) => i + 2)
             const additionalResponses = await Promise.all(
@@ -168,7 +173,7 @@ export const getTags = async () => {
             )
 
             const allData = additionalResponses.reduce((acc, response) => {
-                return [...acc, ...response.data.data]
+                return [...acc, ...(Array.isArray(response.data.data) ? response.data.data : [])]
             }, data)
 
             console.log('All tags:', allData)
@@ -178,7 +183,7 @@ export const getTags = async () => {
         return data
     } catch (error) {
         console.error('Error fetching tags:', error)
-        throw error
+        return []
     }
 }
 
@@ -186,10 +191,10 @@ export const getTagCategories = async () => {
     try {
         const response = await axios.get(`${API_URL}/api/tag-categories?populate=tags`)
         console.log('Tag categories response:', response.data)
-        return response.data.data
+        return Array.isArray(response.data.data) ? response.data.data : []
     } catch (error) {
         console.error('Error fetching tag categories:', error)
-        throw error
+        return []
     }
 }
 

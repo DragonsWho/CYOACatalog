@@ -12,14 +12,20 @@ import authService from '../../services/authService'
 const LOGIN_TOOLTIP = 'Login to upvote'
 
 interface GameAdditionalInfoProps {
-    gameId: string;
-    upvotes: string[];
-    expanded: boolean;
-    onExpand: () => void;
-    onUpvoteChange?: () => void;
+    gameId: string
+    upvotes: string[]
+    expanded: boolean
+    onExpand: () => void
+    onUpvoteChange?: () => void
 }
 
-function GameAdditionalInfo({ gameId, upvotes: initialUpvotes, expanded, onExpand, onUpvoteChange }: GameAdditionalInfoProps) {
+function GameAdditionalInfo({
+    gameId,
+    upvotes: initialUpvotes,
+    expanded,
+    onExpand,
+    onUpvoteChange,
+}: GameAdditionalInfoProps) {
     const theme = useTheme()
     const [isUpvoted, setIsUpvoted] = useState(false)
     const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvotes?.length || 0)

@@ -69,13 +69,14 @@ Current tasks:
 * Must have a dev server with shared access.
 
 For version 1.0 we need to:
-1. search system by tags
-2. sfw\nsfw switcher in header
-3. warning about NSFW
-4. registration via reddit, mail and anonymously with delay.
-5. figure out lossless picture conversion.
-6. Move to cloudflare to increase speed and availability.
-7. minimal user account customization. display nickname, change password, avatar
+* search system by tags
+* sfw\nsfw switcher in header
+* warning about NSFW
+* registration via reddit, mail and anonymously with delay.
+* figure out lossless picture conversion.
+* fix picture cropping
+* Move to cloudflare to increase speed and availability.
+* minimal user account customization. display nickname, change password, avatar
 
 Further goals:
 * Optimizing the code and getting rid of unnecessary queries. 

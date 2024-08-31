@@ -68,7 +68,9 @@ function CreateGame(): JSX.Element {
         const fetchInitialData = async () => {
             try {
                 const [authorsData, categoriesData] = await Promise.all([getAuthors(), getTagCategories()])
-                setAvailableAuthors(authorsData.map((author: AuthorData) => ({ id: author.id, name: author.attributes.Name })))
+                setAvailableAuthors(
+                    authorsData.map((author: AuthorData) => ({ id: author.id, name: author.attributes.Name })),
+                )
                 setTagCategories(categoriesData)
             } catch (error) {
                 console.error('Error fetching initial data:', error)

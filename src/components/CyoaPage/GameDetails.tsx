@@ -15,58 +15,58 @@ const API_URL = process.env.REACT_APP_API_URL || 'https://api.cyoa.cafe'
 
 interface Author {
     attributes: {
-        Name: string;
-    };
+        Name: string
+    }
 }
 
 interface Tag {
-    id: number;
+    id: number
     attributes: {
-        Name: string;
+        Name: string
         tag_category: {
             data: {
                 attributes: {
-                    Name: string;
-                };
-            };
-        };
-    };
+                    Name: string
+                }
+            }
+        }
+    }
 }
 
 interface Image {
     data: {
         attributes: {
-            url: string;
-        };
-    };
+            url: string
+        }
+    }
 }
 
 interface GameAttributes {
-    Title: string;
-    Description: Array<{ children: Array<{ text: string }> }>;
-    authors: { data: Author[] };
-    tags: { data: Tag[] };
-    Image: Image;
-    CYOA_pages: { data: any[] };
-    Upvotes: string[];
-    img_or_link: 'img' | 'link';
-    iframe_url?: string;
+    Title: string
+    Description: Array<{ children: Array<{ text: string }> }>
+    authors: { data: Author[] }
+    tags: { data: Tag[] }
+    Image: Image
+    CYOA_pages: { data: any[] }
+    Upvotes: string[]
+    img_or_link: 'img' | 'link'
+    iframe_url?: string
 }
 
 interface Game {
-    id: string;
-    attributes: GameAttributes;
+    id: string
+    attributes: GameAttributes
 }
 
 interface CustomTheme extends Theme {
     custom?: {
-        borderRadius?: string;
-        boxShadow?: string;
+        borderRadius?: string
+        boxShadow?: string
         comments?: {
-            backgroundColor?: string;
-            borderRadius?: string;
-        };
-    };
+            backgroundColor?: string
+            borderRadius?: string
+        }
+    }
 }
 
 function GameDetails() {

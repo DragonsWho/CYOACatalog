@@ -7,34 +7,34 @@ import React, { useState, useEffect, useCallback } from 'react'
 const API_URL = process.env.REACT_APP_API_URL || 'https://api.cyoa.cafe'
 
 interface GameAttributes {
-    img_or_link: 'img' | 'link';
+    img_or_link: 'img' | 'link'
     CYOA_pages?: {
         data: Array<{
-            id: number;
+            id: number
             attributes: {
-                url: string;
-                name: string;
-            };
-        }>;
-    };
-    iframe_url?: string;
+                url: string
+                name: string
+            }
+        }>
+    }
+    iframe_url?: string
 }
 
 interface GameContentProps {
-    attributes: GameAttributes;
-    expanded: boolean;
-    onExpand: (expanded: boolean) => void;
+    attributes: GameAttributes
+    expanded: boolean
+    onExpand: (expanded: boolean) => void
 }
 
 interface ImageSizes {
     [key: number]: {
-        width: number;
-        height: number;
-    };
+        width: number
+        height: number
+    }
 }
 
-const PLACEHOLDER_HEIGHT = 800; // Height of the placeholder in pixels
-const MAX_RETRIES = 3; // Maximum number of retries for loading an image
+const PLACEHOLDER_HEIGHT = 800 // Height of the placeholder in pixels
+const MAX_RETRIES = 3 // Maximum number of retries for loading an image
 
 const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpand }) => {
     const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({})
@@ -46,84 +46,92 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
 
     useEffect(() => {
         if (attributes.img_or_link === 'link') {
-            setIframeStyle(expanded ? {
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100vw',
-                height: '100vh',
-                zIndex: 9999,
-            } : {
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-            })
+            setIframeStyle(
+                expanded
+                    ? {
+                          position: 'fixed',
+                          top: 0,
+                          left: 0,
+                          width: '100vw',
+                          height: '100vh',
+                          zIndex: 9999,
+                      }
+                    : {
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                      },
+            )
         }
 
         if (attributes.CYOA_pages?.data) {
             const sorted = [...attributes.CYOA_pages.data].sort((a, b) =>
-                a.attributes.name.localeCompare(b.attributes.name, undefined, { numeric: true, sensitivity: 'base' })
-            );
-            setSortedImages(sorted);
+                a.attributes.name.localeCompare(b.attributes.name, undefined, { numeric: true, sensitivity: 'base' }),
+            )
+            setSortedImages(sorted)
         }
     }, [expanded, attributes.img_or_link, attributes.CYOA_pages?.data])
 
-    const loadImage = useCallback((image: typeof sortedImages[0], retryCount = 0): Promise<void> => {
+    const loadImage = useCallback((image: (typeof sortedImages)[0], retryCount = 0): Promise<void> => {
         return new Promise((resolve, reject) => {
-            console.log(`Attempting to load image: ${image.attributes.name} (Attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
-            const img = new Image();
-            img.src = `${API_URL}${image.attributes.url}`;
-            
+            console.log(
+                `Attempting to load image: ${image.attributes.name} (Attempt ${retryCount + 1}/${MAX_RETRIES + 1})`,
+            )
+            const img = new Image()
+            img.src = `${API_URL}${image.attributes.url}`
+
             img.onload = () => {
-                console.log(`Successfully loaded image: ${image.attributes.name}`);
-                setLoadedImages(prev => [...prev, image.id]);
-                setImageSizes(prev => ({
+                console.log(`Successfully loaded image: ${image.attributes.name}`)
+                setLoadedImages((prev) => [...prev, image.id])
+                setImageSizes((prev) => ({
                     ...prev,
                     [image.id]: {
                         width: img.naturalWidth,
                         height: img.naturalHeight,
                     },
-                }));
-                resolve();
-            };
-            
+                }))
+                resolve()
+            }
+
             img.onerror = () => {
-                console.error(`Failed to load image: ${image.attributes.name}`);
+                console.error(`Failed to load image: ${image.attributes.name}`)
                 if (retryCount < MAX_RETRIES) {
-                    console.log(`Retrying image: ${image.attributes.name}`);
+                    console.log(`Retrying image: ${image.attributes.name}`)
                     setTimeout(() => {
-                        loadImage(image, retryCount + 1).then(resolve).catch(reject);
-                    }, 1000);
+                        loadImage(image, retryCount + 1)
+                            .then(resolve)
+                            .catch(reject)
+                    }, 1000)
                 } else {
-                    console.error(`Max retries reached for image: ${image.attributes.name}`);
-                    setImageErrors(prev => ({ ...prev, [image.id]: true }));
-                    reject();
+                    console.error(`Max retries reached for image: ${image.attributes.name}`)
+                    setImageErrors((prev) => ({ ...prev, [image.id]: true }))
+                    reject()
                 }
-            };
-        });
-    }, []);
+            }
+        })
+    }, [])
 
     const loadImages = useCallback(async () => {
-        setIsLoading(true);
+        setIsLoading(true)
         for (const image of sortedImages) {
             if (!loadedImages.includes(image.id)) {
                 try {
-                    await loadImage(image);
+                    await loadImage(image)
                 } catch (error) {
-                    console.error(`Failed to load image after all retries: ${image.attributes.name}`);
+                    console.error(`Failed to load image after all retries: ${image.attributes.name}`)
                 }
             }
         }
-        setIsLoading(false);
-    }, [sortedImages, loadedImages, loadImage]);
+        setIsLoading(false)
+    }, [sortedImages, loadedImages, loadImage])
 
     useEffect(() => {
         if (sortedImages.length > 0 && !isLoading) {
-            loadImages();
+            loadImages()
         }
-    }, [sortedImages, loadImages, isLoading]);
+    }, [sortedImages, loadImages, isLoading])
 
     const collapseButtonStyle: React.CSSProperties = {
         position: 'fixed',
@@ -142,13 +150,15 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
         <div style={{ backgroundColor: '#121212', overflowY: 'auto' }}>
             {attributes.img_or_link === 'img' && sortedImages.length > 0 ? (
                 <div>
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '1rem',
-                        transition: 'all 0.3s ease',
-                    }}>
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            transition: 'all 0.3s ease',
+                        }}
+                    >
                         {sortedImages.map((image, index) => (
                             <div
                                 key={image.id}
@@ -171,8 +181,8 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
                                             width: expanded
                                                 ? 'auto'
                                                 : imageSizes[image.id]?.width > window.innerWidth
-                                                    ? '100%'
-                                                    : 'auto',
+                                                ? '100%'
+                                                : 'auto',
                                             height: 'auto',
                                             transition: 'all 0.3s ease',
                                         }}
@@ -187,13 +197,15 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
                     </div>
                 </div>
             ) : attributes.img_or_link === 'link' && attributes.iframe_url ? (
-                <div style={{
-                    width: '100%',
-                    height: 0,
-                    paddingBottom: expanded ? '0' : '56.25%',
-                    position: 'relative',
-                    overflow: 'hidden',
-                }}>
+                <div
+                    style={{
+                        width: '100%',
+                        height: 0,
+                        paddingBottom: expanded ? '0' : '56.25%',
+                        position: 'relative',
+                        overflow: 'hidden',
+                    }}
+                >
                     <iframe
                         src={attributes.iframe_url}
                         style={iframeStyle}

@@ -33,25 +33,25 @@ const CATEGORY_FONT_WEIGHT = '500'
 const SECTION_GAP = 0.5 // Gap between sections
 
 interface Tag {
-    id: number;
+    id: number
     attributes: {
-        Name: string;
+        Name: string
         tag_category: {
             data: {
                 attributes: {
-                    Name: string;
-                };
-            };
-        };
-    };
+                    Name: string
+                }
+            }
+        }
+    }
 }
 
 interface TagDisplayProps {
-    tags: Tag[];
+    tags: Tag[]
     chipProps?: {
-        size?: 'small' | 'medium';
-        sx?: React.CSSProperties;
-    };
+        size?: 'small' | 'medium'
+        sx?: React.CSSProperties
+    }
 }
 
 const TagDisplay: React.FC<TagDisplayProps> = ({ tags, chipProps = {} }) => {
@@ -62,7 +62,7 @@ const TagDisplay: React.FC<TagDisplayProps> = ({ tags, chipProps = {} }) => {
     }
 
     // Group tags by their category
-    const groupedTags = tags.reduce < Record < string, Tag[]>> ((acc, tag) => {
+    const groupedTags = tags.reduce<Record<string, Tag[]>>((acc, tag) => {
         if (!tag || !tag.attributes) return acc
 
         const categoryData = tag.attributes.tag_category && tag.attributes.tag_category.data

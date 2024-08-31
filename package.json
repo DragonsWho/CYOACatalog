@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:dev": "vite build --mode development",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -33,14 +34,15 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.0.4",
     "eslint": "^8.57.0",
-    "eslint-plugin-react": "^7.35.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-config-prettier": "^9.1.0",     
+    "eslint-plugin-react": "^7.35.0",       
+    "eslint-plugin-react-hooks": "^4.6.0",  
     "eslint-plugin-react-refresh": "^0.4.3",
     "globals": "^15.9.0",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.3.0",
     "vite": "^4.4.9",
-    "vite-plugin-commonjs": "^0.10.1",
-    "vite-plugin-node-polyfills": "^0.22.0"
+    "vite-plugin-commonjs": "^0.10.1",      
+    "vite-plugin-node-polyfills": "^0.22.0" 
   }
 }

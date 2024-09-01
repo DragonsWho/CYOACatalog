@@ -19,13 +19,13 @@ interface GameAdditionalInfoProps {
     onUpvoteChange?: () => void
 }
 
-function GameAdditionalInfo({
+const GameAdditionalInfo: React.FC<GameAdditionalInfoProps> = ({
     gameId,
     upvotes: initialUpvotes,
     expanded,
     onExpand,
     onUpvoteChange,
-}: GameAdditionalInfoProps) {
+}) => {
     const theme = useTheme()
     const [isUpvoted, setIsUpvoted] = useState(false)
     const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvotes?.length || 0)

@@ -1,6 +1,6 @@
 // src/components/CyoaPage/GameDetails.tsx
-// v4.1
-// Fixed TypeScript errors and improved type safety
+// v4.2
+// Removed 'any' type and improved type safety for CYOA_pages
 
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
@@ -41,13 +41,21 @@ interface Image {
     }
 }
 
+interface CYOAPage {
+    id: number
+    attributes: {
+        url: string
+        name: string
+    }
+}
+
 interface GameAttributes {
     Title: string
     Description: Array<{ children: Array<{ text: string }> }>
     authors: { data: Author[] }
     tags: { data: Tag[] }
     Image: Image
-    CYOA_pages: { data: any[] }
+    CYOA_pages: { data: CYOAPage[] }
     Upvotes: string[]
     img_or_link: 'img' | 'link'
     iframe_url?: string

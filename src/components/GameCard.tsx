@@ -1,10 +1,10 @@
 // src/components/GameCard.tsx
-// v3.9
-// Updated to use browser's default context menu and open new tabs in background on middle click
+// v4.0
+// Updated to open background tab on middle click and treat card as a link for right-click context menu
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { Card, CardContent, Typography, Chip, Box, Skeleton, useTheme } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { getCachedImage, cacheImage, cacheTagCategoryMap, getCachedTagCategoryMap } from '../services/cacheService'
 import FavoriteIcon from '@mui/icons-material/Favorite'
 import CommentIcon from '@mui/icons-material/Comment'
@@ -193,20 +193,8 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, tagCategories }) => {
         [navigate, game.id]
     )
 
-    return (
-        <Card
-            onMouseDown={handleCardClick}
-            sx={{
-                cursor: 'pointer',
-                transition: '0.3s',
-                '&:hover': { transform: 'scale(1.03)' },
-                position: 'relative',
-                overflow: 'hidden',
-                backgroundColor: theme.palette.background.paper,
-                paddingTop: CARD_ASPECT_RATIO,
-                boxShadow: theme.shadows[3],
-            }}
-        >
+    const cardContent = (
+        <>
             {isLoading ? (
                 <Skeleton
                     variant="rectangular"
@@ -371,7 +359,29 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, tagCategories }) => {
                     </Box>
                 </Box>
             </CardContent>
-        </Card>
+        </>
+    )
+
+    return (
+        <Link
+            to={`/game/${game.id}`}
+            component={Card}
+            onMouseDown={handleCardClick}
+            sx={{
+                cursor: 'pointer',
+                transition: '0.3s',
+                '&:hover': { transform: 'scale(1.03)' },
+                position: 'relative',
+                overflow: 'hidden',
+                backgroundColor: theme.palette.background.paper,
+                paddingTop: CARD_ASPECT_RATIO,
+                boxShadow: theme.shadows[3],
+                textDecoration: 'none',
+                display: 'block',
+            }}
+        >
+            {cardContent}
+        </Link>
     )
 })
 

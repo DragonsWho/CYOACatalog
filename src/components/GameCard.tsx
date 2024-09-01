@@ -1,9 +1,9 @@
 // src/components/GameCard.tsx
-// v3.8
-// Added right-click functionality and middle-click for opening in new tab
+// v3.9
+// Updated to use browser's default context menu and open new tabs in background on middle click
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react'
-import { Card, CardContent, Typography, Chip, Box, Skeleton, useTheme, Modal } from '@mui/material'
+import { Card, CardContent, Typography, Chip, Box, Skeleton, useTheme } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { getCachedImage, cacheImage, cacheTagCategoryMap, getCachedTagCategoryMap } from '../services/cacheService'
 import FavoriteIcon from '@mui/icons-material/Favorite'
@@ -97,7 +97,6 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, tagCategories }) => {
     const navigate = useNavigate()
     const [imageUrl, setImageUrl] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(true)
-    const [isModalOpen, setIsModalOpen] = useState(false)
 
     const loadImage = useCallback(async () => {
         if (game.image) {
@@ -182,242 +181,197 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, tagCategories }) => {
 
     const handleCardClick = useCallback(
         (event: React.MouseEvent<HTMLDivElement>) => {
-            event.preventDefault()
             if (event.button === 0) {
-                // Left click
+                // Левый клик
                 navigate(`/game/${game.id}`)
             } else if (event.button === 1) {
-                // Middle click
-                window.open(`/game/${game.id}`, '_blank')
+                // Средний клик (колесико мыши)
+                event.preventDefault() // Предотвращаем стандартное поведение браузера
+                window.open(`/game/${game.id}`, '_blank') // Открываем новую вкладку в фоне
             }
         },
-        [navigate, game.id],
+        [navigate, game.id]
     )
-
-    const handleContextMenu = useCallback(
-        (event: React.MouseEvent<HTMLDivElement>) => {
-            event.preventDefault()
-            setIsModalOpen(true)
-        },
-        [],
-    )
-
-    const handleCloseModal = useCallback(() => {
-        setIsModalOpen(false)
-    }, [])
-
-    const handleOpenInNewTab = useCallback(() => {
-        window.open(`/game/${game.id}`, '_blank')
-        setIsModalOpen(false)
-    }, [game.id])
 
     return (
-        <>
-            <Card
-                onMouseDown={handleCardClick}
-                onContextMenu={handleContextMenu}
-                sx={{
-                    cursor: 'pointer',
-                    transition: '0.3s',
-                    '&:hover': { transform: 'scale(1.03)' },
-                    position: 'relative',
-                    overflow: 'hidden',
-                    backgroundColor: theme.palette.background.paper,
-                    paddingTop: CARD_ASPECT_RATIO,
-                    boxShadow: theme.shadows[3],
-                }}
-            >
-                {isLoading ? (
-                    <Skeleton
-                        variant="rectangular"
-                        sx={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        }}
-                    />
-                ) : (
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            backgroundImage: `url(${imageUrl})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            '&::after': {
-                                content: '""',
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                height: '100%',
-                                backgroundColor: `rgba(0, 0, 0, ${OVERLAY_OPACITY})`,
-                            },
-                        }}
-                    />
-                )}
-                <CardContent
+        <Card
+            onMouseDown={handleCardClick}
+            sx={{
+                cursor: 'pointer',
+                transition: '0.3s',
+                '&:hover': { transform: 'scale(1.03)' },
+                position: 'relative',
+                overflow: 'hidden',
+                backgroundColor: theme.palette.background.paper,
+                paddingTop: CARD_ASPECT_RATIO,
+                boxShadow: theme.shadows[3],
+            }}
+        >
+            {isLoading ? (
+                <Skeleton
+                    variant="rectangular"
                     sx={{
                         position: 'absolute',
                         top: 0,
                         left: 0,
                         width: '100%',
                         height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        p: `${CARD_PADDING}px`,
-                        boxSizing: 'border-box',
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
                     }}
-                >
-                    <Typography
-                        variant="h3"
-                        component="div"
-                        align="center"
-                        sx={{
-                            fontWeight: 'bold',
-                            fontSize: TITLE_FONT_SIZE,
-                            ...theme.custom.cardTitle,
-                            mb: `${TITLE_MARGIN_BOTTOM}px`,
-                        }}
-                    >
-                        {game.title || 'Untitled'}
-                    </Typography>
-
-                    <Box sx={{ position: 'absolute', top: DESCRIPTION_TOP, left: CARD_PADDING, right: CARD_PADDING }}>
-                        <Typography
-                            variant="body2"
-                            sx={{
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                ...theme.custom.cardText,
-                            }}
-                        >
-                            {description}
-                        </Typography>
-                    </Box>
-
-                    <Box sx={{ mt: 'auto' }}>
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: 0.5,
-                                mb: `${TAGS_MARGIN_BOTTOM}px`,
-                                height: TAG_SECTION_HEIGHT,
-                                overflow: 'hidden',
-                            }}
-                        >
-                            {sortedTags.map((tag, index) => {
-                                const category = tagCategories.find((cat) =>
-                                    cat.attributes.tags.data.some((t) => t.id === tag.id),
-                                )?.attributes.Name
-                                return (
-                                    <Chip
-                                        key={index}
-                                        label={tag.attributes.Name}
-                                        size="small"
-                                        sx={{
-                                            fontSize: '0.7rem',
-                                            backgroundColor: `${
-                                                CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] ||
-                                                'transparent'
-                                            }`,
-                                            color: theme.palette.text.primary,
-                                            textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
-                                        }}
-                                    />
-                                )
-                            })}
-                        </Box>
-
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                mt: `${BOTTOM_INFO_MARGIN_TOP}px`,
-                                mb: `${BOTTOM_INFO_MARGIN_BOTTOM}px`,
-                            }}
-                        >
-                            <Typography
-                                variant="body2"
-                                sx={{
-                                    ...theme.custom.cardText,
-                                    textShadow: '1px 1px 3px rgba(3, 3, 3, 1)',
-                                }}
-                            >
-                                {game.authors && game.authors.length > 0 ? game.authors[0].name : 'Anonymous'}
-                            </Typography>
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                }}
-                            >
-                                <CommentIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
-                                <Typography
-                                    variant="body2"
-                                    sx={{
-                                        color: 'white',
-                                        fontWeight: 'bold',
-                                        textShadow: '1px 1px 2px rgba(3,3,3,1)',
-                                        mr: 1,
-                                    }}
-                                >
-                                    {game.commentCount}
-                                </Typography>
-                                <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
-                                <Typography
-                                    variant="body2"
-                                    sx={{
-                                        color: 'white',
-                                        fontWeight: 'bold',
-                                        textShadow: '1px 1px 2px rgba(3,3,3,1)',
-                                    }}
-                                >
-                                    {gameUpvoteCount}
-                                </Typography>
-                            </Box>
-                        </Box>
-                    </Box>
-                </CardContent>
-            </Card>
-            <Modal open={isModalOpen} onClose={handleCloseModal}>
+                />
+            ) : (
                 <Box
                     sx={{
                         position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        width: 300,
-                        bgcolor: 'background.paper',
-                        boxShadow: 24,
-                        p: 4,
-                        borderRadius: 2,
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundImage: `url(${imageUrl})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        '&::after': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: `rgba(0, 0, 0, ${OVERLAY_OPACITY})`,
+                        },
+                    }}
+                />
+            )}
+            <CardContent
+                sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    p: `${CARD_PADDING}px`,
+                    boxSizing: 'border-box',
+                }}
+            >
+                <Typography
+                    variant="h3"
+                    component="div"
+                    align="center"
+                    sx={{
+                        fontWeight: 'bold',
+                        fontSize: TITLE_FONT_SIZE,
+                        ...theme.custom.cardTitle,
+                        mb: `${TITLE_MARGIN_BOTTOM}px`,
                     }}
                 >
-                    <Typography variant="h6" component="h2" gutterBottom>
-                        Game Options
-                    </Typography>
-                    <Box
-                        sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' }, p: 1 }}
-                        onClick={handleOpenInNewTab}
+                    {game.title || 'Untitled'}
+                </Typography>
+
+                <Box sx={{ position: 'absolute', top: DESCRIPTION_TOP, left: CARD_PADDING, right: CARD_PADDING }}>
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            ...theme.custom.cardText,
+                        }}
                     >
-                        <Typography>Open in new tab</Typography>
+                        {description}
+                    </Typography>
+                </Box>
+
+                <Box sx={{ mt: 'auto' }}>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: 0.5,
+                            mb: `${TAGS_MARGIN_BOTTOM}px`,
+                            height: TAG_SECTION_HEIGHT,
+                            overflow: 'hidden',
+                        }}
+                    >
+                        {sortedTags.map((tag, index) => {
+                            const category = tagCategories.find((cat) =>
+                                cat.attributes.tags.data.some((t) => t.id === tag.id)
+                            )?.attributes.Name
+                            return (
+                                <Chip
+                                    key={index}
+                                    label={tag.attributes.Name}
+                                    size="small"
+                                    sx={{
+                                        fontSize: '0.7rem',
+                                        backgroundColor: `${
+                                            CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] ||
+                                            'transparent'
+                                        }`,
+                                        color: theme.palette.text.primary,
+                                        textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+                                    }}
+                                />
+                            )
+                        })}
+                    </Box>
+
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            mt: `${BOTTOM_INFO_MARGIN_TOP}px`,
+                            mb: `${BOTTOM_INFO_MARGIN_BOTTOM}px`,
+                        }}
+                    >
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                ...theme.custom.cardText,
+                                textShadow: '1px 1px 3px rgba(3, 3, 3, 1)',
+                            }}
+                        >
+                            {game.authors && game.authors.length > 0 ? game.authors[0].name : 'Anonymous'}
+                        </Typography>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                            }}
+                        >
+                            <CommentIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    textShadow: '1px 1px 2px rgba(3,3,3,1)',
+                                    mr: 1,
+                                }}
+                            >
+                                {game.commentCount}
+                            </Typography>
+                            <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    textShadow: '1px 1px 2px rgba(3,3,3,1)',
+                                }}
+                            >
+                                {gameUpvoteCount}
+                            </Typography>
+                        </Box>
                     </Box>
                 </Box>
-            </Modal>
-        </>
+            </CardContent>
+        </Card>
     )
 })
 

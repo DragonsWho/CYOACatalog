@@ -1,10 +1,10 @@
 // src/components/GameCard.tsx
-// v3.10
-// Fixed middle-click behavior and updated right-click to use default link context menu
+// v3.11
+// Simplified click handling to allow default browser behavior for middle-click
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { Card, CardContent, Typography, Chip, Box, Skeleton, useTheme } from '@mui/material'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { getCachedImage, cacheImage, cacheTagCategoryMap, getCachedTagCategoryMap } from '../services/cacheService'
 import FavoriteIcon from '@mui/icons-material/Favorite'
 import CommentIcon from '@mui/icons-material/Comment'
@@ -94,7 +94,6 @@ interface GameCardProps {
 
 const GameCard: React.FC<GameCardProps> = memo(({ game, tagCategories }) => {
     const theme = useTheme()
-    const navigate = useNavigate()
     const [imageUrl, setImageUrl] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
@@ -179,26 +178,8 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, tagCategories }) => {
     const gameUpvotes = game.Upvotes || []
     const gameUpvoteCount = gameUpvotes.length
 
-    const handleCardClick = useCallback(
-        (event: React.MouseEvent<HTMLDivElement>) => {
-            if (event.button === 0) {
-                // Левый клик
-                navigate(`/game/${game.id}`)
-            } else if (event.button === 1) {
-                // Средний клик (колесико мыши)
-                event.preventDefault() // Предотвращаем стандартное поведение браузера
-                window.open(`/game/${game.id}`, '_blank') // Открываем новую вкладку в фоне
-            }
-        },
-        [navigate, game.id]
-    )
-
     return (
-        <Link
-            to={`/game/${game.id}`}
-            onMouseDown={handleCardClick}
-            style={{ textDecoration: 'none' }}
-        >
+        <Link to={`/game/${game.id}`} style={{ textDecoration: 'none' }}>
             <Card
                 sx={{
                     cursor: 'pointer',

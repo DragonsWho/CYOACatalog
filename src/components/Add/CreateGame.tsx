@@ -22,7 +22,7 @@ import AuthorSelector from './AuthorSelector'
 import TagSelector from './TagSelector'
 import CyoaImageUploader from './CyoaImageUploader'
 import ImageCompressor from './ImageCompressor'
-import axios, { AxiosError } from 'axios'
+import axios from 'axios'
 
 interface Author {
     id: number

@@ -47,7 +47,6 @@ interface GameAttributes {
     authors: { data: Author[] }
     tags: { data: Tag[] }
     Image: Image
-    CYOA_pages: { data: any[] }
     Upvotes: string[]
     img_or_link: 'img' | 'link'
     iframe_url?: string
@@ -171,10 +170,10 @@ function GameDetails() {
                                     chipProps={{
                                         size: 'small',
                                         sx: {
-                                            bgcolor: theme.palette.grey[800],
+                                            backgroundColor: theme.palette.grey[800],
                                             color: theme.palette.text.primary,
                                             '&:hover': {
-                                                bgcolor: theme.palette.grey[700],
+                                                backgroundColor: theme.palette.grey[700],
                                             },
                                         },
                                     }}
@@ -183,7 +182,7 @@ function GameDetails() {
                         )}
 
                         <GameAdditionalInfo
-                            gameId={id}
+                            gameId={id || 'UNDEFINED ID'}
                             upvotes={attributes.Upvotes}
                             expanded={expanded}
                             onExpand={handleExpand}
@@ -221,7 +220,7 @@ function GameDetails() {
             </Box>
 
             <Box sx={{}}>
-                <SimpleComments gameId={id} />
+                <SimpleComments gameId={id || 'UNDEFINED'} />
             </Box>
         </Container>
     )

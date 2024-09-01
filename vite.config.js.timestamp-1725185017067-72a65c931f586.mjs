@@ -3,7 +3,7 @@ import { defineConfig } from 'file:///D:/Coding/dragonWhore/CYOACatalog/node_mod
 import react from 'file:///D:/Coding/dragonWhore/CYOACatalog/node_modules/@vitejs/plugin-react/dist/index.mjs'
 import { nodePolyfills } from 'file:///D:/Coding/dragonWhore/CYOACatalog/node_modules/vite-plugin-node-polyfills/dist/index.js'
 import commonjs from 'file:///D:/Coding/dragonWhore/CYOACatalog/node_modules/vite-plugin-commonjs/dist/index.mjs'
-var vite_config_default = defineConfig(({ command, mode }) => {
+var vite_config_default = defineConfig(({ mode }) => {
   const config = {
     plugins: [
       react(),

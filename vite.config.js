@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import commonjs from 'vite-plugin-commonjs'
 
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(({ mode }) => {
   const config = {
     plugins: [
       react(),

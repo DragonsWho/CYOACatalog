@@ -1,6 +1,6 @@
 // src/components/Add/CreateGame.tsx
-// Version 2.2.1
-// Updated to remove 'any' types and improve type safety
+// Version 2.2.2
+// Updated to fix linting error with AxiosError and improve error handling
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react'
 import {
@@ -22,7 +22,7 @@ import AuthorSelector from './AuthorSelector'
 import TagSelector from './TagSelector'
 import CyoaImageUploader from './CyoaImageUploader'
 import ImageCompressor from './ImageCompressor'
-import axios, { AxiosError } from 'axios'
+import axios from 'axios'
 
 interface Author {
     id: number
@@ -232,7 +232,7 @@ function CreateGame(): JSX.Element {
             const result = await createGame(formData)
             console.log('Created game:', result)
             navigate('/')
-        } catch (error: Error | AxiosError) {
+        } catch (error) {
             console.error('Error creating game:', error)
             if (axios.isAxiosError(error) && error.response) {
                 console.error('Error response:', error.response.data)

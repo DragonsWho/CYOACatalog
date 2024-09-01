@@ -120,7 +120,7 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
                 try {
                     await loadImage(image)
                 } catch (error) {
-                    console.error(`Failed to load image after all retries: ${image.attributes.name}`)
+                    console.error(`Failed to load image after all retries: ${image.attributes.name}. Error: ${error}`)
                 }
             }
         }

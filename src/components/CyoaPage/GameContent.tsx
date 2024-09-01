@@ -1,6 +1,6 @@
 // src/components/CyoaPage/GameContent.tsx
-// v3.2
-// Completely reworked sequential image loading
+// v3.4
+// Enhanced error handling in loadImages function
 
 import React, { useState, useEffect, useCallback } from 'react'
 
@@ -107,7 +107,7 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
                 } else {
                     console.error(`Max retries reached for image: ${image.attributes.name}`)
                     setImageErrors((prev) => ({ ...prev, [image.id]: true }))
-                    reject()
+                    reject(new Error(`Failed to load image: ${image.attributes.name}`))
                 }
             }
         })
@@ -120,7 +120,12 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
                 try {
                     await loadImage(image)
                 } catch (error) {
-                    console.error(`Failed to load image after all retries: ${image.attributes.name}`)
+                    if (error instanceof Error) {
+                        console.error(`Error loading image: ${error.message}`)
+                    } else {
+                        console.error(`An unknown error occurred while loading image: ${image.attributes.name}`)
+                    } 
+                    setImageErrors((prev) => ({ ...prev, [image.id]: true }))
                 }
             }
         }

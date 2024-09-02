@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://api.cyoa.cafe'
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.cyoa.cafe'
 
 interface GameAttributes {
     img_or_link: 'img' | 'link'
@@ -124,7 +124,7 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
                         console.error(`Error loading image: ${error.message}`)
                     } else {
                         console.error(`An unknown error occurred while loading image: ${image.attributes.name}`)
-                    } 
+                    }
                     setImageErrors((prev) => ({ ...prev, [image.id]: true }))
                 }
             }

@@ -5,7 +5,7 @@
 import axios from 'axios'
 
 axios.defaults.withCredentials = true
-const API_URL = process.env.REACT_APP_API_URL || 'https://api.cyoa.cafe'
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.cyoa.cafe'
 
 const authService = {
     register: async (username, email, password) => {

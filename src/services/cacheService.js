@@ -4,7 +4,7 @@
 
 const CACHE_KEY = 'gameList'
 const CACHE_TIMESTAMP_KEY = 'gameListTimestamp'
-const CACHE_DURATION = 12 * 60 * 60 * 1000 // 12 hours in milliseconds
+const CACHE_DURATION = 1 * 60 * 60 * 1000 // 1 hours in milliseconds
 
 const IMAGE_CACHE_EXPIRATION = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
 

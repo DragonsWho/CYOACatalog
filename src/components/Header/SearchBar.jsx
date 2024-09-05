@@ -1,8 +1,8 @@
 // src/components/Header/SearchBar.jsx
-// Version 1.5
-// Description: Improved error handling and logging
+// Version 1.6
+// Description: Simplified search functionality to fetch data only once when user starts typing
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { TextField, Autocomplete, CircularProgress } from '@mui/material'
 import { Link, useNavigate } from 'react-router-dom'
 import { searchGames } from '../../services/searchService'
@@ -13,36 +13,41 @@ function SearchBar() {
     const [searchResults, setSearchResults] = useState([])
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState(null)
+    const [hasInitialFetch, setHasInitialFetch] = useState(false)
     const navigate = useNavigate()
     const theme = useTheme()
 
-    useEffect(() => {
-        const delayDebounce = setTimeout(() => {
-            if (searchQuery) {
-                performSearch()
-            } else {
+    const performSearch = useCallback(async () => {
+        if (!hasInitialFetch) {
+            setIsLoading(true)
+            setError(null)
+            try {
+                console.log('Performing initial search fetch')
+                const results = await searchGames('')
+                console.log('Initial search results:', results)
+                setSearchResults(results)
+                setHasInitialFetch(true)
+            } catch (error) {
+                console.error('Error performing initial search:', error)
+                setError('An error occurred while fetching data. Please try again.')
                 setSearchResults([])
-                setError(null)
+            } finally {
+                setIsLoading(false)
             }
-        }, 300)
+        }
+    }, [hasInitialFetch])
 
-        return () => clearTimeout(delayDebounce)
-    }, [searchQuery])
+    useEffect(() => {
+        performSearch()
+    }, [performSearch])
 
-    const performSearch = async () => {
-        setIsLoading(true)
-        setError(null)
-        try {
-            console.log('Performing search for:', searchQuery)
-            const results = await searchGames(searchQuery)
-            console.log('Search results:', results)
-            setSearchResults(results)
-        } catch (error) {
-            console.error('Error performing search:', error)
-            setError('An error occurred while searching. Please try again.')
-            setSearchResults([])
-        } finally {
-            setIsLoading(false)
+    const handleSearchChange = (event, value) => {
+        setSearchQuery(value)
+        if (hasInitialFetch) {
+            const filteredResults = searchResults.filter(game =>
+                game.attributes.Title.toLowerCase().includes(value.toLowerCase())
+            )
+            setSearchResults(filteredResults)
         }
     }
 
@@ -57,7 +62,6 @@ function SearchBar() {
                     variant="outlined"
                     size="small"
                     placeholder="Search..."
-                    onChange={(e) => setSearchQuery(e.target.value)}
                     error={!!error}
                     helperText={error}
                     InputProps={{
@@ -97,6 +101,7 @@ function SearchBar() {
                     }}
                 />
             )}
+            onInputChange={handleSearchChange}
             onChange={(event, newValue) => {
                 if (newValue && newValue.id) {
                     console.log('Selected game:', newValue)

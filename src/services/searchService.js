@@ -1,39 +1,52 @@
 // src/services/searchService.js
-// v 1.10
-// Changes: Simplified to fetch all games once and perform filtering in memory
+// v 2.0
+// Changes: Implemented pagination to fetch all games, improved error handling and logging
 
 import { getFromCache, saveToCache } from './cacheService'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://api.cyoa.cafe'
-
-let allGames = null
+const PAGE_SIZE = 100 // Adjust this value based on your API's capabilities
 
 export const fetchAllGames = async () => {
-    if (allGames) {
-        return allGames
-    }
-
     const cachedGames = getFromCache()
     if (cachedGames) {
-        allGames = cachedGames
-        return allGames
+        return cachedGames
     }
 
     try {
-        console.log('Fetching games from API:', `${API_URL}/api/games`)
-        const response = await fetch(`${API_URL}/api/games`)
-        if (!response.ok) {
-            const errorText = await response.text()
-            console.error('API response not OK:', response.status, errorText)
-            throw new Error(`Failed to fetch games: ${response.status} ${errorText}`)
+        let allGames = []
+        let page = 1
+        let hasMore = true
+
+        while (hasMore) {
+            console.log(`Fetching games from API: ${API_URL}/api/games?pagination[page]=${page}&pagination[pageSize]=${PAGE_SIZE}`)
+            const response = await fetch(`${API_URL}/api/games?pagination[page]=${page}&pagination[pageSize]=${PAGE_SIZE}`)
+            
+            if (!response.ok) {
+                const errorText = await response.text()
+                console.error('API response not OK:', response.status, errorText)
+                throw new Error(`Failed to fetch games: ${response.status} ${errorText}`)
+            }
+
+            const data = await response.json()
+            console.log('Received data from API:', data)
+
+            if (!data.data || !Array.isArray(data.data)) {
+                console.error('Unexpected API response structure:', data)
+                throw new Error('Unexpected API response structure')
+            }
+
+            allGames = allGames.concat(data.data)
+
+            if (data.meta && data.meta.pagination) {
+                hasMore = data.meta.pagination.page < data.meta.pagination.pageCount
+                page++
+            } else {
+                hasMore = false
+            }
         }
-        const data = await response.json()
-        console.log('Received data from API:', data)
-        if (!data.data) {
-            console.error('Unexpected API response structure:', data)
-            throw new Error('Unexpected API response structure')
-        }
-        allGames = data.data
+
+        console.log(`Total games fetched: ${allGames.length}`)
         saveToCache(allGames)
         return allGames
     } catch (error) {
@@ -44,15 +57,12 @@ export const fetchAllGames = async () => {
 
 export const searchGames = async (query) => {
     try {
-        if (!allGames) {
-            await fetchAllGames()
-        }
-        if (query === '') {
-            return allGames
-        }
-        return allGames.filter(game =>
+        const allGames = await fetchAllGames()
+        const results = allGames.filter(game =>
             game.attributes.Title.toLowerCase().includes(query.toLowerCase())
         )
+        console.log(`Search results for "${query}":`, results.length)
+        return results
     } catch (error) {
         console.error('Error in searchGames:', error)
         throw error

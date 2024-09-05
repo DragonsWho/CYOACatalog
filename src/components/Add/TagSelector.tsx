@@ -1,10 +1,10 @@
 // src/components/Add/TagSelector.tsx
-// Version 1.9.6
-// Changes: Added null check for onLoad function and improved error handling
+// Version 2.0.0
+// Changes: Combined TagSelector and TagSelectionSection components, improved error handling and tooltips
 
-import React, { useState, useEffect, useMemo } from 'react'
-import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material'
-import { getTags, getTagCategories } from '../../services/api'
+import React, { useState, useEffect, useMemo } from 'react';
+import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
+import { getTags, getTagCategories } from '../../services/api';
 
 const CATEGORY_ORDER = [
     'Rating',
@@ -22,7 +22,7 @@ const CATEGORY_ORDER = [
     'Visual Style',
     'Language',
     'Kinks',
-]
+];
 
 const TAG_GROUPS: { [key: string]: number[][] } = {
     Rating: [[4]],
@@ -32,74 +32,75 @@ const TAG_GROUPS: { [key: string]: number[][] } = {
     'Player Sexual Role': [[6]],
     Tone: [[7]],
     Kinks: [[7], [6], [5], [3], [4], [5], [5], [4], [6], [7], [3], [6], [6], [5], [5], [6], [99]],
-}
-const TOOLTIP_DELAY = 1000 // 1 second delay for tooltips
-const CHIP_HEIGHT = '24px'
-const CHIP_FONT_SIZE = '0.8125rem'
-const CHIP_PADDING = '0 8px'
-const CHIP_BORDER_RADIUS = '4px'
-const GAP = 0.75 // Gap between chips
-const CATEGORY_TITLE_MARGIN_BOTTOM = 0
-const CATEGORY_TITLE_FONT_WEIGHT = '500'
-const SECTION_GAP = 0.5 // Gap between sections
+};
+
+const TOOLTIP_DELAY = 1000; // 1 second delay for tooltips
+const CHIP_HEIGHT = '24px';
+const CHIP_FONT_SIZE = '0.8125rem';
+const CHIP_PADDING = '0 8px';
+const CHIP_BORDER_RADIUS = '4px';
+const GAP = 0.75; // Gap between chips
+const CATEGORY_TITLE_MARGIN_BOTTOM = 0;
+const CATEGORY_TITLE_FONT_WEIGHT = '500';
+const SECTION_GAP = 0.5; // Gap between sections
 
 interface Tag {
-    id: number
+    id: number;
     attributes: {
-        Name: string
-        Description: string
+        Name: string;
+        Description: string;
         tag_category: {
             data: {
-                id: number
-            }
-        }
-    }
+                id: number;
+            };
+        };
+    };
 }
 
 interface CategoryData {
-    id: number
+    id: number;
     attributes: {
-        Name: string
-        Description: string
-        MinTags: number
-        MaxTags: number
-        AllowNewTags: boolean
-    }
+        Name: string;
+        Description: string;
+        MinTags: number;
+        MaxTags: number;
+        AllowNewTags: boolean;
+    };
 }
 
 interface Category extends CategoryData {
-    tags: Tag[]
+    tags: Tag[];
 }
 
 interface TagSelectorProps {
-    selectedTags: number[]
-    onTagsChange: (tags: number[]) => void
-    onLoad?: () => void
+    selectedTags: number[];
+    onTagsChange: (tags: number[]) => void;
+    onLoad?: () => void;
 }
 
 interface DelayedTooltipProps {
-    title: string
-    children: React.ReactElement
-    placement?: 'bottom' | 'bottom-start'
+    title: string;
+    children: React.ReactElement;
+    placement?: 'bottom' | 'bottom-start';
 }
 
 const DelayedTooltip: React.FC<DelayedTooltipProps> = ({ title, children, placement = 'bottom' }) => {
-    const [isOpen, setIsOpen] = useState(false)
-    const [timer, setTimer] = useState<NodeJS.Timeout | null>(null)
+    const [isOpen, setIsOpen] = useState(false);
+    const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
 
     const handleMouseEnter = () => {
         const newTimer = setTimeout(() => {
-            setIsOpen(true)
-        }, TOOLTIP_DELAY)
-        setTimer(newTimer)
-    }
+            setIsOpen(true);
+        }, TOOLTIP_DELAY);
+        setTimer(newTimer);
+    };
 
     const handleMouseLeave = () => {
         if (timer) {
-            clearTimeout(timer)
+            clearTimeout(timer);
         }
-        setIsOpen(false)
-    }
+        setIsOpen(false);
+    };
 
     return (
         <Tooltip title={title} open={isOpen} onClose={handleMouseLeave} placement={placement} arrow>
@@ -107,94 +108,79 @@ const DelayedTooltip: React.FC<DelayedTooltipProps> = ({ title, children, placem
                 {children}
             </span>
         </Tooltip>
-    )
-}
+    );
+};
 
 const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, onLoad }) => {
-    const [tagCategories, setTagCategories] = useState<Category[]>([])
-    const [loading, setLoading] = useState<boolean>(true)
-    const [error, setError] = useState<string | null>(null)
+    const [tagCategories, setTagCategories] = useState<Category[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchTagData = async () => {
             try {
-                console.log('Starting to fetch tag data')
-                const tagsData = await getTags()
-                console.log('Tags data fetched:', tagsData)
-                
-                const categoriesData = await getTagCategories()
-                console.log('Categories data fetched:', categoriesData)
-
-                console.log('Type of categoriesData:', typeof categoriesData)
-                console.log('Is categoriesData an array?', Array.isArray(categoriesData))
+                const [tagsData, categoriesData] = await Promise.all([getTags(), getTagCategories()]);
 
                 if (!Array.isArray(categoriesData)) {
-                    throw new Error('Categories data is not an array')
+                    throw new Error('Categories data is not an array');
                 }
-                
-                const processedCategories = categoriesData.map((category: CategoryData) => {
-                    console.log('Processing category:', category)
-                    return {
-                        ...category.attributes,
-                        id: category.id,
-                        tags: Array.isArray(tagsData) 
-                            ? tagsData.filter((tag: Tag) => {
-                                console.log('Checking tag:', tag)
-                                return tag.attributes.tag_category.data?.id === category.id
-                              })
-                            : [],
-                    }
-                })
-                
-                console.log('Processed categories:', processedCategories)
-                setTagCategories(processedCategories)
+
+                const processedCategories = categoriesData.map((category: CategoryData) => ({
+                    ...category,
+                    tags: Array.isArray(tagsData)
+                        ? tagsData.filter((tag: Tag) => tag.attributes.tag_category.data?.id === category.id)
+                        : [],
+                }));
+
+                setTagCategories(processedCategories);
                 if (onLoad && typeof onLoad === 'function') {
-                    onLoad()
+                    onLoad();
                 }
             } catch (error) {
-                console.error('Error in fetchTagData:', error)
-                setError(`Failed to load tags. Please try again. Error: ${error instanceof Error ? error.message : String(error)}`)
+                console.error('Error in fetchTagData:', error);
+                setError(`Failed to load tags. Please try again. Error: ${error instanceof Error ? error.message : String(error)}`);
             } finally {
-                setLoading(false)
+                setLoading(false);
             }
-        }
+        };
 
-        fetchTagData()
-    }, [onLoad])
+        fetchTagData();
+    }, [onLoad]);
 
     const sortedCategories = useMemo(() => {
         return tagCategories.sort((a, b) => {
-            const indexA = CATEGORY_ORDER.indexOf(a.Name)
-            const indexB = CATEGORY_ORDER.indexOf(b.Name)
-            if (indexA === -1 && indexB === -1) return 0
-            if (indexA === -1) return 1
-            if (indexB === -1) return -1
-            return indexA - indexB
-        })
-    }, [tagCategories])
+            const indexA = CATEGORY_ORDER.indexOf(a.attributes.Name);
+            const indexB = CATEGORY_ORDER.indexOf(b.attributes.Name);
+            if (indexA === -1 && indexB === -1) return 0;
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
+    }, [tagCategories]);
 
     const handleTagToggle = (tagId: number, categoryId: number) => {
-        const category = tagCategories.find((cat) => cat.id === categoryId)
-        if (!category) return
+        const category = tagCategories.find((cat) => cat.id === categoryId);
+        if (!category) return;
 
-        const categoryTags = selectedTags.filter((id) => category.tags.some((tag) => tag.id === id))
+        const categoryTags = selectedTags.filter((id) => category.tags.some((tag) => tag.id === id));
 
         if (selectedTags.includes(tagId)) {
-            onTagsChange(selectedTags.filter((id) => id !== tagId))
+            onTagsChange(selectedTags.filter((id) => id !== tagId));
         } else {
-            if (categoryTags.length < category.MaxTags) {
-                onTagsChange([...selectedTags, tagId])
+            if (categoryTags.length < category.attributes.MaxTags) {
+                onTagsChange([...selectedTags, tagId]);
             }
         }
-    }
+    };
 
     const handleAddTag = (categoryId: number, newTagName: string) => {
-        console.log(`Add new tag "${newTagName}" to category ${categoryId}`)
-    }
+        console.log(`Add new tag "${newTagName}" to category ${categoryId}`);
+        // Здесь должна быть логика добавления нового тега
+    };
 
     const renderTagGroups = (category: Category, groupConfig: number[][] | undefined) => {
         if (!groupConfig || groupConfig.length === 0) {
-            groupConfig = [[category.tags.length]] // Default to all tags in one row
+            groupConfig = [[category.tags.length]]; // Default to all tags in one row
         }
 
         return groupConfig.map((row, rowIndex) => (
@@ -208,15 +194,15 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
                             .slice(0, rowIndex)
                             .flat()
                             .reduce((sum, size) => sum + size, 0) +
-                        row.slice(0, groupIndex).reduce((sum, size) => sum + size, 0)
-                    const groupTags = category.tags.slice(startIndex, startIndex + groupSize)
+                        row.slice(0, groupIndex).reduce((sum, size) => sum + size, 0);
+                    const groupTags = category.tags.slice(startIndex, startIndex + groupSize);
 
                     return groupTags.map((tag) => {
-                        const isSelected = selectedTags.includes(tag.id)
+                        const isSelected = selectedTags.includes(tag.id);
                         const isDisabled =
                             !isSelected &&
                             selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id)).length >=
-                                category.MaxTags
+                                category.attributes.MaxTags;
 
                         return (
                             <DelayedTooltip
@@ -239,78 +225,76 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
                                     disabled={isDisabled}
                                 />
                             </DelayedTooltip>
-                        )
-                    })
+                        );
+                    });
                 })}
             </Box>
-        ))
-    }
+        ));
+    };
 
     const isMinimumTagsSelected = (category: Category) => {
-        const selectedTagsInCategory = selectedTags.filter((id) => category.tags.some((tag) => tag.id === id)).length
-        return selectedTagsInCategory >= category.MinTags
-    }
+        const selectedTagsInCategory = selectedTags.filter((id) => category.tags.some((tag) => tag.id === id)).length;
+        return selectedTagsInCategory >= category.attributes.MinTags;
+    };
 
-    if (loading) return <CircularProgress size={24} />
-    if (error)
-        return (
-            <Typography color="error" variant="body2">
-                {error}
-            </Typography>
-        )
+    if (loading) return <CircularProgress size={24} />;
+    if (error) return <Typography color="error" variant="body2">{error}</Typography>;
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
-            {sortedCategories.map((category) => {
-                const canAddMore =
-                    selectedTags.filter((id) => category.tags.some((tag) => tag.id === id)).length < category.MaxTags
+        <Box sx={{ mt: 2 }}>
+            <Typography variant="h6">Select Tags</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
+                {sortedCategories.map((category) => {
+                    const canAddMore =
+                        selectedTags.filter((id) => category.tags.some((tag) => tag.id === id)).length < category.attributes.MaxTags;
 
-                return (
-                    <Box key={category.id}>
-                        <DelayedTooltip
-                            title={category.Description || 'No description available'}
-                            placement="bottom-start"
-                        >
-                            <Typography
-                                variant="subtitle1"
-                                sx={{
-                                    mb: CATEGORY_TITLE_MARGIN_BOTTOM,
-                                    fontWeight: CATEGORY_TITLE_FONT_WEIGHT,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                }}
+                    return (
+                        <Box key={category.id}>
+                            <DelayedTooltip
+                                title={category.attributes.Description || 'No description available'}
+                                placement="bottom-start"
                             >
-                                {category.Name}
-                                {!isMinimumTagsSelected(category) && (
-                                    <span style={{ color: 'red', marginLeft: '4px' }}>*</span>
-                                )}
-                            </Typography>
-                        </DelayedTooltip>
-                        {renderTagGroups(category, TAG_GROUPS[category.Name])}
-                        {category.AllowNewTags && canAddMore && (
-                            <TextField
-                                size="small"
-                                placeholder="Add a tag..."
-                                onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                                    if (e.key === 'Enter') {
-                                        handleAddTag(category.id, (e.target as HTMLInputElement).value)
-                                        ;(e.target as HTMLInputElement).value = ''
-                                    }
-                                }}
-                                sx={{
-                                    mt: GAP,
-                                    '& .MuiInputBase-root': {
-                                        height: CHIP_HEIGHT,
-                                        fontSize: CHIP_FONT_SIZE,
-                                    },
-                                }}
-                            />
-                        )}
-                    </Box>
-                )
-            })}
+                                <Typography
+                                    variant="subtitle1"
+                                    sx={{
+                                        mb: CATEGORY_TITLE_MARGIN_BOTTOM,
+                                        fontWeight: CATEGORY_TITLE_FONT_WEIGHT,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
+                                    {category.attributes.Name}
+                                    {!isMinimumTagsSelected(category) && (
+                                        <span style={{ color: 'red', marginLeft: '4px' }}>*</span>
+                                    )}
+                                </Typography>
+                            </DelayedTooltip>
+                            {renderTagGroups(category, TAG_GROUPS[category.attributes.Name])}
+                            {category.attributes.AllowNewTags && canAddMore && (
+                                <TextField
+                                    size="small"
+                                    placeholder="Add a tag..."
+                                    onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                        if (e.key === 'Enter') {
+                                            handleAddTag(category.id, (e.target as HTMLInputElement).value);
+                                            (e.target as HTMLInputElement).value = '';
+                                        }
+                                    }}
+                                    sx={{
+                                        mt: GAP,
+                                        '& .MuiInputBase-root': {
+                                            height: CHIP_HEIGHT,
+                                            fontSize: CHIP_FONT_SIZE,
+                                        },
+                                    }}
+                                />
+                            )}
+                        </Box>
+                    );
+                })}
+            </Box>
         </Box>
-    )
-}
+    );
+};
 
-export default TagSelector
+export default TagSelector;

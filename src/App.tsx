@@ -9,7 +9,7 @@ import Header from './components/Header/Header'
 import Footer from './components/Footer/Footer'
 import GameList from './components/GameList'
 import GameDetails from './components/CyoaPage/GameDetails'
-import CreateGame from './components/Add/CreateGame'
+import CreateGameForm from './components/Add/CreateGameForm'
 import Login from './components/Header/Login'
 import Profile from './components/Profile/Profile'
 import AuthCallback from './components/AuthCallback'
@@ -69,7 +69,7 @@ const App: React.FC = () => {
                     <Route path="/game/:id" element={<GameDetails />} />
                     <Route
                         path="/create"
-                        element={isAuthenticated ? <CreateGame /> : <Login onLoginSuccess={handleLoginSuccess} />}
+                        element={isAuthenticated ? <CreateGameForm /> : <Login onLoginSuccess={handleLoginSuccess} />}
                     />
                     <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
                     <Route path="/profile" element={<Profile />} />

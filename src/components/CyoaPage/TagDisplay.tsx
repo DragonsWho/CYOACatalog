@@ -5,6 +5,7 @@
 import React from 'react';
 import { Box, Chip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { Tag } from '../../pocketbase/pocketbase';
 
 const CATEGORY_ORDER = [
   'Rating',
@@ -32,29 +33,13 @@ const GAP = 0.75; // Gap between chips
 const CATEGORY_FONT_WEIGHT = '500';
 const SECTION_GAP = 0.5; // Gap between sections
 
-interface Tag {
-  id: number;
-  attributes: {
-    Name: string;
-    tag_category: {
-      data: {
-        attributes: {
-          Name: string;
-        };
-      };
-    };
-  };
-}
-
-interface TagDisplayProps {
+export default function TagDisplay({
+  tags,
+  chipProps = {},
+}: {
   tags: Tag[];
-  chipProps?: {
-    size?: 'small' | 'medium';
-    sx?: React.CSSProperties;
-  };
-}
-
-const TagDisplay: React.FC<TagDisplayProps> = ({ tags, chipProps = {} }) => {
+  chipProps?: { size?: 'small' | 'medium'; sx?: React.CSSProperties };
+}) {
   const theme = useTheme();
 
   if (!tags || tags.length === 0) {
@@ -63,14 +48,8 @@ const TagDisplay: React.FC<TagDisplayProps> = ({ tags, chipProps = {} }) => {
 
   // Group tags by their category
   const groupedTags = tags.reduce<Record<string, Tag[]>>((acc, tag) => {
-    if (!tag || !tag.attributes) return acc;
-
-    const categoryData = tag.attributes.tag_category && tag.attributes.tag_category.data;
-    const categoryName = categoryData && categoryData.attributes ? categoryData.attributes.Name : 'Uncategorized';
-
-    if (!acc[categoryName]) {
-      acc[categoryName] = [];
-    }
+    const categoryName = tag.expand.tag_categories_via_tags?.[0].name ?? 'Uncategorized';
+    if (!acc[categoryName]) acc[categoryName] = [];
     acc[categoryName].push(tag);
     return acc;
   }, {});
@@ -105,7 +84,7 @@ const TagDisplay: React.FC<TagDisplayProps> = ({ tags, chipProps = {} }) => {
           {groupedTags[category].map((tag) => (
             <Chip
               key={tag.id}
-              label={tag.attributes.Name}
+              label={tag.name}
               size="small"
               sx={{
                 height: CHIP_HEIGHT,
@@ -123,6 +102,4 @@ const TagDisplay: React.FC<TagDisplayProps> = ({ tags, chipProps = {} }) => {
       ))}
     </Box>
   );
-};
-
-export default TagDisplay;
+}

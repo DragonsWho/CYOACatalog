@@ -1,5 +1,8 @@
 /pb_data/
 /bin/
+/.direnv/
+
+data.db
 
 # Logs
 logs

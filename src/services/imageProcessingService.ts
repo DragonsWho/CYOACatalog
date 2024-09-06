@@ -7,7 +7,7 @@ import { cpus } from 'os';
 
 const imagePool = new ImagePool(cpus().length);
 
-export const processImage = async (file, maxWidth = 1920, maxHeight = 1080) => {
+export const processImage = async (file: ArrayBuffer, maxWidth = 1920, maxHeight = 1080) => {
   const image = imagePool.ingestImage(file);
 
   // Resize the image if it's larger than the specified dimensions
@@ -17,7 +17,7 @@ export const processImage = async (file, maxWidth = 1920, maxHeight = 1080) => {
     height: Math.min(bitmap.height, maxHeight),
   };
 
-  await image.preprocess(resizeOptions);
+  await image.preprocess({ resize: resizeOptions });
 
   // Encode the image to AVIF format
   const encodeOptions = {
@@ -37,10 +37,10 @@ export const processImage = async (file, maxWidth = 1920, maxHeight = 1080) => {
 
   await image.encode(encodeOptions);
 
-  const { binary } = await image.encodedWith.avif;
+  const binary = image.encodedWith.avif?.binary ?? new Uint8Array();
 
   // Create a new File object with the processed image
-  const processedFile = new File([binary], file.name.replace(/\.[^/.]+$/, '.avif'), {
+  const processedFile = new File([binary], (file as unknown as { name: string }).name.replace(/\.[^/.]+$/, '.avif'), {
     type: 'image/avif',
   });
 

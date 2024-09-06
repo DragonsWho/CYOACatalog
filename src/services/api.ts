@@ -4,10 +4,13 @@
 
 import axios from 'axios';
 import authService from './authService';
+import PocketBase from 'pocketbase';
 
 axios.defaults.withCredentials = true;
 
 const API_URL = 'https://api.cyoa.cafe';
+
+export const pb = new PocketBase(window.location.origin);
 
 export const fetchGames = async (page = 1, pageSize = 12) => {
   try {
@@ -21,23 +24,35 @@ export const fetchGames = async (page = 1, pageSize = 12) => {
     });
     console.log('Raw response:', response.data);
 
-    const games = response.data.data.map((game) => ({
-      id: game.id,
-      title: game.attributes.Title,
-      description: Array.isArray(game.attributes.Description)
-        ? game.attributes.Description[0]
-        : game.attributes.Description,
-      image: game.attributes.Image?.data?.attributes?.url
-        ? `${API_URL}${game.attributes.Image.data.attributes.url}`
-        : null,
-      authors:
-        game.attributes.authors?.data?.map((author) => ({
-          id: author.id,
-          name: author.attributes.Name,
-        })) || [],
-      tags: game.attributes.tags?.data || [],
-      Upvotes: game.attributes.Upvotes || [],
-    }));
+    const games = response.data.data.map(
+      (game: {
+        id: string;
+        attributes: {
+          Title: string;
+          Description: string;
+          Image?: { data?: { attributes?: { url: string } } };
+          authors?: { data?: { id: string; attributes: { Name: string } }[] };
+          tags?: { data: unknown[] };
+          Upvotes: unknown[];
+        };
+      }) => ({
+        id: game.id,
+        title: game.attributes.Title,
+        description: Array.isArray(game.attributes.Description)
+          ? game.attributes.Description[0]
+          : game.attributes.Description,
+        image: game.attributes.Image?.data?.attributes?.url
+          ? `${API_URL}${game.attributes.Image.data.attributes.url}`
+          : null,
+        authors:
+          game.attributes.authors?.data?.map((author) => ({
+            id: author.id,
+            name: author.attributes.Name,
+          })) || [],
+        tags: game.attributes.tags?.data || [],
+        Upvotes: game.attributes.Upvotes || [],
+      }),
+    );
 
     return {
       games,
@@ -49,7 +64,7 @@ export const fetchGames = async (page = 1, pageSize = 12) => {
   }
 };
 
-export const fetchGameById = async (id) => {
+export const fetchGameById = async (id: string) => {
   try {
     const response = await axios.get(`${API_URL}/api/games/${id}?populate=*`);
     const game = response.data.data;
@@ -61,7 +76,7 @@ export const fetchGameById = async (id) => {
         ? `${API_URL}${game.attributes.Image.data.attributes.url}`
         : null,
       authors:
-        game.attributes.authors?.data?.map((author) => ({
+        game.attributes.authors?.data?.map((author: { id: string; attributes: { Name: string } }) => ({
           id: author.id,
           name: author.attributes.Name,
         })) || [],
@@ -77,7 +92,7 @@ export const fetchGameById = async (id) => {
   }
 };
 
-export const createGame = async (formData) => {
+export const createGame = async (formData: FormData) => {
   try {
     const response = await axios.post(`${API_URL}/api/games`, formData, {
       headers: {
@@ -88,7 +103,7 @@ export const createGame = async (formData) => {
     console.log('API response:', response.data);
     return response.data;
   } catch (error) {
-    console.error('API error:', error.response ? error.response.data : error);
+    console.error('API error:', (error as { response?: { data: unknown } }).response?.data || error);
     throw error;
   }
 };
@@ -98,7 +113,7 @@ export const getAuthors = async () => {
   return response.data.data;
 };
 
-export const createAuthor = async (authorName) => {
+export const createAuthor = async (authorName: string) => {
   try {
     const response = await axios.post(`${API_URL}/api/authors`, {
       data: {
@@ -156,12 +171,16 @@ export const getTagCategories = async () => {
   }
 };
 
-export const postComment = async (gameId, content, parentId = null) => {
+export const postComment = async (gameId: string, content: string, parentId = null) => {
   try {
     const user = authService.getCurrentUser();
     const token = user ? user.jwt : null;
 
-    const commentData = {
+    const commentData: {
+      content: string;
+      author: string;
+      threadOf?: string;
+    } = {
       content,
       author: user ? user.user.id : 'anonymous',
     };
@@ -182,7 +201,7 @@ export const postComment = async (gameId, content, parentId = null) => {
   }
 };
 
-export const fetchComments = async (gameId) => {
+export const fetchComments = async (gameId: string) => {
   try {
     const response = await axios.get(`${API_URL}/api/comments/api::game.game:${gameId}`, {
       params: {
@@ -202,7 +221,7 @@ export const fetchComments = async (gameId) => {
   }
 };
 
-export const editComment = async (gameId, commentId, content) => {
+export const editComment = async (gameId: string, commentId: string, content: string) => {
   try {
     const user = authService.getCurrentUser();
     const token = user ? user.jwt : null;
@@ -223,7 +242,7 @@ export const editComment = async (gameId, commentId, content) => {
   }
 };
 
-export const deleteComment = async (gameId, commentId) => {
+export const deleteComment = async (gameId: string, commentId: string) => {
   try {
     const user = authService.getCurrentUser();
     const token = user ? user.jwt : null;
@@ -256,7 +275,7 @@ export const deleteComment = async (gameId, commentId) => {
   }
 };
 
-export const upvoteGame = async (gameId) => {
+export const upvoteGame = async (gameId: string) => {
   try {
     const user = authService.getCurrentUser();
     if (!user) {
@@ -294,7 +313,7 @@ export const upvoteGame = async (gameId) => {
   }
 };
 
-export const removeUpvote = async (gameId) => {
+export const removeUpvote = async (gameId: string) => {
   try {
     const user = authService.getCurrentUser();
     if (!user) {
@@ -302,7 +321,7 @@ export const removeUpvote = async (gameId) => {
     }
 
     const game = await fetchGameById(gameId);
-    const updatedUpvotes = (game.Upvotes || []).filter((username) => username !== user.user.username);
+    const updatedUpvotes = (game.Upvotes || []).filter((username: string) => username !== user.user.username);
 
     const response = await axios.put(
       `${API_URL}/api/games/${gameId}`,

@@ -2,8 +2,7 @@
 // Version: 1.11.0
 // Description: Enhanced Login modal component with styled Discord login button and custom Discord icon
 
-import React, { useState } from 'react';
-import PropTypes from 'prop-types';
+import { FormEvent, useState } from 'react';
 import {
   TextField,
   Button,
@@ -17,15 +16,15 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SvgIcon from '@mui/material/SvgIcon';
-import authService from '../../services/authService';
+import { login } from '../../pocketbase/pocketbase';
 
-const DiscordIcon = (props) => (
-  <SvgIcon {...props}>
+const DiscordIcon = () => (
+  <SvgIcon>
     <path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 0 0-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09-.01-.02-.04-.03-.07-.03-1.5.26-2.93.71-4.27 1.33-.01 0-.02.01-.03.02-2.72 4.07-3.47 8.03-3.1 11.95 0 .02.01.04.03.05 1.8 1.32 3.53 2.12 5.24 2.65.03.01.06 0 .07-.02.4-.55.76-1.13 1.07-1.74.02-.04 0-.08-.04-.09-.57-.22-1.11-.48-1.64-.78-.04-.02-.04-.08-.01-.11.11-.08.22-.17.33-.25.02-.02.05-.02.07-.01 3.44 1.57 7.15 1.57 10.55 0 .02-.01.05-.01.07.01.11.09.22.17.33.26.04.03.04.09-.01.11-.52.31-1.07.56-1.64.78-.04.01-.05.06-.04.09.32.61.68 1.19 1.07 1.74.03.01.06.02.09.01 1.72-.53 3.45-1.33 5.25-2.65.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.83 2.12-1.89 2.12z" />
   </SvgIcon>
 );
 
-const DiscordButton = styled(Button)(({}) => ({
+const DiscordButton = styled(Button)(() => ({
   backgroundColor: '#5865F2',
   color: 'white',
   '&:hover': {
@@ -45,13 +44,14 @@ const DiscordButton = styled(Button)(({}) => ({
   textTransform: 'none',
 }));
 
-const Login = ({ open = false, onClose = () => {}, onLoginSuccess = () => {} }) => {
+export default function Login({ open = false, onClose = () => {}, onLoginSuccess = () => {} }) {
+  // TODO: close on discord login
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e) => {
+  async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!identifier || !password) {
       setError('Please fill in all fields');
@@ -60,28 +60,23 @@ const Login = ({ open = false, onClose = () => {}, onLoginSuccess = () => {} }) 
     setIsLoading(true);
     setError('');
     try {
-      const userData = await authService.login(identifier, password);
-      onLoginSuccess(userData);
+      await login({ usernameOrEmail: identifier, password });
+      onLoginSuccess();
       handleClose();
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
       console.error('Login error:', error);
       setError(error.response?.data?.error?.message || error.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
-  const handleDiscordLogin = () => {
+  async function handleDiscordLogin() {
     setIsLoading(true);
     setError('');
-    try {
-      authService.initiateDiscordLogin();
-    } catch (error) {
-      console.error('Discord login error:', error);
-      setError('Failed to initiate Discord login. Please try again.');
-      setIsLoading(false);
-    }
-  };
+    await login({ provider: 'discord' });
+  }
 
   const handleClose = () => {
     setIdentifier('');
@@ -95,7 +90,7 @@ const Login = ({ open = false, onClose = () => {}, onLoginSuccess = () => {} }) 
     <Dialog open={open} onClose={handleClose}>
       <DialogTitle>Login</DialogTitle>
       <DialogContent>
-        <form onSubmit={handleLogin}>
+        <form onSubmit={(e) => handleLogin(e)}>
           <TextField
             label="Email or username"
             value={identifier}
@@ -104,10 +99,12 @@ const Login = ({ open = false, onClose = () => {}, onLoginSuccess = () => {} }) 
             margin="normal"
             disabled={isLoading}
             required
-            InputProps={{
-              style: {
-                backgroundColor: '#1e1e1e',
-                color: '#e0e0e0',
+            slotProps={{
+              input: {
+                style: {
+                  backgroundColor: '#1e1e1e',
+                  color: '#e0e0e0',
+                },
               },
             }}
           />
@@ -120,10 +117,12 @@ const Login = ({ open = false, onClose = () => {}, onLoginSuccess = () => {} }) 
             margin="normal"
             disabled={isLoading}
             required
-            InputProps={{
-              style: {
-                backgroundColor: '#1e1e1e',
-                color: '#e0e0e0',
+            slotProps={{
+              input: {
+                style: {
+                  backgroundColor: '#1e1e1e',
+                  color: '#e0e0e0',
+                },
               },
             }}
           />
@@ -159,12 +158,4 @@ const Login = ({ open = false, onClose = () => {}, onLoginSuccess = () => {} }) 
       </DialogActions>
     </Dialog>
   );
-};
-
-Login.propTypes = {
-  open: PropTypes.bool,
-  onClose: PropTypes.func,
-  onLoginSuccess: PropTypes.func,
-};
-
-export default Login;
+}

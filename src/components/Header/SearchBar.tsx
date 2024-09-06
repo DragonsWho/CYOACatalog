@@ -5,52 +5,44 @@
 import React, { useState, useEffect } from 'react';
 import { TextField, Autocomplete, CircularProgress } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
-import { searchGames } from '../../services/searchService';
 import { useTheme } from '@mui/material/styles';
+import { Game, gamesCollection } from '../../pocketbase/pocketbase';
 
-function SearchBar() {
+export default function SearchBar() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const theme = useTheme();
 
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
       if (searchQuery) {
-        performSearch();
+        (async () => {
+          setIsLoading(true);
+          console.log('Performing search for:', searchQuery);
+          const fetchedGames = await gamesCollection.getFullList({
+            filter: `title ~ "${searchQuery}"`,
+            sort: '-created',
+            expand: 'tags.tag_categories_via_tags,authors_via_games',
+          });
+          console.log('Search results:', fetchedGames);
+          setSearchResults(fetchedGames);
+          setIsLoading(false);
+        })();
       } else {
         setSearchResults([]);
-        setError(null);
       }
     }, 300);
 
     return () => clearTimeout(delayDebounce);
   }, [searchQuery]);
 
-  const performSearch = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      console.log('Performing search for:', searchQuery);
-      const results = await searchGames(searchQuery);
-      console.log('Search results:', results);
-      setSearchResults(results);
-    } catch (error) {
-      console.error('Error performing search:', error);
-      setError('An error occurred while searching. Please try again.');
-      setSearchResults([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <Autocomplete
       freeSolo
       options={searchResults}
-      getOptionLabel={(option) => option.attributes?.Title || ''}
+      getOptionLabel={(option) => (typeof option === 'object' ? option.title : option) || ''}
       renderInput={(params) => (
         <TextField
           {...params}
@@ -58,16 +50,16 @@ function SearchBar() {
           size="small"
           placeholder="Search..."
           onChange={(e) => setSearchQuery(e.target.value)}
-          error={!!error}
-          helperText={error}
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <React.Fragment>
-                {isLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                {params.InputProps.endAdornment}
-              </React.Fragment>
-            ),
+          slotProps={{
+            input: {
+              ...params.InputProps,
+              endAdornment: (
+                <React.Fragment>
+                  {isLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                  {params.InputProps.endAdornment}
+                </React.Fragment>
+              ),
+            },
           }}
           sx={{
             width: 200,
@@ -97,8 +89,8 @@ function SearchBar() {
           }}
         />
       )}
-      onChange={(event, newValue) => {
-        if (newValue && newValue.id) {
+      onChange={(_, newValue) => {
+        if (typeof newValue === 'object' && newValue && newValue.id) {
           console.log('Selected game:', newValue);
           navigate(`/game/${newValue.id}`);
         }
@@ -106,12 +98,10 @@ function SearchBar() {
       renderOption={(props, option) => (
         <li {...props} key={option.id}>
           <Link to={`/game/${option.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-            {option.attributes.Title}
+            {option.title}
           </Link>
         </li>
       )}
     />
   );
 }
-
-export default SearchBar;

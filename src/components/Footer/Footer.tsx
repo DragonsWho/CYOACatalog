@@ -2,7 +2,6 @@
 // Version: 1.5.0
 // Description: Further adjusted Footer component to improve logo spacing and alignment, converted to TypeScript
 
-import React from 'react';
 import { Box, Container, Typography, Link as MuiLink } from '@mui/material';
 import { styled } from '@mui/system';
 import BoostyIcon from './BoostyIcon';
@@ -33,7 +32,7 @@ const IconWrapper = styled('span')({
   alignItems: 'center',
 });
 
-const Footer: React.FC = () => {
+export default function Footer() {
   return (
     <StyledFooter>
       <Container maxWidth="lg">
@@ -67,6 +66,4 @@ const Footer: React.FC = () => {
       </Container>
     </StyledFooter>
   );
-};
-
-export default Footer;
+}

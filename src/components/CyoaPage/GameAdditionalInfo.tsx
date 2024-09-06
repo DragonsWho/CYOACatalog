@@ -6,43 +6,38 @@ import { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { useTheme } from '@mui/material/styles';
-import { upvoteGame, removeUpvote } from '../../services/api';
-import authService from '../../services/authService';
+import { gamesCollection, getCurrentUser } from '../../pocketbase/pocketbase';
 
 const LOGIN_TOOLTIP = 'Login to upvote';
 
-interface GameAdditionalInfoProps {
-  gameId: string;
-  upvotes: string[];
-  expanded: boolean;
-  onExpand: () => void;
-  onUpvoteChange?: () => void;
-}
-
-function GameAdditionalInfo({
+export default function GameAdditionalInfo({
   gameId,
   upvotes: initialUpvotes,
   expanded,
   onExpand,
   onUpvoteChange,
-}: GameAdditionalInfoProps) {
+}: {
+  gameId: string;
+  upvotes: string[];
+  expanded: boolean;
+  onExpand: () => void;
+  onUpvoteChange?: () => void;
+}) {
   const theme = useTheme();
   const [isUpvoted, setIsUpvoted] = useState(false);
   const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvotes?.length || 0);
   const [isLoading, setIsLoading] = useState(false);
-  const user = authService.getCurrentUser();
+  const userID = getCurrentUser()?.id;
 
   useEffect(() => {
-    if (user && initialUpvotes) {
-      setIsUpvoted(initialUpvotes.includes(user.user.username));
+    if (userID && initialUpvotes) {
+      setIsUpvoted(initialUpvotes.includes(userID));
       setLocalUpvoteCount(initialUpvotes.length);
     }
-  }, [initialUpvotes, user]);
+  }, [userID, initialUpvotes]);
 
   const handleUpvote = useCallback(async () => {
-    if (!user) {
-      return;
-    }
+    if (!userID) return;
 
     setIsLoading(true);
 
@@ -51,24 +46,11 @@ function GameAdditionalInfo({
     setIsUpvoted(newIsUpvoted);
     setLocalUpvoteCount((prevCount) => (newIsUpvoted ? prevCount + 1 : prevCount - 1));
 
-    try {
-      if (newIsUpvoted) {
-        await upvoteGame(gameId);
-      } else {
-        await removeUpvote(gameId);
-      }
-      if (onUpvoteChange) {
-        onUpvoteChange();
-      }
-    } catch (error) {
-      console.error('Error handling upvote:', error);
-      setIsUpvoted(!newIsUpvoted);
-      setLocalUpvoteCount((prevCount) => (newIsUpvoted ? prevCount - 1 : prevCount + 1));
-      alert('There was an error in voting. Please try again later.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [gameId, isUpvoted, onUpvoteChange, user]);
+    if (newIsUpvoted) await gamesCollection.update(gameId, { upvotes: [...initialUpvotes, userID] });
+    else await gamesCollection.update(gameId, { upvotes: initialUpvotes.filter((id) => id !== userID) });
+    if (onUpvoteChange) onUpvoteChange();
+    setIsLoading(false);
+  }, [gameId, isUpvoted, onUpvoteChange, initialUpvotes, userID]);
 
   const expandButtonColor = '#4caf50';
 
@@ -79,7 +61,7 @@ function GameAdditionalInfo({
       </Typography>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Tooltip title={user ? '' : LOGIN_TOOLTIP} arrow>
+        <Tooltip title={userID ? '' : LOGIN_TOOLTIP} arrow>
           <span>
             <Button
               variant="contained"
@@ -96,7 +78,7 @@ function GameAdditionalInfo({
                 minWidth: '80px',
               }}
               onClick={handleUpvote}
-              disabled={isLoading || !user}
+              disabled={isLoading || !userID}
             >
               {isLoading ? <CircularProgress size={24} color="inherit" /> : isUpvoted ? 'UNVOTE' : 'UPVOTE'}
             </Button>
@@ -125,5 +107,3 @@ function GameAdditionalInfo({
     </Box>
   );
 }
-
-export default GameAdditionalInfo;

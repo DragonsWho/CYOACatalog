@@ -1,10 +1,10 @@
 // src/components/Add/TagSelector.tsx
-// Version 1.9.1
-// Fixed TypeScript errors and improved type definitions
+// Version 1.9.3
+// Changes: Updated to use new Chip variants from theme
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
-import { getTags, getTagCategories } from '../../services/api';
+import { pb } from '../../services/api';
 
 const CATEGORY_ORDER = [
   'Rating',
@@ -43,27 +43,35 @@ const CATEGORY_TITLE_MARGIN_BOTTOM = 0;
 const CATEGORY_TITLE_FONT_WEIGHT = '500';
 const SECTION_GAP = 0.5; // Gap between sections
 
-interface Tag {
-  id: number;
-  attributes: {
-    Name: string;
-    Description: string;
-  };
+interface TagCategory {
+  id: string;
+  name: string;
+  description: string;
+  min_tags: number;
+  max_tags: number;
+  allow_new_tags: boolean;
+  tags: { id: string }[];
 }
 
 interface Category {
-  id: number;
-  Name: string;
-  Description: string;
-  MinTags: number;
-  MaxTags: number;
-  AllowNewTags: boolean;
-  tags: Tag[];
+  id: string;
+  name: string;
+  description: string;
+  min_tags: number;
+  max_tags: number;
+  allow_new_tags: boolean;
+  tags: {
+    id: string;
+    name: string;
+    games: string[];
+    description: string;
+    tag_category: string;
+  }[];
 }
 
 interface TagSelectorProps {
-  selectedTags: number[];
-  onTagsChange: (tags: number[]) => void;
+  selectedTags: string[];
+  onTagsChange: (tags: string[]) => void;
   onLoad: () => void;
 }
 
@@ -81,7 +89,7 @@ const DelayedTooltip: React.FC<DelayedTooltipProps> = ({ title, children, placem
     const newTimer = setTimeout(() => {
       setIsOpen(true);
     }, TOOLTIP_DELAY);
-    setTimer(newTimer);
+    setTimer(newTimer as unknown as number);
   };
 
   const handleMouseLeave = () => {
@@ -108,14 +116,13 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
   useEffect(() => {
     const fetchTagData = async () => {
       try {
-        const [tagsData, categoriesData] = await Promise.all([getTags(), getTagCategories()]);
-        const categoriesWithTags = categoriesData.map((category: { attributes: object; id: string }) => ({
-          ...category.attributes,
-          id: category.id,
-          tags: tagsData.filter(
-            (tag: { attributes: { tag_category: { data?: { id: string } } } }) =>
-              tag.attributes.tag_category.data?.id === category.id,
-          ),
+        const [tagsData, categoriesData] = await Promise.all([
+          pb.collection('tags').getFullList<Category['tags'][0]>(),
+          pb.collection('tag_categories').getFullList<TagCategory>({ expand: 'tags' }),
+        ]);
+        const categoriesWithTags = categoriesData.map((category) => ({
+          ...category,
+          tags: tagsData.filter((tag) => tag.tag_category === category.id),
         }));
         setTagCategories(categoriesWithTags);
         onLoad();
@@ -132,8 +139,8 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
 
   const sortedCategories = useMemo(() => {
     return tagCategories.sort((a, b) => {
-      const indexA = CATEGORY_ORDER.indexOf(a.Name);
-      const indexB = CATEGORY_ORDER.indexOf(b.Name);
+      const indexA = CATEGORY_ORDER.indexOf(a.name);
+      const indexB = CATEGORY_ORDER.indexOf(b.name);
       if (indexA === -1 && indexB === -1) return 0;
       if (indexA === -1) return 1;
       if (indexB === -1) return -1;
@@ -141,7 +148,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
     });
   }, [tagCategories]);
 
-  const handleTagToggle = (tagId: number, categoryId: number) => {
+  const handleTagToggle = (tagId: string, categoryId: string) => {
     const category = tagCategories.find((cat) => cat.id === categoryId);
     if (!category) return;
 
@@ -150,13 +157,13 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
     if (selectedTags.includes(tagId)) {
       onTagsChange(selectedTags.filter((id) => id !== tagId));
     } else {
-      if (categoryTags.length < category.MaxTags) {
+      if (categoryTags.length < category.max_tags) {
         onTagsChange([...selectedTags, tagId]);
       }
     }
   };
 
-  const handleAddTag = (categoryId: number, newTagName: string) => {
+  const handleAddTag = (categoryId: string, newTagName: string) => {
     console.log(`Add new tag "${newTagName}" to category ${categoryId}`);
   };
 
@@ -178,29 +185,32 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
               .reduce((sum, size) => sum + size, 0) + row.slice(0, groupIndex).reduce((sum, size) => sum + size, 0);
           const groupTags = category.tags.slice(startIndex, startIndex + groupSize);
 
-          return groupTags.map((tag) => (
-            <DelayedTooltip key={tag.id} title={tag.attributes.Description || 'No description available'}>
-              <Chip
-                label={tag.attributes.Name}
-                onClick={() => handleTagToggle(tag.id, category.id)}
-                color={selectedTags.includes(tag.id) ? 'primary' : 'default'}
-                size="small"
-                sx={{
-                  height: CHIP_HEIGHT,
-                  borderRadius: CHIP_BORDER_RADIUS,
-                  '& .MuiChip-label': {
-                    fontSize: CHIP_FONT_SIZE,
-                    padding: CHIP_PADDING,
-                  },
-                }}
-                disabled={
-                  !selectedTags.includes(tag.id) &&
-                  selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id)).length >=
-                    category.MaxTags
-                }
-              />
-            </DelayedTooltip>
-          ));
+          return groupTags.map((tag) => {
+            const isSelected = selectedTags.includes(tag.id);
+            const isDisabled =
+              !isSelected &&
+              selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id)).length >= category.max_tags;
+
+            return (
+              <DelayedTooltip key={tag.id} title={tag.description || 'No description available'}>
+                <Chip
+                  label={tag.name}
+                  onClick={() => handleTagToggle(tag.id, category.id)}
+                  variant={isSelected ? 'selected' : isDisabled ? 'inactive' : undefined}
+                  size="small"
+                  sx={{
+                    height: CHIP_HEIGHT,
+                    borderRadius: CHIP_BORDER_RADIUS,
+                    '& .MuiChip-label': {
+                      fontSize: CHIP_FONT_SIZE,
+                      padding: CHIP_PADDING,
+                    },
+                  }}
+                  disabled={isDisabled}
+                />
+              </DelayedTooltip>
+            );
+          });
         })}
       </Box>
     ));
@@ -208,7 +218,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
 
   const isMinimumTagsSelected = (category: Category) => {
     const selectedTagsInCategory = selectedTags.filter((id) => category.tags.some((tag) => tag.id === id)).length;
-    return selectedTagsInCategory >= category.MinTags;
+    return selectedTagsInCategory >= category.min_tags;
   };
 
   if (loading) return <CircularProgress size={24} />;
@@ -223,11 +233,11 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
       {sortedCategories.map((category) => {
         const canAddMore =
-          selectedTags.filter((id) => category.tags.some((tag) => tag.id === id)).length < category.MaxTags;
+          selectedTags.filter((id) => category.tags.some((tag) => tag.id === id)).length < category.max_tags;
 
         return (
           <Box key={category.id}>
-            <DelayedTooltip title={category.Description || 'No description available'} placement="bottom-start">
+            <DelayedTooltip title={category.description || 'No description available'} placement="bottom-start">
               <Typography
                 variant="subtitle1"
                 sx={{
@@ -237,12 +247,12 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
                   alignItems: 'center',
                 }}
               >
-                {category.Name}
+                {category.name}
                 {!isMinimumTagsSelected(category) && <span style={{ color: 'red', marginLeft: '4px' }}>*</span>}
               </Typography>
             </DelayedTooltip>
-            {renderTagGroups(category, TAG_GROUPS[category.Name])}
-            {category.AllowNewTags && canAddMore && (
+            {renderTagGroups(category, TAG_GROUPS[category.name])}
+            {category.allow_new_tags && canAddMore && (
               <TextField
                 size="small"
                 placeholder="Add a tag..."

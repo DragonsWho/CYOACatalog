@@ -44,6 +44,8 @@ interface CustomTheme extends Theme {
 }
 
 const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
+  // TODO: implement comments
+  return <>SimpleComments</>;
   const [comments, setComments] = useState<FormattedComment[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [user, setUser] = useState<any>(null);
@@ -123,6 +125,9 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
       console.error('Error deleting comment:', error);
     }
   };
+  const inputStyle = {
+    color: '#dcdcdc',
+  };
 
   return (
     <Box
@@ -158,6 +163,7 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
           titleStyle={{ color: 'gray' }}
           replyInputStyle={{ color: theme.palette.text.primary }}
           formStyle={{ backgroundColor: '#1e1e1e' }}
+          inputStyle={inputStyle}
           // TODO: add actual login and signup links
           logIn={{ loginLink: '#', signupLink: '#' }}
         />

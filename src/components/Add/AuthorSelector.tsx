@@ -5,7 +5,7 @@
 import { useState, useEffect, KeyboardEvent, ChangeEvent } from 'react';
 import { TextField, Chip, Typography, Box, Button } from '@mui/material';
 import { debounce } from 'lodash';
-import { createAuthor } from '../../services/api';
+import { pb } from '../../services/api';
 
 // Configurable maximum Levenshtein distance
 const MAX_LEVENSHTEIN_DISTANCE = 3;
@@ -75,11 +75,8 @@ function findSimilarAuthors(input: string, availableAuthors: Author[], maxResult
 
 async function createNewAuthor(authorName: string): Promise<Author> {
   try {
-    const newAuthor = await createAuthor(authorName);
-    return {
-      id: newAuthor.id,
-      name: newAuthor.attributes.Name,
-    };
+    const record = await pb.collection('authors').create({ name: authorName });
+    return { id: record.id, name: authorName };
   } catch (error) {
     console.error('Failed to create new author:', error);
     throw error;

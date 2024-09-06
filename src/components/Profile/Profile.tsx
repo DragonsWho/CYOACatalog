@@ -22,7 +22,7 @@ interface ListItemData {
   text: string;
 }
 
-const Profile: React.FC = () => {
+export default function Profile() {
   const listItems: ListItemData[] = [
     {
       icon: <PersonIcon />,
@@ -42,7 +42,7 @@ const Profile: React.FC = () => {
         <Typography variant="h6" gutterBottom>
           Coming Soon!
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" component="p">
           The profile page is still under development!
           <br />
           Huh... well... <br />I mean, I haven&lsquo;t even started yet, but here&lsquo;s what you can expect in the
@@ -64,6 +64,4 @@ const Profile: React.FC = () => {
       </StyledPaper>
     </Container>
   );
-};
-
-export default Profile;
+}

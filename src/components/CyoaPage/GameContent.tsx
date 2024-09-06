@@ -3,27 +3,7 @@
 // Fixed TypeScript errors and improved type safety
 
 import React, { useState, useEffect } from 'react';
-
-const API_URL = 'https://api.cyoa.cafe';
-
-interface GameAttributes {
-  img_or_link: 'img' | 'link';
-  CYOA_pages?: {
-    data: Array<{
-      id: number;
-      attributes: {
-        url: string;
-      };
-    }>;
-  };
-  iframe_url?: string;
-}
-
-interface GameContentProps {
-  attributes: GameAttributes;
-  expanded: boolean;
-  onExpand: (expanded: boolean) => void;
-}
+import { Game } from '../../pocketbase/pocketbase';
 
 interface ImageSizes {
   [key: number]: {
@@ -32,14 +12,22 @@ interface ImageSizes {
   };
 }
 
-const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpand }) => {
-  const [loadingImages, setLoadingImages] = useState(attributes.CYOA_pages?.data?.length || 0);
+export default function GameContent({
+  game,
+  expanded,
+  onExpand,
+}: {
+  game: Game;
+  expanded: boolean;
+  onExpand: (expanded: boolean) => void;
+}) {
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({});
   const [imageSizes, setImageSizes] = useState<ImageSizes>({});
   const [iframeStyle, setIframeStyle] = useState<React.CSSProperties>({});
+  const [loadingImages, setLoadingImages] = useState(game.cyoa_pages.length || 0);
 
   useEffect(() => {
-    if (attributes.img_or_link === 'link') {
+    if (game.img_or_link === 'link') {
       if (expanded) {
         setIframeStyle({
           position: 'fixed',
@@ -59,9 +47,9 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
         });
       }
     }
-  }, [expanded, attributes.img_or_link]);
+  }, [expanded, game.img_or_link]);
 
-  const handleImageLoad = (id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  function handleImageLoad(id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) {
     setLoadingImages((prev) => prev - 1);
     setImageSizes((prev) => ({
       ...prev,
@@ -70,12 +58,12 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
         height: (event.target as HTMLImageElement).naturalHeight,
       },
     }));
-  };
+  }
 
-  const handleImageError = (id: number) => {
+  function handleImageError(id: number) {
     setImageErrors((prev) => ({ ...prev, [id]: true }));
     setLoadingImages((prev) => prev - 1);
-  };
+  }
 
   const collapseButtonStyle: React.CSSProperties = {
     position: 'fixed',
@@ -92,7 +80,7 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
 
   return (
     <div style={{ backgroundColor: '#121212' }}>
-      {attributes.img_or_link === 'img' && attributes.CYOA_pages?.data ? (
+      {game.img_or_link === 'img' && game.cyoa_pages.length ? (
         <div>
           <div
             style={{
@@ -104,38 +92,39 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
             }}
           >
             {loadingImages > 0 && <div>Loading...</div>}
-            {attributes.CYOA_pages.data.map((image, index) => (
+            {game.cyoa_pages.map((image, index) => (
               <div
-                key={image.id}
+                key={index}
                 style={{
                   width: '100%',
                   display: 'flex',
                   justifyContent: 'center',
+                  alignItems: 'center',
                   backgroundColor: '#121212',
                   transition: 'all 0.3s ease',
                 }}
               >
-                {!imageErrors[image.id] && (
+                {!imageErrors[index] && (
                   <img
-                    src={`${API_URL}${image.attributes.url}`}
+                    src={image}
                     alt={`Game content ${index + 1}`}
                     style={{
                       maxWidth: expanded ? 'none' : '100%',
-                      width: expanded ? 'auto' : imageSizes[image.id]?.width > window.innerWidth ? '100%' : 'auto',
+                      width: expanded ? 'auto' : imageSizes[index]?.width > window.innerWidth ? '100%' : 'auto',
                       height: 'auto',
                       display: loadingImages > 0 ? 'none' : 'block',
                       transition: 'all 0.3s ease',
                     }}
-                    onLoad={(event) => handleImageLoad(image.id, event)}
-                    onError={() => handleImageError(image.id)}
+                    onLoad={(event) => handleImageLoad(index, event)}
+                    onError={() => handleImageError(index)}
                   />
                 )}
-                {imageErrors[image.id] && <div style={{ color: 'red' }}>Failed to load image {index + 1}</div>}
+                {imageErrors[index] && <div style={{ color: 'red' }}>Failed to load image {index + 1}</div>}
               </div>
             ))}
           </div>
         </div>
-      ) : attributes.img_or_link === 'link' && attributes.iframe_url ? (
+      ) : game.img_or_link === 'link' && game.iframe_url ? (
         <div
           style={{
             width: '100%',
@@ -145,7 +134,7 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
             overflow: 'hidden',
           }}
         >
-          <iframe src={attributes.iframe_url} style={iframeStyle} title="Game content" allowFullScreen loading="lazy" />
+          <iframe src={game.iframe_url} style={iframeStyle} title="Game content" allowFullScreen loading="lazy" />
           {expanded && (
             <button style={collapseButtonStyle} onClick={() => onExpand(false)}>
               Collapse
@@ -157,6 +146,4 @@ const GameContent: React.FC<GameContentProps> = ({ attributes, expanded, onExpan
       )}
     </div>
   );
-};
-
-export default GameContent;
+}

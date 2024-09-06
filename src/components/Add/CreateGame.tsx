@@ -1,6 +1,8 @@
 // src/components/Add/CreateGame.tsx
-// Version 2.1.0
+// Version 2.2.0
 // Updated to handle sequential image uploads
+
+// TODO: support https://github.com/DragonsWho/CYOACatalog/commit/0f3ff59251386c9e51edba097514b7b0a9c0675b
 
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import {
@@ -16,7 +18,7 @@ import {
   Alert,
   SelectChangeEvent,
 } from '@mui/material';
-import { createGame, getAuthors, getTagCategories } from '../../services/api';
+import { pb } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import AuthorSelector from './AuthorSelector';
 import TagSelector from './TagSelector';
@@ -29,14 +31,10 @@ interface Author {
 }
 
 interface TagCategory {
-  id: number;
-  attributes: {
-    Name: string;
-    MinTags: number;
-    tags: {
-      data: Array<{ id: number }>;
-    };
-  };
+  id: string;
+  name: string;
+  min_tags: number;
+  tags: { id: string }[];
 }
 
 function CreateGame(): JSX.Element {
@@ -50,7 +48,7 @@ function CreateGame(): JSX.Element {
   const [availableAuthors, setAvailableAuthors] = useState<Author[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagsLoaded, setTagsLoaded] = useState<boolean>(false);
   void tagsLoaded;
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
@@ -61,12 +59,12 @@ function CreateGame(): JSX.Element {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [authorsData, categoriesData] = await Promise.all([getAuthors(), getTagCategories()]);
+        const [authorsData, categoriesData] = await Promise.all([
+          pb.collection('authors').getFullList<{ id: string; name: string }>(),
+          pb.collection('tag_categories').getFullList<TagCategory>({ expand: 'tags' }),
+        ]);
         setAvailableAuthors(
-          authorsData.map((author: { id: string; attributes: { Name: string } }) => ({
-            id: author.id,
-            name: author.attributes.Name,
-          })),
+          authorsData.map((author: { id: string; name: string }) => ({ id: author.id, name: author.name })),
         );
         setTagCategories(categoriesData);
       } catch (error) {
@@ -80,7 +78,7 @@ function CreateGame(): JSX.Element {
     fetchInitialData();
   }, []);
 
-  const handleCardImageChange = (compressedImage: File) => {
+  const handleCardImageChange = (compressedImage: File | null) => {
     setCardImage(compressedImage);
   };
 
@@ -91,12 +89,9 @@ function CreateGame(): JSX.Element {
   const validateTags = (): string[] => {
     const errors: string[] = [];
     tagCategories.forEach((category) => {
-      const categoryTags = selectedTags.filter((tagId) =>
-        category.attributes.tags.data.some((tag) => tag.id === tagId),
-      );
-      if (categoryTags.length < category.attributes.MinTags) {
-        errors.push(`${category.attributes.Name} requires at least ${category.attributes.MinTags} tag(s)`);
-      }
+      const categoryTags = selectedTags.filter((tagId) => category.tags.some((tag) => tag.id === tagId));
+      if (categoryTags.length < category.min_tags)
+        errors.push(`${category.name} requires at least ${category.min_tags} tag(s)`);
     });
     return errors;
   };
@@ -189,55 +184,27 @@ function CreateGame(): JSX.Element {
     }
 
     try {
-      const formData = new FormData();
+      console.log('Submitting game data');
+      const cyoaImagesProcessed = await Promise.all(cyoaImages.map(processImage));
+      // TODO: sort by name
+      const record = await pb.collection('games').create({
+        title,
+        description: description,
+        image: cardImage,
+        tags: selectedTags,
+        img_or_link: imgOrLink,
+        iframe_url: imgOrLink === 'link' ? iframeUrl : undefined,
+        cyoa_pages: cyoaImagesProcessed,
+        authors: authors.map((author) => author.id),
+        selected_tags: selectedTags,
+        upvotes: [],
+      });
 
-      // Prepare the Description field for Rich text (Blocks)
-      const descriptionData = [
-        {
-          type: 'paragraph',
-          children: [{ type: 'text', text: description }],
-        },
-      ];
-
-      formData.append(
-        'data',
-        JSON.stringify({
-          Title: title,
-          Description: descriptionData,
-          img_or_link: imgOrLink,
-          iframe_url: imgOrLink === 'link' ? iframeUrl : undefined,
-          authors: authors.map((author) => author.id),
-          tags: selectedTags,
-        }),
-      );
-
-      // Append the main card image
-      formData.append('files.Image', cardImage);
-
-      // Append CYOA page images if "img" is selected
-      if (imgOrLink === 'img') {
-        for (let i = 0; i < cyoaImages.length; i++) {
-          const processedImage = await processImage(cyoaImages[i]);
-          formData.append('files.CYOA_pages', processedImage);
-
-          // Add a delay of 500ms between each image upload
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
-      }
-
-      console.log('Submitting game data:', Object.fromEntries(formData));
-      const result = await createGame(formData);
-      console.log('Created game:', result);
+      console.log('Created game:', record.id);
       navigate('/');
     } catch (error: unknown) {
       console.error('Error creating game:', error);
-      const response = (error as { response?: { data: unknown } }).response;
-      if (response) {
-        console.error('Error response:', response.data);
-        setError(`Failed to create game. Server response: ${JSON.stringify(response.data)}`);
-      } else {
-        setError('Failed to create game. Please try again.');
-      }
+      setError('Failed to create game. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -303,21 +270,11 @@ function CreateGame(): JSX.Element {
 
       <Box sx={{ mt: 2 }}>
         <Typography variant="h6">Select Tags</Typography>
-        <TagSelector
-          selectedTags={selectedTags}
-          onTagsChange={setSelectedTags}
-          onLoad={() => setTagsLoaded(true)}
-          tagCategories={tagCategories}
-        />
+        <TagSelector selectedTags={selectedTags} onTagsChange={setSelectedTags} onLoad={() => setTagsLoaded(true)} />
       </Box>
 
       <Box sx={{ mt: 2 }}>
-        <ImageCompressor
-          onImageChange={handleCardImageChange}
-          buttonText="Upload Card Image"
-          maxWidth={800}
-          maxHeight={600}
-        />
+        <ImageCompressor onImageChange={handleCardImageChange} buttonText="Upload Card Image" />
         {cardImage && (
           <Typography sx={{ mt: 1 }}>
             {cardImage.name} (Size: {(cardImage.size / 1024).toFixed(2)} KB)

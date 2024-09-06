@@ -8,7 +8,7 @@ axios.defaults.withCredentials = true;
 const API_URL = 'https://api.cyoa.cafe';
 
 const authService = {
-  register: async (username, email, password) => {
+  register: async (username: string, email: string, password: string) => {
     try {
       const response = await axios.post(`${API_URL}/api/auth/local/register`, {
         username,
@@ -20,12 +20,12 @@ const authService = {
       }
       return response.data;
     } catch (error) {
-      console.error('Registration error:', error.response?.data || error);
+      console.error('Registration error:', (error as { response?: { data: unknown } }).response?.data || error);
       throw error;
     }
   },
 
-  login: async (identifier, password) => {
+  login: async (identifier: string, password: string) => {
     try {
       console.log('Attempting login with identifier:', identifier);
       const response = await axios.post(`${API_URL}/api/auth/local`, {
@@ -48,8 +48,8 @@ const authService = {
       }
       return response.data;
     } catch (error) {
-      console.error('Auth service login error:', error.response?.data || error);
-      throw error.response?.data?.error || error;
+      console.error('Auth service login error:', (error as { response?: { data: unknown } }).response?.data || error);
+      throw (error as { response?: { data?: { error: unknown } } }).response?.data?.error || error;
     }
   },
 
@@ -80,7 +80,7 @@ const authService = {
     window.location.href = `${API_URL}/api/connect/discord`;
   },
 
-  handleDiscordCallback: async (token) => {
+  handleDiscordCallback: async (token: string) => {
     if (token) {
       localStorage.setItem('token', token);
 

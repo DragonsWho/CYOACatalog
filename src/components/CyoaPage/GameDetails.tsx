@@ -2,7 +2,7 @@
 // v4.1
 // Fixed TypeScript errors and improved type safety
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -10,60 +10,7 @@ import TagDisplay from './TagDisplay';
 import GameContent from './GameContent';
 import SimpleComments from './SimpleComments';
 import GameAdditionalInfo from './GameAdditionalInfo';
-
-const API_URL = 'https://api.cyoa.cafe';
-
-interface Author {
-  attributes: {
-    Name: string;
-  };
-}
-
-interface Tag {
-  id: number;
-  attributes: {
-    Name: string;
-    tag_category: {
-      data: {
-        attributes: {
-          Name: string;
-        };
-      };
-    };
-  };
-}
-
-interface Image {
-  data: {
-    attributes: {
-      url: string;
-    };
-  };
-}
-
-interface GameAttributes {
-  Title: string;
-  Description: Array<{ children: Array<{ text: string }> }>;
-  authors: { data: Author[] };
-  tags: { data: Tag[] };
-  Image: Image;
-  CYOA_pages?: {
-    data: Array<{
-      id: number;
-      attributes: {
-        url: string;
-      };
-    }>;
-  };
-  Upvotes: string[];
-  img_or_link: 'img' | 'link';
-  iframe_url?: string;
-}
-
-interface Game {
-  id: string;
-  attributes: GameAttributes;
-}
+import { Game, gamesCollection } from '../../pocketbase/pocketbase';
 
 interface CustomTheme extends Theme {
   custom?: {
@@ -76,43 +23,25 @@ interface CustomTheme extends Theme {
   };
 }
 
-function GameDetails() {
+export default function GameDetails() {
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<boolean>(false);
   const { id } = useParams<{ id: string }>();
   const theme = useTheme<CustomTheme>();
 
   useEffect(() => {
-    const fetchGameDetails = async () => {
-      try {
-        const response = await fetch(
-          `${API_URL}/api/games/${id}?populate=*,tags.tag_category,authors,Image,CYOA_pages`,
-        );
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
-        setGame(data.data);
-      } catch (error) {
-        console.error('Error fetching game details:', error);
-        setError((error as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchGameDetails();
+    (async () => {
+      const game = await gamesCollection.getOne(id as string, {
+        expand: 'tags.tag_categories_via_tags,authors_via_games',
+      });
+      setGame(game);
+      setLoading(false);
+    })();
   }, [id]);
 
   if (loading) return <CircularProgress />;
-  if (error) return <Typography color="error">Error: {error}</Typography>;
   if (!game) return <Typography>Game not found</Typography>;
-
-  const { attributes } = game;
-
-  const handleExpand = () => {
-    setExpanded(!expanded);
-  };
 
   return (
     <Container maxWidth="lg" disableGutters>
@@ -134,11 +63,11 @@ function GameDetails() {
           }}
         >
           <Typography variant="h4" component="h1" sx={{ mr: 1, color: theme.palette.text.primary }}>
-            {attributes.Title || 'Untitled Game'}
+            {game.title || 'Untitled Game'}
           </Typography>
-          {attributes.authors?.data?.length > 0 && (
+          {game.expand.authors_via_games?.length && game.expand.authors_via_games?.length > 0 && (
             <Typography variant="subtitle1" sx={{ mb: '0.05em', color: theme.palette.text.primary }}>
-              by {attributes.authors.data.map((author) => author.attributes.Name).join(', ')}
+              by {game.expand.authors_via_games.map((author) => author.name).join(', ')}
             </Typography>
           )}
         </Box>
@@ -146,7 +75,7 @@ function GameDetails() {
         <Grid2 container spacing={3}>
           {/* Left Column - Image */}
           <Grid2 size={{ xs: 12, md: 6 }}>
-            {attributes.Image?.data && (
+            {game.image && (
               <Box
                 sx={{
                   width: '100%',
@@ -157,13 +86,9 @@ function GameDetails() {
                 }}
               >
                 <img
-                  src={`${API_URL}${attributes.Image.data.attributes.url}`}
-                  alt={attributes.Title}
-                  style={{
-                    maxWidth: '60%',
-                    height: 'auto',
-                    objectFit: 'contain',
-                  }}
+                  src={game.image}
+                  alt={game.title}
+                  style={{ maxWidth: '60%', height: 'auto', objectFit: 'contain' }}
                 />
               </Box>
             )}
@@ -171,13 +96,14 @@ function GameDetails() {
 
           {/* Right Column - Game Info */}
           <Grid2 size={{ xs: 12, md: 6 }}>
-            {attributes.tags?.data?.length > 0 && (
+            {game.expand.tags?.length && game.expand.tags?.length > 0 && (
               <Box>
                 <TagDisplay
-                  tags={attributes.tags.data}
+                  tags={game.expand.tags}
                   chipProps={{
                     size: 'small',
                     sx: {
+                      // @ts-expect-error custom theme property
                       bgcolor: theme.palette.grey[800],
                       color: theme.palette.text.primary,
                       '&:hover': {
@@ -191,9 +117,9 @@ function GameDetails() {
 
             <GameAdditionalInfo
               gameId={id as string}
-              upvotes={attributes.Upvotes}
+              upvotes={game.upvotes}
               expanded={expanded}
-              onExpand={handleExpand}
+              onExpand={() => setExpanded(!expanded)}
             />
           </Grid2>
         </Grid2>
@@ -202,15 +128,10 @@ function GameDetails() {
           <Typography variant="h6" gutterBottom textAlign="center" sx={{ color: theme.palette.text.primary }}>
             Description
           </Typography>
-          <Typography variant="body1" sx={{ px: 12, color: theme.palette.text.primary }}>
-            {attributes.Description?.map((block, index) => (
-              <React.Fragment key={index}>
-                {block.children.map((child, childIndex) => (
-                  <span key={childIndex}>{child.text}</span>
-                ))}
-              </React.Fragment>
-            ))}
-          </Typography>
+          <div
+            style={{ paddingLeft: 12, paddingRight: 12, color: theme.palette.text.primary }}
+            dangerouslySetInnerHTML={{ __html: game.description }}
+          />
         </Box>
       </Paper>
 
@@ -224,14 +145,12 @@ function GameDetails() {
           transition: 'all 0.3s ease',
         }}
       >
-        <GameContent attributes={attributes} expanded={expanded} onExpand={handleExpand} />
+        <GameContent game={game} expanded={expanded} onExpand={() => setExpanded(!expanded)} />
       </Box>
 
       <Box sx={{}}>
-        <SimpleComments gameId={id} />
+        <SimpleComments gameId={id ?? ''} />
       </Box>
     </Container>
   );
 }
-
-export default GameDetails;

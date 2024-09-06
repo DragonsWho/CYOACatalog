@@ -1,6 +1,6 @@
 // src/App.tsx
-// Version: 1.5.0
-// Description: Main application component with routing, authentication state management, and Footer
+// Version: 1.6.0
+// Description: Main application component with routing, authentication state management, Footer, and cache version check
 
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
@@ -14,6 +14,8 @@ import Login from './components/Header/Login'
 import Profile from './components/Profile/Profile'
 import AuthCallback from './components/AuthCallback'
 import authService from './services/authService'
+import { fetchAllGames } from './services/searchService'
+import { clearCache } from './services/cacheService'
 
 interface User {
     id: string
@@ -37,6 +39,18 @@ const App: React.FC = () => {
         }
 
         checkAuth()
+
+        // Check and update cache
+        const checkAndUpdateCache = async () => {
+            try {
+                await fetchAllGames() // This will clear the cache if the version is outdated
+            } catch (error) {
+                console.error('Error checking cache version:', error)
+                clearCache() // Clear cache on error to ensure fresh data on next load
+            }
+        }
+
+        checkAndUpdateCache()
     }, [])
 
     const handleLoginSuccess = (userData: { user: User }) => {

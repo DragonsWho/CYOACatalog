@@ -1,16 +1,17 @@
 // src/services/searchService.js
-// v 2.0
-// Changes: Implemented pagination to fetch all games, improved error handling and logging
+// v 2.1
+// Changes: Added version check and cache invalidation
 
-import { getFromCache, saveToCache } from './cacheService'
+import { getFromCache, saveToCache, clearCache } from './cacheService'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://api.cyoa.cafe'
-const PAGE_SIZE = 100 // Adjust this value based on your API's capabilities
+const PAGE_SIZE = 100
+const CURRENT_VERSION = '2.1' // Add this line
 
 export const fetchAllGames = async () => {
-    const cachedGames = getFromCache()
-    if (cachedGames) {
-        return cachedGames
+    const cachedData = getFromCache()
+    if (cachedData && cachedData.version === CURRENT_VERSION) {
+        return cachedData.games
     }
 
     try {
@@ -47,7 +48,7 @@ export const fetchAllGames = async () => {
         }
 
         console.log(`Total games fetched: ${allGames.length}`)
-        saveToCache(allGames)
+        saveToCache({ version: CURRENT_VERSION, games: allGames })
         return allGames
     } catch (error) {
         console.error('Error fetching games:', error)

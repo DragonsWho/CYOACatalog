@@ -60,7 +60,6 @@ export const getFromCache = () => {
     return JSON.parse(cachedData)
 }
 
-
 export const cacheTagCategoryMap = (tagCategoryMap) => {
     const cacheData = {
         data: tagCategoryMap,

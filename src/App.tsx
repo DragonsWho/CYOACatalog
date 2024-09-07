@@ -13,9 +13,12 @@ import CreateGameForm from './components/Add/CreateGameForm'
 import Login from './components/Header/Login'
 import Profile from './components/Profile/Profile'
 import AuthCallback from './components/AuthCallback'
+import SearchPage from './components/Search/SearchPage'
 import authService from './services/authService'
 import { fetchAllGames } from './services/searchService'
 import { clearCache } from './services/cacheService'
+
+  
 
 interface User {
     id: string
@@ -88,11 +91,15 @@ const App: React.FC = () => {
                     <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/auth-callback" element={<AuthCallback onLoginSuccess={handleLoginSuccess} />} />
+                    <Route path="/search" element={<SearchPage />} />
                 </Routes>
             </Container>
             <Footer />
         </Box>
     )
 }
+
+
+
 
 export default App

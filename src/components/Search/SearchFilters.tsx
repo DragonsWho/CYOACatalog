@@ -1,33 +1,93 @@
 // src/components/Search/SearchFilters.tsx
-// v1.1
-// Updated to match SearchBar styling and functionality
+// v1.2
+// Updated author fetching to load all authors, fixed pagination issue
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Autocomplete, CircularProgress, Box, Chip } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import axios from 'axios';
+
+interface Author {
+  id: number;
+  attributes: {
+    Name: string;
+  };
+}
+
+interface Tag {
+  id: number;
+  attributes: {
+    Name: string;
+  };
+}
 
 interface SearchFiltersProps {
-  tags: any[];
-  authors: any[];
+  tags: Tag[];
+  authors: Author[];
   selectedTags: string[];
   selectedAuthors: string[];
   onTagChange: (event: React.SyntheticEvent, value: string[]) => void;
   onAuthorChange: (event: React.SyntheticEvent, value: string[]) => void;
 }
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:1337';
+
+const fetchAllAuthors = async (): Promise<Author[]> => {
+  let allAuthors: Author[] = [];
+  let page = 1;
+  let hasMorePages = true;
+
+  while (hasMorePages) {
+    try {
+      const response = await axios.get(`${API_URL}/api/authors`, {
+        params: {
+          'pagination[page]': page,
+          'pagination[pageSize]': 100,
+        },
+      });
+
+      const { data, meta } = response.data;
+      allAuthors = [...allAuthors, ...data];
+
+      if (meta.pagination.page >= meta.pagination.pageCount) {
+        hasMorePages = false;
+      } else {
+        page++;
+      }
+    } catch (error) {
+      console.error('Error fetching authors:', error);
+      hasMorePages = false;
+    }
+  }
+
+  return allAuthors;
+};
+
 const SearchFilters: React.FC<SearchFiltersProps> = ({
-    tags,
-    authors,
-    selectedTags,
-    selectedAuthors,
-    onTagChange,
-    onAuthorChange
-  }) => {
-    const theme = useTheme();
-    const [tagQuery, setTagQuery] = useState('');
-    const [authorQuery, setAuthorQuery] = useState('');
-    const [isLoadingTags, setIsLoadingTags] = useState(false);
-    const [isLoadingAuthors, setIsLoadingAuthors] = useState(false);
+  tags,
+  authors,
+  selectedTags,
+  selectedAuthors,
+  onTagChange,
+  onAuthorChange
+}) => {
+  const theme = useTheme();
+  const [tagQuery, setTagQuery] = useState('');
+  const [authorQuery, setAuthorQuery] = useState('');
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
+  const [isLoadingAuthors, setIsLoadingAuthors] = useState(false);
+  const [allAuthors, setAllAuthors] = useState<Author[]>([]);
+
+  useEffect(() => {
+    const loadAllAuthors = async () => {
+      setIsLoadingAuthors(true);
+      const fetchedAuthors = await fetchAllAuthors();
+      setAllAuthors(fetchedAuthors);
+      setIsLoadingAuthors(false);
+    };
+
+    loadAllAuthors();
+  }, []);
 
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
@@ -40,18 +100,6 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
 
     return () => clearTimeout(delayDebounce);
   }, [tagQuery]);
-
-  useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      if (authorQuery) {
-        setIsLoadingAuthors(true);
-        // Здесь можно добавить логику поиска авторов
-        setTimeout(() => setIsLoadingAuthors(false), 300);
-      }
-    }, 300);
-
-    return () => clearTimeout(delayDebounce);
-  }, [authorQuery]);
 
   const commonStyles = {
     minWidth: 100,
@@ -83,7 +131,6 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
     },
   };
 
-  // Стили для тегов
   const tagStyles = {
     margin: '2px',
     backgroundColor: theme.palette.primary.main,
@@ -133,7 +180,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
       <Autocomplete
         multiple
         freeSolo
-        options={authors.map(author => author.attributes.Name)}
+        options={allAuthors.map(author => author.attributes.Name)}
         value={selectedAuthors}
         onChange={onAuthorChange}
         renderInput={(params) => (

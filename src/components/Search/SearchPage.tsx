@@ -1,19 +1,18 @@
 // src/components/Search/SearchPage.tsx
-// v1.2
-// Changes: Updated to display game cards using the approach from GameList.tsx
+// v1.3
+// Updated to use separate SearchFilters component
 
 import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Typography, 
-  TextField, 
-  Autocomplete, 
   CircularProgress,
   Grid,
   useTheme
 } from '@mui/material';
 import { fetchGames, getAuthors, getTags, getTagCategories } from '../../services/api';
 import GameCard from '../GameCard';
+import SearchFilters from './SearchFilters';
 
 interface Game {
     id: string;
@@ -93,23 +92,17 @@ const SearchPage: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%', p: 3 }}>
- 
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-        <Autocomplete
-          multiple
-          options={tags.map(tag => tag.attributes.Name)}
-          renderInput={(params) => <TextField {...params} label="tags" />}
-          onChange={handleTagChange}
-          sx={{ width: 300 }}
-        />
-        <Autocomplete
-          multiple
-          options={authors.map(author => author.attributes.Name)}
-          renderInput={(params) => <TextField {...params} label="Authors" />}
-          onChange={handleAuthorChange}
-          sx={{ width: 300 }}
-        />
-      </Box>
+      <Typography variant="h4" gutterBottom>
+        Поиск игр
+      </Typography>
+      <SearchFilters
+        tags={tags}
+        authors={authors}
+        selectedTags={selectedTags}
+        selectedAuthors={selectedAuthors}
+        onTagChange={handleTagChange}
+        onAuthorChange={handleAuthorChange}
+      />
       {loading ? (
         <CircularProgress />
       ) : (

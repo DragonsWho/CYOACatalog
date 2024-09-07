@@ -92,9 +92,7 @@ const SearchPage: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%', p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Поиск игр
-      </Typography>
+ 
       <SearchFilters
         tags={tags}
         authors={authors}

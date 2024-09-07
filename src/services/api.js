@@ -10,10 +10,8 @@ axios.defaults.withCredentials = true
 const API_URL = import.meta.env.VITE_API_URL || 'https://api.cyoa.cafe'
 
 const countComments = (comments) => {
-  return comments.reduce((total, comment) => {
-    // Считаем текущий комментарий
-    let count = 1
-    // Если у комментария есть дочерние элементы, рекурсивно считаем их
+  return comments.reduce((total, comment) => { 
+    let count = 1 
     if (comment.children && comment.children.length > 0) {
       count += countComments(comment.children)
     }

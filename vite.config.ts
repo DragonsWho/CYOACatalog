@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     commonjsOptions: {
+      // TODO: remove this after react-comments-section is removed (it is randomly calling require('uuid'))
       transformMixedEsModules: true,
     },
   },

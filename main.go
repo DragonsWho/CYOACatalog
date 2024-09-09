@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -103,6 +104,45 @@ func main() {
 			}
 
 			return c.JSON(http.StatusOK, map[string]any{"id": commentID})
+		})
+
+		upvoteGroup := apiGroup.Group("/upvotes")
+
+		upvoteGroup.POST("/:id", func(c echo.Context) error {
+			info := apis.RequestInfo(c)
+			userID := info.AuthRecord.Id
+			gameID := c.PathParam("id")
+			state := true
+			count := 0
+
+			err := app.Dao().RunInTransaction(func(txDao *daos.Dao) error {
+				record, err := txDao.FindRecordById("games", gameID)
+				if err != nil {
+					return fmt.Errorf("find game record error: %w", err)
+				}
+
+				upvotes := record.Get("upvotes").([]string)
+				count = len(upvotes)
+				if !slices.Contains(upvotes, userID) {
+					record.Set("upvotes", append(upvotes, userID))
+					count++
+				} else {
+					record.Set("upvotes", slices.DeleteFunc(upvotes, func(i string) bool { return i == userID }))
+					state = false
+					count--
+				}
+				err = txDao.SaveRecord(record)
+				if err != nil {
+					return fmt.Errorf("save game record error: %w", err)
+				}
+
+				return nil
+			})
+			if err != nil {
+				return fmt.Errorf("run in transaction error: %w", err)
+			}
+
+			return c.JSON(http.StatusOK, map[string]any{"id": gameID, "state": state, "count": count})
 		})
 
 		return nil

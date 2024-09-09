@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useContext } from 'react';
 import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { useTheme } from '@mui/material/styles';
-import { AuthContext, gamesCollection } from '../../pocketbase/pocketbase';
+import { AuthContext, pb } from '../../pocketbase/pocketbase';
 
 const LOGIN_TOOLTIP = 'Login to upvote';
 
@@ -47,11 +47,21 @@ export default function GameAdditionalInfo({
     setIsUpvoted(newIsUpvoted);
     setLocalUpvoteCount((prevCount) => (newIsUpvoted ? prevCount + 1 : prevCount - 1));
 
-    if (newIsUpvoted) await gamesCollection.update(gameId, { upvotes: [...initialUpvotes, userID] });
-    else await gamesCollection.update(gameId, { upvotes: initialUpvotes.filter((id) => id !== userID) });
+    const res = await fetch('/api/custom/upvotes/' + gameId, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + pb.authStore.token,
+      },
+    });
+    const resJSON = await res.json();
+    const { count }: { count: number } = resJSON;
+
+    setLocalUpvoteCount(count);
+
     if (onUpvoteChange) onUpvoteChange();
     setIsLoading(false);
-  }, [gameId, isUpvoted, onUpvoteChange, initialUpvotes, userID]);
+  }, [gameId, isUpvoted, onUpvoteChange, userID]);
 
   const expandButtonColor = '#4caf50';
 

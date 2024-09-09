@@ -2,7 +2,7 @@
 // Version: 1.11.0
 // Description: Enhanced Login modal component with styled Discord login button and custom Discord icon
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import {
   TextField,
   Button,
@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SvgIcon from '@mui/material/SvgIcon';
-import { login } from '../../pocketbase/pocketbase';
+import { login, useAuth } from '../../pocketbase/pocketbase';
 
 const DiscordIcon = () => (
   <SvgIcon>
@@ -45,11 +45,19 @@ const DiscordButton = styled(Button)(() => ({
 }));
 
 export default function Login({ open = false, onClose = () => {}, onLoginSuccess = () => {} }) {
-  // TODO: close on discord login
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { signedIn } = useAuth();
+
+  const handleClose = useCallback(() => {
+    setIdentifier('');
+    setPassword('');
+    setError('');
+    setIsLoading(false);
+    onClose();
+  }, [onClose]);
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -78,13 +86,9 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     await login({ provider: 'discord' });
   }
 
-  const handleClose = () => {
-    setIdentifier('');
-    setPassword('');
-    setError('');
-    setIsLoading(false);
-    onClose();
-  };
+  useEffect(() => {
+    if (signedIn) handleClose();
+  }, [signedIn, handleClose]);
 
   return (
     <Dialog open={open} onClose={handleClose}>

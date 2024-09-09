@@ -2,7 +2,7 @@
 // v2.8
 // Converted to TypeScript and reduced space between header and "Recent Uploads" title
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Typography, Box, Grid2, useTheme } from '@mui/material';
 import GameCard from './GameCard';
 import { Game, gamesCollection } from '../pocketbase/pocketbase';
@@ -11,9 +11,9 @@ const ITEMS_PER_PAGE = 25; // 5 cards per row, 5 rows
 
 export default function GameList() {
   const theme = useTheme();
-  const [games, setGames] = useState<Game[]>([]);
+  const [gamePages, setGamePages] = useState<Game[][]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
   const observer = useRef<IntersectionObserver | null>(null);
@@ -33,25 +33,26 @@ export default function GameList() {
 
   useEffect(() => {
     (async () => {
-      if (!hasMore || loading) return;
+      if (!hasMore || loading || gamePages[page]) return;
 
       setLoading(true);
-      const fetchedGames = await gamesCollection.getList(page, ITEMS_PER_PAGE, {
+      const fetchedGames = await gamesCollection.getList(page + 1, ITEMS_PER_PAGE, {
         sort: '-created',
         expand: 'tags.tag_categories_via_tags,authors_via_games',
       });
 
-      setGames((prevGames) => {
-        return [
-          ...prevGames,
-          ...fetchedGames.items.filter((newGame) => !prevGames.some((existingGame) => existingGame.id === newGame.id)),
-        ];
+      setGamePages((oldPages) => {
+        const newPages = [...oldPages];
+        newPages[page] = fetchedGames.items;
+        return newPages;
       });
 
-      setHasMore(games.length + fetchedGames.items.length < fetchedGames.totalItems);
+      setHasMore(fetchedGames.totalPages > page + 1);
       setLoading(false);
     })();
-  }, [page, hasMore, loading, games.length]);
+  }, [page, hasMore, loading, gamePages]);
+
+  const games = useMemo(() => gamePages.flat(), [gamePages]);
 
   return (
     <Box sx={{ width: '100%', p: 3 }}>

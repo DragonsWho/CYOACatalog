@@ -59,10 +59,22 @@ export default function SimpleComments({ game }: { game: Game }) {
         }
       }
     }
-    return comments
+    const newComments = comments
       .map((comment) => commentMap.get(comment.id))
       .filter((x) => x !== undefined)
       .filter((x) => x.parentId === null);
+    const flattenedComments: FormattedComment[] = [];
+    for (const comment of newComments) {
+      const replies = comment.replies;
+      comment.replies = [];
+      function recurse(c: FormattedComment) {
+        comment.replies.push(c);
+        for (const reply of c.replies) recurse(reply);
+      }
+      for (const reply of replies) recurse(reply);
+      flattenedComments.push(comment);
+    }
+    return flattenedComments;
   }, [game.expand?.comments]);
 
   async function handleSubmitComment(data: { text: string; parentId?: string }) {

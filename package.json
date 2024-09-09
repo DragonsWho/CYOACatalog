@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n 'server,client' -c 'bgBlue.bold,bgMagenta.bold' 'cross-env CGO_ENABLED=0 go run main.go serve' 'vite --port 8091'",
+    "dev": "cross-env NODE_ENV=development concurrently -n 'server,client' -c 'bgBlue.bold,bgMagenta.bold' 'cross-env CGO_ENABLED=0  go run main.go serve' 'vite --port 8091'",
     "build": "rm -f ./dist/serve && tsc -b && vite build && cross-env CGO_ENABLED=0 go build -o ./dist/serve main.go",
     "lint": "eslint .",
     "preview": "./dist/serve serve --dir ./pb_data"

@@ -5,7 +5,7 @@
 import { Card, CardContent, Typography, Chip, Box, useTheme } from '@mui/material';
 import { Link } from 'react-router-dom';
 import FavoriteIcon from '@mui/icons-material/Favorite';
-import CommentIcon from '@mui/icons-material/Favorite';
+import CommentIcon from '@mui/icons-material/Comment';
 import { Game } from '../pocketbase/pocketbase';
 
 // Design variables

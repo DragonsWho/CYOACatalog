@@ -2,7 +2,7 @@
 // Version: 1.11.0
 // Description: Enhanced Login modal component with styled Discord login button and custom Discord icon
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useContext, useEffect, useState } from 'react';
 import {
   TextField,
   Button,
@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SvgIcon from '@mui/material/SvgIcon';
-import { login, useAuth } from '../../pocketbase/pocketbase';
+import { AuthContext, login } from '../../pocketbase/pocketbase';
 
 const DiscordIcon = () => (
   <SvgIcon>
@@ -49,7 +49,7 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signedIn } = useAuth();
+  const { signedIn } = useContext(AuthContext);
 
   const handleClose = useCallback(() => {
     setIdentifier('');

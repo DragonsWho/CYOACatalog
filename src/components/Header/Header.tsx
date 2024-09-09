@@ -2,14 +2,14 @@
 // Version: 1.9.0
 // Description: Added Discord invite button between Add CYOA and Login buttons
 
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { AppBar, Toolbar, Typography, Box, Tooltip, useTheme, Container, SvgIcon } from '@mui/material';
 import { Link } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserMenu from './UserMenu';
 import Login from './Login';
 import Button from '@mui/material/Button';
-import { User } from '../../pocketbase/pocketbase';
+import { AuthContext } from '../../pocketbase/pocketbase';
 
 const SITE_TITLE = 'CYOA.CAFE';
 const ADD_CYOA_TEXT = 'Add CYOA';
@@ -23,15 +23,9 @@ const DiscordIcon = () => (
   </SvgIcon>
 );
 
-export default function Header({
-  isAuthenticated,
-  user,
-  onLogout,
-}: {
-  isAuthenticated: boolean;
-  user: User | null;
-  onLogout: () => void;
-}) {
+export default function Header() {
+  const { signedIn, user } = useContext(AuthContext);
+
   const [loginOpen, setLoginOpen] = useState(false);
   const theme = useTheme();
 
@@ -81,7 +75,7 @@ export default function Header({
                     <DiscordIcon />
                   </Button>
                 </Tooltip>
-                <Tooltip title={isAuthenticated ? '' : LOGIN_TOOLTIP} arrow>
+                <Tooltip title={signedIn ? '' : LOGIN_TOOLTIP} arrow>
                   <span>
                     <Button
                       color="inherit"
@@ -90,14 +84,14 @@ export default function Header({
                       sx={{
                         ml: 1,
                         mr: 1,
-                        opacity: isAuthenticated ? 1 : 0.5,
+                        opacity: signedIn ? 1 : 0.5,
                         '&.Mui-disabled': {
                           color: 'inherit',
                         },
                         fontSize: '0.875rem',
                         padding: '4px 10px',
                       }}
-                      disabled={!isAuthenticated}
+                      disabled={!signedIn}
                       aria-label={ADD_CYOA_TEXT}
                     >
                       {ADD_CYOA_TEXT}
@@ -106,8 +100,8 @@ export default function Header({
                 </Tooltip>
 
                 <Box sx={{ width: 120 }}>
-                  {isAuthenticated ? (
-                    <UserMenu currentUser={user} onLogout={onLogout} />
+                  {signedIn ? (
+                    <UserMenu currentUser={user} />
                   ) : (
                     <Button
                       color="inherit"

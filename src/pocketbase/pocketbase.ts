@@ -1,5 +1,5 @@
 import PocketBase, { RecordService } from 'pocketbase';
-import { useEffect, useState } from 'react';
+import { createContext } from 'react';
 
 export const pb = new PocketBase(window.location.origin);
 
@@ -119,14 +119,4 @@ export async function login(args: { usernameOrEmail: string; password: string } 
   }
 }
 
-export function useAuth() {
-  const [signedIn, setSignedIn] = useState(!!pb.authStore.model);
-  const [user, setUser] = useState<User | null>(pb.authStore.model as User | null);
-  useEffect(() => {
-    return pb.authStore.onChange(() => {
-      setSignedIn(!!pb.authStore.model);
-      setUser(pb.authStore.model as User | null);
-    });
-  }, []);
-  return { signedIn, user };
-}
+export const AuthContext = createContext({ signedIn: false, user: null as User | null });

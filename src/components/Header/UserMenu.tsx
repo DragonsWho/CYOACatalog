@@ -5,9 +5,9 @@
 import { useState } from 'react';
 import { Button, Menu, MenuItem, Avatar } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
-import { User } from '../../pocketbase/pocketbase';
+import { pb, User } from '../../pocketbase/pocketbase';
 
-export default function UserMenu({ currentUser, onLogout }: { currentUser: User | null; onLogout: () => void }) {
+export default function UserMenu({ currentUser }: { currentUser: User | null }) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
 
@@ -34,7 +34,7 @@ export default function UserMenu({ currentUser, onLogout }: { currentUser: User 
         </MenuItem>
         <MenuItem
           onClick={() => {
-            onLogout();
+            pb.authStore.clear();
             setAnchorEl(null);
             navigate('/');
           }}

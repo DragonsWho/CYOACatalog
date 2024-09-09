@@ -1,4 +1,5 @@
 import PocketBase, { RecordService } from 'pocketbase';
+import { useEffect, useState } from 'react';
 
 export const pb = new PocketBase(window.location.origin);
 
@@ -26,7 +27,7 @@ export type Tag = RecordModel & {
   games: string[];
   description: string;
 } & {
-  expand: {
+  expand?: {
     tag_categories_via_tags?: [TagCategory];
   };
 };
@@ -41,7 +42,7 @@ export type TagCategory = RecordModel & {
   tags: string[];
   description: string;
 } & {
-  expand: {
+  expand?: {
     tags?: Tag[];
   };
 };
@@ -57,11 +58,13 @@ export type Game = RecordModel & {
   iframe_url: string;
   cyoa_pages: string[];
   upvotes: string[];
+  comments: string[];
 } & {
-  expand: {
+  expand?: {
     tags?: Tag[];
     authors_via_games?: Author[];
     upvotes?: User[];
+    comments?: Comment[];
   };
 };
 
@@ -70,12 +73,10 @@ export const gamesCollection = pb.collection('games') as RecordService<Game>;
 export type Comment = RecordModel & {
   content: string;
   author: string;
-  game: string;
   children: string[];
 } & {
-  expand: {
+  expand?: {
     author?: User;
-    game?: Game;
     children?: Comment[];
   };
 };
@@ -87,7 +88,7 @@ export type Author = RecordModel & {
   description: string;
   games: string[];
 } & {
-  expand: {
+  expand?: {
     games?: Game[];
   };
 };
@@ -118,10 +119,14 @@ export async function login(args: { usernameOrEmail: string; password: string } 
   }
 }
 
-export function getCurrentUser() {
-  return pb.authStore.model as User | null;
-}
-
-export function isAuthenticated() {
-  return !!pb.authStore.model;
+export function useAuth() {
+  const [signedIn, setSignedIn] = useState(!!pb.authStore.model);
+  const [user, setUser] = useState<User | null>(pb.authStore.model as User | null);
+  useEffect(() => {
+    return pb.authStore.onChange(() => {
+      setSignedIn(!!pb.authStore.model);
+      setUser(pb.authStore.model as User | null);
+    });
+  }, []);
+  return { signedIn, user };
 }

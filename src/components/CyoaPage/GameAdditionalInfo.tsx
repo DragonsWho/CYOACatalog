@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { useTheme } from '@mui/material/styles';
-import { gamesCollection, getCurrentUser } from '../../pocketbase/pocketbase';
+import { gamesCollection, useAuth } from '../../pocketbase/pocketbase';
 
 const LOGIN_TOOLTIP = 'Login to upvote';
 
@@ -27,7 +27,8 @@ export default function GameAdditionalInfo({
   const [isUpvoted, setIsUpvoted] = useState(false);
   const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvotes?.length || 0);
   const [isLoading, setIsLoading] = useState(false);
-  const userID = getCurrentUser()?.id;
+  const { user } = useAuth();
+  const userID = user?.id;
 
   useEffect(() => {
     if (userID && initialUpvotes) {

@@ -57,7 +57,7 @@ export default function GameCard({ game }: { game: Game }) {
   const theme = useTheme();
   const imageURL = game.image || '/img/placeholder.jpg';
   const sortedTags = CATEGORY_ORDER.flatMap((categoryName) => {
-    return game.expand?.tags?.filter((tag) => tag.expand.tag_categories_via_tags?.[0].name === categoryName) ?? [];
+    return game.expand?.tags?.filter((tag) => tag.expand?.tag_categories_via_tags?.[0].name === categoryName) ?? [];
   }).slice(0, TAG_DISPLAY_LIMIT);
   const gameUpvoteCount = game.upvotes.length;
 
@@ -155,7 +155,7 @@ export default function GameCard({ game }: { game: Game }) {
               }}
             >
               {sortedTags.map((tag, index) => {
-                const category = tag.expand.tag_categories_via_tags?.[0].name;
+                const category = tag.expand?.tag_categories_via_tags?.[0].name;
                 return (
                   <Chip
                     key={index}
@@ -209,8 +209,7 @@ export default function GameCard({ game }: { game: Game }) {
                     mr: 1,
                   }}
                 >
-                  {/* TODO: comment count */}
-                  {'TODO comment count'}
+                  {game.comments.length}
                 </Typography>
                 <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
                 <Typography

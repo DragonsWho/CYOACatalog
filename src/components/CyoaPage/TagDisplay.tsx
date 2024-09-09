@@ -48,7 +48,7 @@ export default function TagDisplay({
 
   // Group tags by their category
   const groupedTags = tags.reduce<Record<string, Tag[]>>((acc, tag) => {
-    const categoryName = tag.expand.tag_categories_via_tags?.[0].name ?? 'Uncategorized';
+    const categoryName = tag.expand?.tag_categories_via_tags?.[0].name ?? 'Uncategorized';
     if (!acc[categoryName]) acc[categoryName] = [];
     acc[categoryName].push(tag);
     return acc;

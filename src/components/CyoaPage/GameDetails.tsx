@@ -33,7 +33,7 @@ export default function GameDetails() {
   useEffect(() => {
     (async () => {
       const game = await gamesCollection.getOne(id as string, {
-        expand: 'tags.tag_categories_via_tags,authors_via_games',
+        expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
       });
       setGame(game);
       setLoading(false);
@@ -65,7 +65,7 @@ export default function GameDetails() {
           <Typography variant="h4" component="h1" sx={{ mr: 1, color: theme.palette.text.primary }}>
             {game.title || 'Untitled Game'}
           </Typography>
-          {game.expand.authors_via_games?.length && game.expand.authors_via_games?.length > 0 && (
+          {game.expand?.authors_via_games?.length && game.expand.authors_via_games?.length > 0 && (
             <Typography variant="subtitle1" sx={{ mb: '0.05em', color: theme.palette.text.primary }}>
               by {game.expand.authors_via_games.map((author) => author.name).join(', ')}
             </Typography>
@@ -96,7 +96,7 @@ export default function GameDetails() {
 
           {/* Right Column - Game Info */}
           <Grid2 size={{ xs: 12, md: 6 }}>
-            {game.expand.tags?.length && game.expand.tags?.length > 0 && (
+            {game.expand?.tags?.length && game.expand.tags?.length > 0 && (
               <Box>
                 <TagDisplay
                   tags={game.expand.tags}
@@ -149,7 +149,7 @@ export default function GameDetails() {
       </Box>
 
       <Box sx={{}}>
-        <SimpleComments gameId={id ?? ''} />
+        <SimpleComments game={game} />
       </Box>
     </Container>
   );

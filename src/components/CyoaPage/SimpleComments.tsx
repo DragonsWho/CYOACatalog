@@ -2,26 +2,11 @@
 // v3.36
 // Fixed TypeScript errors and improved type safety
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
 import { Box, Typography, useTheme, Theme } from '@mui/material';
 import { CommentSection } from 'react-comments-section';
 import 'react-comments-section/dist/index.css';
-import { fetchComments, postComment, editComment, deleteComment } from '../../services/api';
-import authService from '../../services/authService';
-
-interface SimpleCommentsProps {
-  gameId: string;
-}
-
-interface Comment {
-  id: number;
-  author?: {
-    id: number;
-    name: string;
-  };
-  content: string;
-  children?: Comment[];
-}
+import { commentsCollection, Game, pb, useAuth } from '../../pocketbase/pocketbase';
 
 interface FormattedComment {
   userId: string;
@@ -43,88 +28,67 @@ interface CustomTheme extends Theme {
   };
 }
 
-const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
-  // TODO: implement comments
-  return <>SimpleComments</>;
-  const [comments, setComments] = useState<FormattedComment[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [user, setUser] = useState<any>(null);
+export default function SimpleComments({ game }: { game: Game }) {
+  const { user } = useAuth();
   const theme = useTheme<CustomTheme>();
 
-  const loadComments = useCallback(async () => {
-    try {
-      const fetchedComments = await fetchComments(gameId);
-      const formattedComments = formatComments(fetchedComments);
-      setComments(formattedComments);
-    } catch (error) {
-      console.error('Error loading comments:', error);
-    }
-  }, [gameId]);
+  const comments = useMemo(() => {
+    const comments = game.expand?.comments;
+    if (!comments) return [];
 
-  useEffect(() => {
-    loadComments();
-    const currentUser = authService.getCurrentUser();
-    setUser(currentUser);
-  }, [gameId, loadComments]);
-
-  const formatComments = (commentsData: Comment[]): FormattedComment[] => {
-    const flattenComments = (comment: Comment, parentId: string | null = null, depth = 0): FormattedComment[] => {
-      const formattedComment: FormattedComment = {
-        userId: comment.author?.id?.toString() || 'anonymous',
-        comId: comment.id.toString(),
-        fullName: comment.author?.name || 'Anonymous',
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          comment.author?.name || 'Anonymous',
-        )}&background=1a1a1a&color=fc3447`,
+    const commentMap = new Map<string, FormattedComment>();
+    for (const comment of comments) {
+      commentMap.set(comment.id, {
+        userId: comment.author,
+        comId: comment.id,
+        fullName: comment.expand?.author?.name || comment.expand?.author?.username || 'Anonymous',
+        avatarUrl:
+          comment.expand?.author?.avatar ||
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.expand?.author?.name || comment.expand?.author?.username || 'Anonymous')}&background=1a1a1a&color=fc3447`,
         text: comment.content,
         replies: [],
-        parentId: parentId,
-      };
-
-      const result = [formattedComment];
-
-      if (comment.children && comment.children.length > 0) {
-        comment.children.forEach((childComment) => {
-          if (depth === 0) {
-            formattedComment.replies.push(...flattenComments(childComment, formattedComment.comId, depth + 1));
-          } else {
-            result.push(...flattenComments(childComment, depth === 1 ? formattedComment.comId : parentId, depth + 1));
-          }
-        });
+        parentId: null,
+      });
+    }
+    for (const comment of comments) {
+      for (const childID of comment.children) {
+        const child = commentMap.get(childID);
+        if (child) {
+          commentMap.get(comment.id)?.replies.push(child);
+          child.parentId = comment.id;
+        }
       }
-
-      return result;
-    };
-
-    return commentsData.flatMap((comment) => flattenComments(comment));
-  };
-
-  const handleSubmitComment = async (data: { text: string; parentId?: string }) => {
-    try {
-      await postComment(gameId, data.text, data.parentId || null);
-      await loadComments();
-    } catch (error) {
-      console.error('Error posting comment:', error);
     }
-  };
+    return comments
+      .map((comment) => commentMap.get(comment.id))
+      .filter((x) => x !== undefined)
+      .filter((x) => x.parentId === null);
+  }, [game.expand?.comments]);
 
-  const handleEditComment = async (data: { comId: string; text: string }) => {
-    try {
-      await editComment(gameId, data.comId, data.text);
-      await loadComments();
-    } catch (error) {
-      console.error('Error editing comment:', error);
-    }
-  };
+  async function handleSubmitComment(data: { text: string; parentId?: string }) {
+    if (!user) return;
+    await fetch('/api/custom/comments', {
+      method: 'POST',
+      body: JSON.stringify({ game_id: game.id, parent_id: data.parentId, content: data.text }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${pb.authStore.token}`,
+      },
+    });
+  }
 
-  const handleDeleteComment = async (data: { comId: string }) => {
-    try {
-      await deleteComment(gameId, data.comId);
-      await loadComments();
-    } catch (error) {
-      console.error('Error deleting comment:', error);
-    }
-  };
+  async function handleEditComment(data: { comId: string; text: string }) {
+    await commentsCollection.update(data.comId, { content: data.text });
+  }
+
+  async function handleDeleteComment(data: { comIdToDelete: string }) {
+    if (!user) return;
+    const comment = game.expand?.comments?.find((x) => x.id === data.comIdToDelete);
+    if (user.id !== comment?.author)
+      throw new Error(`You can only delete your own comments, ${user.id} is not ${comment?.author}`);
+    await commentsCollection.delete(data.comIdToDelete);
+  }
+
   const inputStyle = {
     color: '#dcdcdc',
   };
@@ -141,11 +105,11 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
       {user ? (
         <CommentSection
           currentUser={{
-            currentUserId: user.user.id.toString(),
-            currentUserImg: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-              user.user.username,
-            )}&background=1a1a1a&color=fc3447`,
-            currentUserFullName: user.user.username,
+            currentUserId: user.id,
+            currentUserImg:
+              user.avatar ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.username)}&background=1a1a1a&color=fc3447`,
+            currentUserFullName: user.name || user.username,
             currentUserProfile: '',
           }}
           commentData={comments}
@@ -156,8 +120,7 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
           onEditAction={handleEditComment}
           onDeleteAction={handleDeleteComment}
           hrStyle={{ border: 'none' }}
-          currentData={(data: unknown) => console.log('Current data:', data)}
-          removeEmoji={true}
+          removeEmoji
           submitBtnStyle={{ border: '1px solid gray', backgroundColor: 'gray', color: 'black' }}
           cancelBtnStyle={{ border: '1px solid gray', backgroundColor: 'gray', color: 'black' }}
           titleStyle={{ color: 'gray' }}
@@ -172,6 +135,4 @@ const SimpleComments: React.FC<SimpleCommentsProps> = ({ gameId }) => {
       )}
     </Box>
   );
-};
-
-export default SimpleComments;
+}

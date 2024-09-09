@@ -196,6 +196,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
                 <Chip
                   label={tag.name}
                   onClick={() => handleTagToggle(tag.id, category.id)}
+                  // @ts-expect-error - MuiChip variant prop is not typed
                   variant={isSelected ? 'selected' : isDisabled ? 'inactive' : undefined}
                   size="small"
                   sx={{

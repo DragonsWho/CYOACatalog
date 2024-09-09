@@ -31,6 +31,9 @@
             (python3.withPackages (ps: with ps; [
               pocketbase
               bcrypt
+              requests
+              pillow
+              xxhash
             ]))
           ];
           shellHook = ''

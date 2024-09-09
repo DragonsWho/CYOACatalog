@@ -106,7 +106,7 @@ export default function GameContent({
               >
                 {!imageErrors[index] && (
                   <img
-                    src={image}
+                    src={`/api/files/games/${game.id}/${image}`}
                     alt={`Game content ${index + 1}`}
                     style={{
                       maxWidth: expanded ? 'none' : '100%',

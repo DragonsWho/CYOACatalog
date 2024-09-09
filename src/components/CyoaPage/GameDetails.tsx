@@ -86,7 +86,7 @@ export default function GameDetails() {
                 }}
               >
                 <img
-                  src={game.image}
+                  src={`/api/files/games/${game.id}/${game.image}`}
                   alt={game.title}
                   style={{ maxWidth: '60%', height: 'auto', objectFit: 'contain' }}
                 />

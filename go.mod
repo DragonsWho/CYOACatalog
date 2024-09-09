@@ -3,6 +3,7 @@ module github.com/DragonsWho/CYOACatalog
 go 1.22.5
 
 require (
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/labstack/echo/v5 v5.0.0-20230722203903-ec5b858dab61
 	github.com/pocketbase/pocketbase v0.22.20
 )

@@ -55,7 +55,7 @@ export default function GameCard({ game }: { game: Game }) {
   // TODO: sanitize description
 
   const theme = useTheme();
-  const imageURL = game.image || '/img/placeholder.jpg';
+  const imageURL = game.image ? `/api/files/games/${game.id}/${game.image}` : '/img/placeholder.jpg';
   const sortedTags = CATEGORY_ORDER.flatMap((categoryName) => {
     return game.expand?.tags?.filter((tag) => tag.expand?.tag_categories_via_tags?.[0].name === categoryName) ?? [];
   }).slice(0, TAG_DISPLAY_LIMIT);

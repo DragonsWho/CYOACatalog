@@ -16,7 +16,6 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
-	"github.com/pocketbase/pocketbase/forms"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/tools/security"
 )
@@ -58,22 +57,17 @@ func main() {
 					return fmt.Errorf("find collection error: %w", err)
 				}
 				record := models.NewRecord(collection)
-				form := forms.NewRecordUpsert(app, record)
-				form.SetDao(txDao)
-				err = form.LoadData(map[string]any{
-					"id":       commentID,
-					"content":  comment.Content,
-					"author":   userID,
-					"children": []string{},
-				})
+				record.Set("id", commentID)
+				record.Set("content", comment.Content)
+				record.Set("author", userID)
+				record.Set("children", []string{})
+				if comment.ParentID != nil {
+					record.Set("parent", *comment.ParentID)
+				}
+				err = txDao.SaveRecord(record)
 				if err != nil {
-					return fmt.Errorf("load data error: %w", err)
+					return fmt.Errorf("comment save record error: %w", err)
 				}
-				if err := form.Submit(); err != nil {
-					return fmt.Errorf("comment submit form error: %w", err)
-				}
-
-				fmt.Println("commentID", commentID, "gameID", comment.GameID, "parentID", comment.ParentID)
 
 				record, err = txDao.FindRecordById("games", comment.GameID)
 				if err != nil {

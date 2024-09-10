@@ -2,18 +2,12 @@
 // v2.4
 // Fixed TypeScript errors and improved type definitions
 
-import React, { useCallback, useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button, Typography, Box, CircularProgress, Alert } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 const aspectRatio = 3 / 4;
 const maxWidth = 600; // Maximum width for initial resize
-
-interface ImageCompressorProps {
-  onImageChange: (file: File | null) => void;
-  buttonText?: string;
-  quality?: number;
-}
 
 interface FileInfo {
   originalSize: number;
@@ -25,11 +19,15 @@ interface CanvasSize {
   height: number;
 }
 
-const ImageCompressor: React.FC<ImageCompressorProps> = ({
+export function ImageCompressor({
   onImageChange,
   buttonText = 'Upload Image',
   quality = 0.8,
-}) => {
+}: {
+  onImageChange: (file: File | null) => void;
+  buttonText?: string;
+  quality?: number;
+}) {
   const theme = useTheme();
   const [isCompressing, setIsCompressing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +63,7 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({
     }
   }, [image]);
 
-  const handleImageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  function handleImageChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (file) {
       setIsCompressing(true);
@@ -86,9 +84,9 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({
         setIsCompressing(false);
       }
     }
-  }, []);
+  }
 
-  const handleCrop = useCallback(() => {
+  function handleCrop() {
     if (imageRef.current && canvasRef.current) {
       const canvas = document.createElement('canvas');
       const cropWidth = canvasSize.width;
@@ -119,38 +117,35 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({
         quality,
       );
     }
-  }, [crop, quality, onImageChange, canvasSize]);
+  }
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const startY = e.clientY;
-      const startTop = crop.y;
-      const maxY = canvasSize.height - canvasSize.width / aspectRatio;
+  function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    const startY = e.clientY;
+    const startTop = crop.y;
+    const maxY = canvasSize.height - canvasSize.width / aspectRatio;
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const deltaY = moveEvent.clientY - startY;
-        setCrop(() => ({
-          y: Math.max(0, Math.min(startTop + deltaY, maxY)),
-        }));
-      };
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      setCrop(() => ({
+        y: Math.max(0, Math.min(startTop + deltaY, maxY)),
+      }));
+    };
 
-      const handleMouseUp = () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
 
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    },
-    [crop, canvasSize],
-  );
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }
 
-  const handleRemoveImage = () => {
+  function handleRemoveImage() {
     setImage(null);
     setPreview(null);
     setFileInfo(null);
     onImageChange(null);
-  };
+  }
 
   return (
     <Box>
@@ -232,6 +227,6 @@ const ImageCompressor: React.FC<ImageCompressorProps> = ({
       )}
     </Box>
   );
-};
+}
 
 export default ImageCompressor;

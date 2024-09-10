@@ -2,25 +2,15 @@
 // Version 1.4.0
 // Changes: Removed immediate image processing, added function to get images for upload
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Box, Button, Typography, List, ListItem, ListItemText, IconButton } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
-interface CyoaImageUploaderProps {
-  onImagesChange: (files: File[]) => void;
-  getImages: () => File[];
-}
+export default function CyoaImageUploader({ onImagesChange }: { onImagesChange: (files: File[]) => void }) {
+  const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
 
-interface ImageItem {
-  file: File;
-  preview: string;
-}
-
-const CyoaImageUploader: React.FC<CyoaImageUploaderProps> = ({ onImagesChange }) => {
-  const [images, setImages] = useState<ImageItem[]>([]);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files || []);
     const newImages = files.map((file) => ({
       file,
@@ -29,37 +19,31 @@ const CyoaImageUploader: React.FC<CyoaImageUploaderProps> = ({ onImagesChange })
 
     setImages((prevImages) => [...prevImages, ...newImages]);
     onImagesChange([...images, ...newImages].map((img) => img.file));
-  };
+  }
 
-  const handleDragStart = (e: React.DragEvent<HTMLLIElement>, index: number) => {
+  function handleDragStart(e: React.DragEvent<HTMLLIElement>, index: number) {
     e.dataTransfer.setData('text/plain', index.toString());
-  };
+  }
 
-  const handleDragOver = (e: React.DragEvent<HTMLLIElement>) => {
+  function handleDragOver(e: React.DragEvent<HTMLLIElement>) {
     e.preventDefault();
-  };
+  }
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLLIElement>, dropIndex: number) => {
-      e.preventDefault();
-      const dragIndex = Number(e.dataTransfer.getData('text/plain'));
-      const newImages = [...images];
-      const [reorderedItem] = newImages.splice(dragIndex, 1);
-      newImages.splice(dropIndex, 0, reorderedItem);
-      setImages(newImages);
-      onImagesChange(newImages.map((img) => img.file));
-    },
-    [images, onImagesChange],
-  );
+  function handleDrop(e: React.DragEvent<HTMLLIElement>, dropIndex: number) {
+    e.preventDefault();
+    const dragIndex = Number(e.dataTransfer.getData('text/plain'));
+    const newImages = [...images];
+    const [reorderedItem] = newImages.splice(dragIndex, 1);
+    newImages.splice(dropIndex, 0, reorderedItem);
+    setImages(newImages);
+    onImagesChange(newImages.map((img) => img.file));
+  }
 
-  const removeImage = useCallback(
-    (index: number) => {
-      const newImages = images.filter((_, i) => i !== index);
-      setImages(newImages);
-      onImagesChange(newImages.map((img) => img.file));
-    },
-    [images, onImagesChange],
-  );
+  function removeImage(index: number) {
+    const newImages = images.filter((_, i) => i !== index);
+    setImages(newImages);
+    onImagesChange(newImages.map((img) => img.file));
+  }
 
   return (
     <Box>
@@ -106,6 +90,4 @@ const CyoaImageUploader: React.FC<CyoaImageUploaderProps> = ({ onImagesChange })
       )}
     </Box>
   );
-};
-
-export default CyoaImageUploader;
+}

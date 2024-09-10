@@ -5,15 +5,10 @@
 import { useState, useEffect, KeyboardEvent, ChangeEvent } from 'react';
 import { TextField, Chip, Typography, Box, Button } from '@mui/material';
 import { debounce } from 'lodash';
-import { pb } from '../../services/api';
+import { Author, authorsCollection } from '../../pocketbase/pocketbase';
 
 // Configurable maximum Levenshtein distance
 const MAX_LEVENSHTEIN_DISTANCE = 3;
-
-interface Author {
-  id: string | number;
-  name: string;
-}
 
 interface AuthorWithDistance extends Author {
   distance: number;
@@ -74,16 +69,10 @@ function findSimilarAuthors(input: string, availableAuthors: Author[], maxResult
 }
 
 async function createNewAuthor(authorName: string): Promise<Author> {
-  try {
-    const record = await pb.collection('authors').create({ name: authorName });
-    return { id: record.id, name: authorName };
-  } catch (error) {
-    console.error('Failed to create new author:', error);
-    throw error;
-  }
+  return await authorsCollection.create({ name: authorName });
 }
 
-function AuthorSelector({ value, onChange, availableAuthors, onAuthorsChange }: AuthorSelectorProps) {
+export default function AuthorSelector({ value, onChange, availableAuthors, onAuthorsChange }: AuthorSelectorProps) {
   const [inputValue, setInputValue] = useState<string>('');
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<Author[]>([]);
   const [similarAuthors, setSimilarAuthors] = useState<AuthorWithDistance[]>([]);
@@ -95,26 +84,22 @@ function AuthorSelector({ value, onChange, availableAuthors, onAuthorsChange }: 
     setSimilarAuthors([]);
   }, [value]);
 
-  const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+  function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     const newValue = event.target.value;
     setInputValue(newValue);
     debouncedFindSuggestions(newValue);
-  };
+  }
 
-  const handleKeyDown = async (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter' && inputValue.trim() !== '') {
-      await handleCreateOrSelectAuthor();
-    }
-  };
+  async function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter' && inputValue.trim() !== '') await handleCreateOrSelectAuthor();
+  }
 
-  const handleCreateOrSelectAuthor = async () => {
+  async function handleCreateOrSelectAuthor() {
     const trimmedValue = inputValue.trim();
     const existingAuthor = availableAuthors.find((author) => author.name.toLowerCase() === trimmedValue.toLowerCase());
 
     if (existingAuthor) {
-      if (!value.some((v) => v.id === existingAuthor.id)) {
-        onChange([...value, existingAuthor]);
-      }
+      if (!value.some((v) => v.id === existingAuthor.id)) onChange([...value, existingAuthor]);
     } else {
       await handleCreateNewAuthor();
     }
@@ -122,34 +107,27 @@ function AuthorSelector({ value, onChange, availableAuthors, onAuthorsChange }: 
     setInputValue('');
     setAutocompleteSuggestions([]);
     setSimilarAuthors([]);
-  };
+  }
 
-  const handleCreateNewAuthor = async () => {
-    try {
-      setIsCreatingAuthor(true);
-      const newAuthor = await createNewAuthor(inputValue.trim());
-      onChange([...value, newAuthor]);
-      onAuthorsChange([...availableAuthors, newAuthor]);
-      setIsCreatingAuthor(false);
-      setInputValue('');
-    } catch (error) {
-      console.error('Failed to create new author:', error);
-      setIsCreatingAuthor(false);
-    }
-  };
+  async function handleCreateNewAuthor() {
+    setIsCreatingAuthor(true);
+    const newAuthor = await createNewAuthor(inputValue.trim());
+    onChange([...value, newAuthor]);
+    onAuthorsChange([...availableAuthors, newAuthor]);
+    setIsCreatingAuthor(false);
+    setInputValue('');
+  }
 
-  const handleAuthorDelete = (authorToDelete: Author) => {
+  function handleAuthorDelete(authorToDelete: Author) {
     onChange(value.filter((author) => author.id !== authorToDelete.id));
-  };
+  }
 
-  const handleSuggestionClick = (suggestion: Author) => {
-    if (!value.some((v) => v.id === suggestion.id)) {
-      onChange([...value, suggestion]);
-    }
+  function handleSuggestionClick(suggestion: Author) {
+    if (!value.some((v) => v.id === suggestion.id)) onChange([...value, suggestion]);
     setInputValue('');
     setAutocompleteSuggestions([]);
     setSimilarAuthors([]);
-  };
+  }
 
   const debouncedFindSuggestions = debounce((input: string) => {
     if (input) {
@@ -244,5 +222,3 @@ function AuthorSelector({ value, onChange, availableAuthors, onAuthorsChange }: 
     </Box>
   );
 }
-
-export default AuthorSelector;

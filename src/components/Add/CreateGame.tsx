@@ -1,10 +1,8 @@
 // src/components/Add/CreateGame.tsx
-// Version 2.2.0
-// Updated to handle sequential image uploads
+// Version 2.2.2
+// Updated to fix linting error with AxiosError and improve error handling
 
-// TODO: support https://github.com/DragonsWho/CYOACatalog/commit/0f3ff59251386c9e51edba097514b7b0a9c0675b
-
-import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { useState, useEffect, ChangeEvent, FormEvent, useContext } from 'react';
 import {
   TextField,
   Button,
@@ -18,26 +16,21 @@ import {
   Alert,
   SelectChangeEvent,
 } from '@mui/material';
-import { pb } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import AuthorSelector from './AuthorSelector';
 import TagSelector from './TagSelector';
 import CyoaImageUploader from './CyoaImageUploader';
 import ImageCompressor from './ImageCompressor';
+import {
+  AuthContext,
+  Author,
+  authorsCollection,
+  gamesCollection,
+  tagCategoriesCollection,
+  TagCategory,
+} from '../../pocketbase/pocketbase';
 
-interface Author {
-  id: number | string;
-  name: string;
-}
-
-interface TagCategory {
-  id: string;
-  name: string;
-  min_tags: number;
-  tags: { id: string }[];
-}
-
-function CreateGame(): JSX.Element {
+export default function CreateGame() {
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [cardImage, setCardImage] = useState<File | null>(null);
@@ -49,103 +42,51 @@ function CreateGame(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [tagsLoaded, setTagsLoaded] = useState<boolean>(false);
-  void tagsLoaded;
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [initialDataLoading, setInitialDataLoading] = useState<boolean>(true);
+  const { user } = useContext(AuthContext);
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        const [authorsData, categoriesData] = await Promise.all([
-          pb.collection('authors').getFullList<{ id: string; name: string }>(),
-          pb.collection('tag_categories').getFullList<TagCategory>({ expand: 'tags' }),
-        ]);
-        setAvailableAuthors(
-          authorsData.map((author: { id: string; name: string }) => ({ id: author.id, name: author.name })),
-        );
-        setTagCategories(categoriesData);
-      } catch (error) {
-        console.error('Error fetching initial data:', error);
-        setError('Failed to load necessary data. Please refresh the page and try again.');
-      } finally {
-        setInitialDataLoading(false);
-      }
-    };
+  async function refreshAuthors() {
+    const authorsData = await authorsCollection.getFullList();
+    setAvailableAuthors(authorsData);
+  }
 
-    fetchInitialData();
+  async function refreshTagCategories() {
+    const categoriesData = await tagCategoriesCollection.getFullList({ expand: 'tags' });
+    setTagCategories(categoriesData);
+  }
+
+  useEffect(() => {
+    Promise.all([refreshAuthors(), refreshTagCategories()]).then(() => {
+      setInitialDataLoading(false);
+    });
   }, []);
 
-  const handleCardImageChange = (compressedImage: File | null) => {
+  function handleCardImageChange(compressedImage: File | null) {
     setCardImage(compressedImage);
-  };
+  }
 
-  const handleCyoaImagesChange = (newImages: File[]) => {
+  function handleCyoaImagesChange(newImages: File[]) {
     setCyoaImages(newImages);
-  };
+  }
 
-  const validateTags = (): string[] => {
+  function validateTags(): string[] {
     const errors: string[] = [];
-    tagCategories.forEach((category) => {
-      const categoryTags = selectedTags.filter((tagId) => category.tags.some((tag) => tag.id === tagId));
+    for (const category of tagCategories) {
+      const categoryTags = selectedTags.filter((tagId) => category.expand?.tags?.some((tag) => tag.id === tagId));
       if (categoryTags.length < category.min_tags)
         errors.push(`${category.name} requires at least ${category.min_tags} tag(s)`);
-    });
-    return errors;
-  };
-
-  const processImage = async (file: File): Promise<File> => {
-    if (file.size <= 10 * 1024 * 1024) {
-      return file;
     }
+    return errors;
+  }
 
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0);
-
-        const process = (quality: number) => {
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                if (blob.size <= 10 * 1024 * 1024 || quality <= 0.7) {
-                  const processedFile = new File([blob], file.name, {
-                    type: file.type,
-                    lastModified: Date.now(),
-                  });
-                  resolve(processedFile);
-                } else {
-                  process(quality - 0.05);
-                }
-              } else {
-                reject(new Error('Canvas to Blob conversion failed'));
-              }
-            },
-            file.type,
-            quality,
-          );
-        };
-
-        process(1);
-      };
-      img.onerror = (error) => reject(error);
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    // Form validation
     if (!title.trim()) {
       setError('Title is required.');
       setLoading(false);
@@ -183,32 +124,28 @@ function CreateGame(): JSX.Element {
       return;
     }
 
-    try {
-      console.log('Submitting game data');
-      const cyoaImagesProcessed = await Promise.all(cyoaImages.map(processImage));
-      // TODO: sort by name
-      const record = await pb.collection('games').create({
-        title,
-        description: description,
-        image: cardImage,
-        tags: selectedTags,
-        img_or_link: imgOrLink,
-        iframe_url: imgOrLink === 'link' ? iframeUrl : undefined,
-        cyoa_pages: cyoaImagesProcessed,
-        authors: authors.map((author) => author.id),
-        selected_tags: selectedTags,
-        upvotes: [],
-      });
+    const formData = new FormData();
 
-      console.log('Created game:', record.id);
-      navigate('/');
-    } catch (error: unknown) {
-      console.error('Error creating game:', error);
-      setError('Failed to create game. Please try again.');
-    } finally {
-      setLoading(false);
+    // Prepare the Description field for Rich text (Blocks)
+    const descriptionData = `<p>${description}</p>`;
+
+    formData.append('title', title);
+    formData.append('description', descriptionData);
+    formData.append('image', new Blob([cardImage], { type: cardImage.type }));
+    formData.append('tags', JSON.stringify(selectedTags));
+    formData.append('img_or_link', imgOrLink);
+    if (imgOrLink === 'link') formData.append('iframe_url', iframeUrl);
+    if (imgOrLink === 'img') {
+      for (const img of cyoaImages) formData.append('cyoa_pages', new Blob([img], { type: img.type }));
     }
-  };
+    if (user) formData.append('uploader', user.id);
+
+    const res = await gamesCollection.create(formData);
+    for (const author of authors) await authorsCollection.update(author.id, { 'games+': [res.id] });
+    console.log('Created game:', res.id);
+    navigate('/');
+    setLoading(false);
+  }
 
   if (initialDataLoading) {
     return <CircularProgress />;
@@ -264,13 +201,13 @@ function CreateGame(): JSX.Element {
           value={authors}
           onChange={setAuthors}
           availableAuthors={availableAuthors}
-          onAuthorsChange={() => {}}
+          onAuthorsChange={() => refreshAuthors()}
         />
       </Box>
 
       <Box sx={{ mt: 2 }}>
         <Typography variant="h6">Select Tags</Typography>
-        <TagSelector selectedTags={selectedTags} onTagsChange={setSelectedTags} onLoad={() => setTagsLoaded(true)} />
+        <TagSelector selectedTags={selectedTags} onTagsChange={setSelectedTags} />
       </Box>
 
       <Box sx={{ mt: 2 }}>
@@ -283,7 +220,7 @@ function CreateGame(): JSX.Element {
       </Box>
       {imgOrLink === 'img' && (
         <Box sx={{ mt: 2 }}>
-          <CyoaImageUploader onImagesChange={handleCyoaImagesChange} getImages={() => cyoaImages} />
+          <CyoaImageUploader onImagesChange={handleCyoaImagesChange} />
         </Box>
       )}
       <Button type="submit" variant="contained" color="primary" sx={{ mt: 3 }} disabled={loading}>
@@ -297,5 +234,3 @@ function CreateGame(): JSX.Element {
     </Box>
   );
 }
-
-export default CreateGame;

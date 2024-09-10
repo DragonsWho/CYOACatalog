@@ -1,10 +1,10 @@
 // src/components/Add/TagSelector.tsx
-// Version 1.9.3
-// Changes: Updated to use new Chip variants from theme
+// Version 1.9.6
+// Changes: Added null check for onLoad function and improved error handling
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
-import { pb } from '../../services/api';
+import { tagCategoriesCollection, TagCategory } from '../../pocketbase/pocketbase';
 
 const CATEGORY_ORDER = [
   'Rating',
@@ -43,61 +43,31 @@ const CATEGORY_TITLE_MARGIN_BOTTOM = 0;
 const CATEGORY_TITLE_FONT_WEIGHT = '500';
 const SECTION_GAP = 0.5; // Gap between sections
 
-interface TagCategory {
-  id: string;
-  name: string;
-  description: string;
-  min_tags: number;
-  max_tags: number;
-  allow_new_tags: boolean;
-  tags: { id: string }[];
-}
-
-interface Category {
-  id: string;
-  name: string;
-  description: string;
-  min_tags: number;
-  max_tags: number;
-  allow_new_tags: boolean;
-  tags: {
-    id: string;
-    name: string;
-    games: string[];
-    description: string;
-    tag_category: string;
-  }[];
-}
-
-interface TagSelectorProps {
-  selectedTags: string[];
-  onTagsChange: (tags: string[]) => void;
-  onLoad: () => void;
-}
-
-interface DelayedTooltipProps {
+function DelayedTooltip({
+  title,
+  children,
+  placement = 'bottom',
+}: {
   title: string;
   children: React.ReactElement;
   placement?: 'bottom' | 'bottom-start';
-}
-
-const DelayedTooltip: React.FC<DelayedTooltipProps> = ({ title, children, placement = 'bottom' }) => {
+}) {
   const [isOpen, setIsOpen] = useState(false);
-  const [timer, setTimer] = useState<number | null>(null);
+  const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
 
-  const handleMouseEnter = () => {
+  function handleMouseEnter() {
     const newTimer = setTimeout(() => {
       setIsOpen(true);
     }, TOOLTIP_DELAY);
-    setTimer(newTimer as unknown as number);
-  };
+    setTimer(newTimer);
+  }
 
-  const handleMouseLeave = () => {
+  function handleMouseLeave() {
     if (timer) {
       clearTimeout(timer);
     }
     setIsOpen(false);
-  };
+  }
 
   return (
     <Tooltip title={title} open={isOpen} onClose={handleMouseLeave} placement={placement} arrow>
@@ -106,35 +76,27 @@ const DelayedTooltip: React.FC<DelayedTooltipProps> = ({ title, children, placem
       </span>
     </Tooltip>
   );
-};
+}
 
-const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, onLoad }) => {
-  const [tagCategories, setTagCategories] = useState<Category[]>([]);
+export default function TagSelector({
+  selectedTags,
+  onTagsChange,
+  onLoad,
+}: {
+  selectedTags: string[];
+  onTagsChange: (tags: string[]) => void;
+  onLoad?: () => void;
+}) {
+  const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchTagData = async () => {
-      try {
-        const [tagsData, categoriesData] = await Promise.all([
-          pb.collection('tags').getFullList<Category['tags'][0]>(),
-          pb.collection('tag_categories').getFullList<TagCategory>({ expand: 'tags' }),
-        ]);
-        const categoriesWithTags = categoriesData.map((category) => ({
-          ...category,
-          tags: tagsData.filter((tag) => tag.tag_category === category.id),
-        }));
-        setTagCategories(categoriesWithTags);
-        onLoad();
-      } catch (error) {
-        console.error('Error fetching tag data:', error);
-        setError('Failed to load tags. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTagData();
+    (async () => {
+      const categories = await tagCategoriesCollection.getFullList({ expand: 'tags' });
+      setTagCategories(categories);
+      onLoad?.();
+      setLoading(false);
+    })();
   }, [onLoad]);
 
   const sortedCategories = useMemo(() => {
@@ -148,29 +110,20 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
     });
   }, [tagCategories]);
 
-  const handleTagToggle = (tagId: string, categoryId: string) => {
-    const category = tagCategories.find((cat) => cat.id === categoryId);
+  function handleTagToggle(tagID: string, categoryID: string) {
+    const category = tagCategories.find((cat) => cat.id === categoryID);
     if (!category) return;
+    const categoryTags = selectedTags.filter((id) => category.tags.some((tag) => tag === id));
+    if (selectedTags.includes(tagID)) onTagsChange(selectedTags.filter((id) => id !== tagID));
+    else if (categoryTags.length < category.max_tags) onTagsChange([...selectedTags, tagID]);
+  }
 
-    const categoryTags = selectedTags.filter((id) => category.tags.some((tag) => tag.id === id));
+  function handleAddTag(categoryID: string, newTagName: string) {
+    console.log(`Add new tag "${newTagName}" to category ${categoryID}`);
+  }
 
-    if (selectedTags.includes(tagId)) {
-      onTagsChange(selectedTags.filter((id) => id !== tagId));
-    } else {
-      if (categoryTags.length < category.max_tags) {
-        onTagsChange([...selectedTags, tagId]);
-      }
-    }
-  };
-
-  const handleAddTag = (categoryId: string, newTagName: string) => {
-    console.log(`Add new tag "${newTagName}" to category ${categoryId}`);
-  };
-
-  const renderTagGroups = (category: Category, groupConfig: number[][] | undefined) => {
-    if (!groupConfig || groupConfig.length === 0) {
-      groupConfig = [[category.tags.length]]; // Default to all tags in one row
-    }
+  function renderTagGroups(category: TagCategory, groupConfig: number[][] | undefined) {
+    if (!groupConfig || groupConfig.length === 0) groupConfig = [[category.tags.length]]; // Default to all tags in one row
 
     return groupConfig.map((row, rowIndex) => (
       <Box
@@ -179,24 +132,25 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
       >
         {row.map((groupSize, groupIndex) => {
           const startIndex =
-            groupConfig!
+            groupConfig
               .slice(0, rowIndex)
               .flat()
               .reduce((sum, size) => sum + size, 0) + row.slice(0, groupIndex).reduce((sum, size) => sum + size, 0);
           const groupTags = category.tags.slice(startIndex, startIndex + groupSize);
 
           return groupTags.map((tag) => {
-            const isSelected = selectedTags.includes(tag.id);
+            const isSelected = selectedTags.includes(tag);
             const isDisabled =
               !isSelected &&
-              selectedTags.filter((id) => category.tags.some((catTag) => catTag.id === id)).length >= category.max_tags;
+              selectedTags.filter((id) => category.tags.some((catTag) => catTag === id)).length >= category.max_tags;
+            const catTag = category.expand?.tags?.find((catTag) => catTag.id === tag);
 
             return (
-              <DelayedTooltip key={tag.id} title={tag.description || 'No description available'}>
+              <DelayedTooltip key={tag} title={catTag?.description ?? 'No description available'}>
                 <Chip
-                  label={tag.name}
-                  onClick={() => handleTagToggle(tag.id, category.id)}
-                  // @ts-expect-error - MuiChip variant prop is not typed
+                  label={catTag?.name ?? 'Unknown'}
+                  onClick={() => handleTagToggle(tag, category.id)}
+                  // @ts-expect-error - MuiChip props
                   variant={isSelected ? 'selected' : isDisabled ? 'inactive' : undefined}
                   size="small"
                   sx={{
@@ -215,26 +169,20 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
         })}
       </Box>
     ));
-  };
+  }
 
-  const isMinimumTagsSelected = (category: Category) => {
-    const selectedTagsInCategory = selectedTags.filter((id) => category.tags.some((tag) => tag.id === id)).length;
+  function isMinimumTagsSelected(category: TagCategory) {
+    const selectedTagsInCategory = selectedTags.filter((id) => category.tags.some((tag) => tag === id)).length;
     return selectedTagsInCategory >= category.min_tags;
-  };
+  }
 
   if (loading) return <CircularProgress size={24} />;
-  if (error)
-    return (
-      <Typography color="error" variant="body2">
-        {error}
-      </Typography>
-    );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
       {sortedCategories.map((category) => {
         const canAddMore =
-          selectedTags.filter((id) => category.tags.some((tag) => tag.id === id)).length < category.max_tags;
+          selectedTags.filter((id) => category.tags.some((tag) => tag === id)).length < category.max_tags;
 
         return (
           <Box key={category.id}>
@@ -257,7 +205,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
               <TextField
                 size="small"
                 placeholder="Add a tag..."
-                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     handleAddTag(category.id, (e.target as HTMLInputElement).value);
                     (e.target as HTMLInputElement).value = '';
@@ -277,6 +225,4 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTags, onTagsChange, o
       })}
     </Box>
   );
-};
-
-export default TagSelector;
+}

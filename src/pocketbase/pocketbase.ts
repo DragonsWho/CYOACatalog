@@ -59,6 +59,7 @@ export type Game = RecordModel & {
   cyoa_pages: string[];
   upvotes: string[];
   comments: string[];
+  uploader: string;
 } & {
   expand?: {
     tags?: Tag[];
@@ -74,6 +75,7 @@ export type Comment = RecordModel & {
   content: string;
   author: string;
   children: string[];
+  parent: string;
 } & {
   expand?: {
     author?: User;

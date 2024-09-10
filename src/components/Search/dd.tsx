@@ -1,12 +1,11 @@
 // src/components/Search/SearchFilters.tsx
-// v1.2
-// Updated author fetching to load all authors, fixed pagination issue
+// v1.3
+// Updated chip styling and truncated chip labels
 
 import React, { useState, useEffect } from 'react';
 import { TextField, Autocomplete, CircularProgress, Box, Chip } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
-import { height } from '@mui/system';
 
 interface Author {
   id: number;
@@ -64,6 +63,16 @@ const fetchAllAuthors = async (): Promise<Author[]> => {
   return allAuthors;
 };
 
+
+
+
+
+
+
+
+
+
+
 const CHIP_HEIGHT = '24px';
 const CHIP_FONT_SIZE = '0.8125rem';
 const CHIP_PADDING = '0 4px';
@@ -109,9 +118,10 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
   }, [tagQuery]);
 
   const commonStyles = {
-    minWidth: 184,
+    minWidth: 100,
     maxWidth: 400,
-    minheight:38,
+    flexGrow: 1,
+    flexBasis: 'auto',
     mr: 2,
     backgroundColor: theme.palette.grey[800],
     borderRadius: 1,
@@ -130,6 +140,9 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         padding: '7px 14px',
         color: theme.palette.text.primary,
         fontSize: '0.875rem',
+        
+        // padding: '110px 141px', // Уменьшим вертикальные отступы ввода
+        // height: '100%', // Растягиваем поле ввода на всю высоту
       },
     },
     '& .MuiInputBase-input::placeholder': {
@@ -140,7 +153,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
 
   const chipStyles = {
     height: CHIP_HEIGHT,
-    fontSize: CHIP_FONT_SIZE,
+    fontSize: CHIP_FONT_SIZE, 
     padding: '0 2px',
     margin: '-21px',
     borderRadius: CHIP_BORDER_RADIUS,
@@ -148,20 +161,23 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
     color: theme.palette.error.contrastText,
     '& .MuiChip-deleteIcon': {
       color: theme.palette.error.contrastText,
-      marginRight: '0px',
-      marginLeft: '-3px',
+      marginRight: '0px',  
+      marginLeft: '-3px',  
     },
     '& .MuiChip-label': {
-      paddingRight: '4px',
-      paddingLeft: '2px',
+      paddingRight: '4px',   
+      paddingLeft: '2px',  
     }
   };
 
-  const autocompleteStyles = {
+  const autocompleteStyles = { 
     '& .MuiAutocomplete-tag': {
-      margin: '1px 1px 3px 2px', // Уменьшаем отступы между чипами
+      margin: '1px 2px 3px 2px', // Уменьшаем отступы между чипами
     },
   };
+
+
+
 
   const truncateLabel = (label: string) => {
     return label.length > MAX_LABEL_LENGTH
@@ -170,7 +186,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
   };
 
   return (
-    <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap',  }}>
+<Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap',   }}>
       <Autocomplete
         multiple
         freeSolo
@@ -198,17 +214,13 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         )}
         sx={{ ...commonStyles, ...autocompleteStyles }}
         renderTags={(value: string[], getTagProps) =>
-          value.map((option: string, index: number) => {
-            const { key, ...otherProps } = getTagProps({ index });
-            return (
-              <Chip
-                key={key}
-                label={truncateLabel(option)}
-                {...otherProps}
-                sx={chipStyles}
-              />
-            );
-          })
+          value.map((option: string, index: number) => (
+            <Chip
+              label={truncateLabel(option)}
+              {...getTagProps({ index })}
+              sx={chipStyles}
+            />
+          ))
         }
       />
       <Autocomplete
@@ -238,17 +250,13 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         )}
         sx={{ ...commonStyles, ...autocompleteStyles }}
         renderTags={(value: string[], getTagProps) =>
-          value.map((option: string, index: number) => {
-            const { key, ...otherProps } = getTagProps({ index });
-            return (
-              <Chip
-                key={key}
-                label={option}
-                {...otherProps}
-                sx={chipStyles}
-              />
-            );
-          })
+          value.map((option: string, index: number) => (
+            <Chip
+              label={truncateLabel(option)}
+              {...getTagProps({ index })}
+              sx={chipStyles}
+            />
+          ))
         }
       />
     </Box>

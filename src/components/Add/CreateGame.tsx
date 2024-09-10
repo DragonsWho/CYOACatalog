@@ -132,7 +132,7 @@ export default function CreateGame() {
     formData.append('title', title);
     formData.append('description', descriptionData);
     formData.append('image', new Blob([cardImage], { type: cardImage.type }));
-    formData.append('tags', JSON.stringify(selectedTags));
+    for (const tag of selectedTags) formData.append('tags', tag);
     formData.append('img_or_link', imgOrLink);
     if (imgOrLink === 'link') formData.append('iframe_url', iframeUrl);
     if (imgOrLink === 'img') {

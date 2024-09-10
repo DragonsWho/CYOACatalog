@@ -29,6 +29,7 @@ import {
   tagCategoriesCollection,
   TagCategory,
 } from '../../pocketbase/pocketbase';
+import DOMPurify from 'dompurify';
 
 export default function CreateGame() {
   const [title, setTitle] = useState<string>('');
@@ -126,8 +127,7 @@ export default function CreateGame() {
 
     const formData = new FormData();
 
-    // Prepare the Description field for Rich text (Blocks)
-    const descriptionData = `<p>${description}</p>`;
+    const descriptionData = DOMPurify.sanitize(`<p>${description}</p>`);
 
     formData.append('title', title);
     formData.append('description', descriptionData);

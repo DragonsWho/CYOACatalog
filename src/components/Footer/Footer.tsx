@@ -3,7 +3,7 @@
 // Description: Further adjusted Footer component to improve logo spacing and alignment, converted to TypeScript
 
 import { Box, Container, Typography, Link as MuiLink } from '@mui/material';
-import { styled } from '@mui/system';
+import { styled } from '@mui/material/styles';
 import BoostyIcon from './BoostyIcon';
 import PatreonIcon from './PatreonIcon';
 import PatreonWordmark from './PatreonWordmark';

@@ -4,7 +4,6 @@
 
 import { useState, useEffect, KeyboardEvent, ChangeEvent } from 'react';
 import { TextField, Chip, Typography, Box, Button } from '@mui/material';
-import { debounce } from 'lodash';
 import { Author, authorsCollection } from '../../pocketbase/pocketbase';
 
 // Configurable maximum Levenshtein distance
@@ -127,6 +126,14 @@ export default function AuthorSelector({ value, onChange, availableAuthors, onAu
     setInputValue('');
     setAutocompleteSuggestions([]);
     setSimilarAuthors([]);
+  }
+
+  function debounce<A extends unknown[]>(callback: (...args: A) => void, wait: number) {
+    let timeoutId: number | undefined = undefined;
+    return (...args: A) => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => callback(...args), wait);
+    };
   }
 
   const debouncedFindSuggestions = debounce((input: string) => {

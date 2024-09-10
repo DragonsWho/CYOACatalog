@@ -7,6 +7,8 @@ import { Link } from 'react-router-dom';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import CommentIcon from '@mui/icons-material/Comment';
 import { Game } from '../pocketbase/pocketbase';
+import DOMPurify from 'dompurify';
+import { useMemo } from 'react';
 
 // Design variables
 const CARD_ASPECT_RATIO = '133.33%'; // 3:4 aspect ratio
@@ -52,14 +54,13 @@ const CATEGORY_COLORS = {
 };
 
 export default function GameCard({ game }: { game: Game }) {
-  // TODO: sanitize description
-
   const theme = useTheme();
   const imageURL = game.image ? `/api/files/games/${game.id}/${game.image}` : '/img/placeholder.jpg';
   const sortedTags = CATEGORY_ORDER.flatMap((categoryName) => {
     return game.expand?.tags?.filter((tag) => tag.expand?.tag_categories_via_tags?.[0].name === categoryName) ?? [];
   }).slice(0, TAG_DISPLAY_LIMIT);
   const gameUpvoteCount = game.upvotes.length;
+  const sanitizedDescription = useMemo(() => DOMPurify.sanitize(game.description), [game.description]);
 
   return (
     <Link to={`/game/${game.id}`} style={{ textDecoration: 'none' }}>
@@ -126,9 +127,8 @@ export default function GameCard({ game }: { game: Game }) {
           </Typography>
 
           <Box sx={{ position: 'absolute', top: DESCRIPTION_TOP, left: CARD_PADDING, right: CARD_PADDING }}>
-            <Typography
-              variant="body2"
-              sx={{
+            <div
+              style={{
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical',
@@ -137,10 +137,8 @@ export default function GameCard({ game }: { game: Game }) {
                 // @ts-expect-error custom theme property
                 ...theme.custom.cardText,
               }}
-            >
-              {/* TODO: <p> cannot appear as a descendant of <p>. */}
-              <p dangerouslySetInnerHTML={{ __html: game.description }} />
-            </Typography>
+              dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
+            />
           </Box>
 
           <Box sx={{ mt: 'auto' }}>

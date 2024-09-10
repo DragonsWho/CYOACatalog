@@ -2,7 +2,7 @@
 // v4.1
 // Fixed TypeScript errors and improved type safety
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -11,6 +11,7 @@ import GameContent from './GameContent';
 import SimpleComments from './SimpleComments';
 import GameAdditionalInfo from './GameAdditionalInfo';
 import { Game, gamesCollection } from '../../pocketbase/pocketbase';
+import DOMPurify from 'dompurify';
 
 interface CustomTheme extends Theme {
   custom?: {
@@ -29,6 +30,7 @@ export default function GameDetails() {
   const [expanded, setExpanded] = useState<boolean>(false);
   const { id } = useParams<{ id: string }>();
   const theme = useTheme<CustomTheme>();
+  const sanitizedDescription = useMemo(() => (game ? DOMPurify.sanitize(game.description) : ''), [game]);
 
   useEffect(() => {
     (async () => {
@@ -130,7 +132,7 @@ export default function GameDetails() {
           </Typography>
           <div
             style={{ paddingLeft: 12, paddingRight: 12, color: theme.palette.text.primary }}
-            dangerouslySetInnerHTML={{ __html: game.description }}
+            dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
           />
         </Box>
       </Paper>

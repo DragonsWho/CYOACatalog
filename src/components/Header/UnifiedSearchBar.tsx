@@ -20,13 +20,13 @@ const CHIP_FONT_SIZE = '0.8125rem';
 const CHIP_BORDER_RADIUS = '4px';
 
 export default function UnifiedSearchBar({
-    tags,
-    authors,
-    selectedTags,
-    selectedAuthors,
-    onTagChange,
-    onAuthorChange,
-  }: UnifiedSearchBarProps) {
+  tags,
+  authors,
+  selectedTags,
+  selectedAuthors,
+  onTagChange,
+  onAuthorChange,
+}: UnifiedSearchBarProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Game[]>([]);
@@ -110,8 +110,19 @@ export default function UnifiedSearchBar({
     },
   };
 
-  const renderTags = (value: string[], getTagProps: (params: { index: number }) => any, isTag: boolean) =>
-    value.map((option: string, index: number) => {
+  function renderTags(
+    value: string[],
+    getTagProps: (params: { index: number }) => {
+      key: number;
+      className: string;
+      disabled: boolean;
+      'data-tag-index': number;
+      tabIndex: -1;
+      onDelete: (event: unknown) => void;
+    },
+    isTag: boolean,
+  ) {
+    return value.map((option: string, index: number) => {
       const { key, ...otherProps } = getTagProps({ index });
       return (
         <Chip
@@ -121,17 +132,18 @@ export default function UnifiedSearchBar({
           onDelete={undefined}
           onClick={() => {
             if (isTag) {
-              onTagChange(selectedTags.filter(tag => tag !== option));
+              onTagChange(selectedTags.filter((tag) => tag !== option));
             } else {
-              onAuthorChange(selectedAuthors.filter(author => author !== option));
+              onAuthorChange(selectedAuthors.filter((author) => author !== option));
             }
           }}
           sx={chipStyles}
         />
       );
     });
+  }
 
- return (
+  return (
     <>
       <IconButton onClick={handleClick} color="inherit">
         <SearchIcon />
@@ -172,7 +184,7 @@ export default function UnifiedSearchBar({
             }}
             sx={{ width: 250 }}
           />
-           <Autocomplete
+          <Autocomplete
             multiple
             options={tags}
             value={selectedTags}
@@ -182,7 +194,7 @@ export default function UnifiedSearchBar({
                 {...params}
                 variant="outlined"
                 size="small"
-                placeholder={selectedTags.length === 0 ? "Tags..." : ""}
+                placeholder={selectedTags.length === 0 ? 'Tags...' : ''}
                 sx={commonStyles}
               />
             )}
@@ -201,7 +213,7 @@ export default function UnifiedSearchBar({
                 {...params}
                 variant="outlined"
                 size="small"
-                placeholder={selectedAuthors.length === 0 ? "Authors..." : ""}
+                placeholder={selectedAuthors.length === 0 ? 'Authors...' : ''}
                 sx={commonStyles}
               />
             )}

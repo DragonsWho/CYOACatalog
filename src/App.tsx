@@ -1,6 +1,6 @@
 // src/App.tsx
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Container, Box } from '@mui/material';
 import Header from './components/Header/Header';
@@ -25,15 +25,15 @@ export default function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchTagsAndAuthors = async () => {
+    (async () => {
       const fetchedTags = await tagsCollection.getFullList({ sort: 'name' });
       const fetchedAuthors = await authorsCollection.getFullList({ sort: 'name' });
-      setTags(fetchedTags.map(tag => tag.name));
-      setAuthors(fetchedAuthors.map(author => author.name));
-    };
+      setTags(fetchedTags.map((tag) => tag.name));
+      setAuthors(fetchedAuthors.map((author) => author.name));
+    })();
+  }, []);
 
-    fetchTagsAndAuthors();
-
+  useEffect(() => {
     return pb.authStore.onChange(() => {
       setSignedIn(!!pb.authStore.model);
       setUser(pb.authStore.model as User | null);
@@ -48,19 +48,15 @@ export default function App() {
     }
   }, [location.pathname]);
 
-  const handleTagChange = useCallback((newTags: string[]) => {
+  function handleTagChange(newTags: string[]) {
     setSelectedTags(newTags);
-    if (location.pathname !== '/' && location.pathname !== '/search') {
-      navigate('/');
-    }
-  }, [location.pathname, navigate]);
+    if (location.pathname !== '/' && location.pathname !== '/search') navigate('/');
+  }
 
-  const handleAuthorChange = useCallback((newAuthors: string[]) => {
+  function handleAuthorChange(newAuthors: string[]) {
     setSelectedAuthors(newAuthors);
-    if (location.pathname !== '/' && location.pathname !== '/search') {
-      navigate('/');
-    }
-  }, [location.pathname, navigate]);
+    if (location.pathname !== '/' && location.pathname !== '/search') navigate('/');
+  }
 
   return (
     <AuthContext.Provider value={{ signedIn, user }}>
@@ -80,7 +76,10 @@ export default function App() {
         >
           <Routes>
             <Route path="/" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />} />
-            <Route path="/search" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />} />
+            <Route
+              path="/search"
+              element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />}
+            />
             <Route path="/game/:id" element={<GameDetails />} />
             <Route path="/create" element={signedIn ? <CreateGame /> : <Login />} />
             <Route path="/login" element={<Login />} />
@@ -92,3 +91,4 @@ export default function App() {
     </AuthContext.Provider>
   );
 }
+

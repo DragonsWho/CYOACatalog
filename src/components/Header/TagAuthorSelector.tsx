@@ -1,6 +1,5 @@
 // src/components/Header/TagAuthorSelector.tsx
 
-import React from 'react';
 import { Box, Autocomplete, TextField, Chip, useTheme } from '@mui/material';
 
 interface TagAuthorSelectorProps {
@@ -16,14 +15,14 @@ const CHIP_HEIGHT = '24px';
 const CHIP_FONT_SIZE = '0.8125rem';
 const CHIP_BORDER_RADIUS = '4px';
 
-const TagAuthorSelector: React.FC<TagAuthorSelectorProps> = ({
+export default function TagAuthorSelector({
   tags,
   authors,
   selectedTags,
   selectedAuthors,
   onTagChange,
   onAuthorChange,
-}) => {
+}: TagAuthorSelectorProps) {
   const theme = useTheme();
 
   const commonStyles = {
@@ -91,8 +90,18 @@ const TagAuthorSelector: React.FC<TagAuthorSelectorProps> = ({
     },
   };
 
-  const renderTags = (value: string[], getTagProps: (params: { index: number }) => any) =>
-    value.map((option: string, index: number) => {
+  function renderTags(
+    value: string[],
+    getTagProps: (params: { index: number }) => {
+      key: number;
+      className: string;
+      disabled: boolean;
+      'data-tag-index': number;
+      tabIndex: -1;
+      onDelete: (event: unknown) => void;
+    },
+  ) {
+    return value.map((option: string, index: number) => {
       const { key, ...otherProps } = getTagProps({ index });
       return (
         <Chip
@@ -102,15 +111,16 @@ const TagAuthorSelector: React.FC<TagAuthorSelectorProps> = ({
           onDelete={undefined}
           onClick={() => {
             if (value === selectedTags) {
-              onTagChange(selectedTags.filter(tag => tag !== option));
+              onTagChange(selectedTags.filter((tag) => tag !== option));
             } else if (value === selectedAuthors) {
-              onAuthorChange(selectedAuthors.filter(author => author !== option));
+              onAuthorChange(selectedAuthors.filter((author) => author !== option));
             }
           }}
           sx={chipStyles}
         />
       );
     });
+  }
 
   return (
     <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
@@ -124,7 +134,7 @@ const TagAuthorSelector: React.FC<TagAuthorSelectorProps> = ({
             {...params}
             variant="outlined"
             size="small"
-            placeholder={selectedTags.length === 0 ? "Tags..." : ""}
+            placeholder={selectedTags.length === 0 ? 'Tags...' : ''}
             sx={commonStyles}
           />
         )}
@@ -143,7 +153,7 @@ const TagAuthorSelector: React.FC<TagAuthorSelectorProps> = ({
             {...params}
             variant="outlined"
             size="small"
-            placeholder={selectedAuthors.length === 0 ? "Authors..." : ""}
+            placeholder={selectedAuthors.length === 0 ? 'Authors...' : ''}
             sx={commonStyles}
           />
         )}
@@ -154,6 +164,5 @@ const TagAuthorSelector: React.FC<TagAuthorSelectorProps> = ({
       />
     </Box>
   );
-};
+}
 
-export default TagAuthorSelector;

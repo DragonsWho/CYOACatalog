@@ -10,6 +10,7 @@ import UserMenu from './UserMenu';
 import Login from './Login';
 import Button from '@mui/material/Button';
 import { AuthContext } from '../../pocketbase/pocketbase';
+import TagAuthorSelector from './TagAuthorSelector';
 
 const SITE_TITLE = 'CYOA.CAFE';
 const ADD_CYOA_TEXT = 'Add CYOA';
@@ -23,7 +24,14 @@ const DiscordIcon = () => (
   </SvgIcon>
 );
 
-export default function Header() {
+export default function Header({ 
+  tags,
+  authors,
+  selectedTags,
+  selectedAuthors,
+  onTagChange,
+  onAuthorChange
+})  {
   const { signedIn, user } = useContext(AuthContext);
 
   const [loginOpen, setLoginOpen] = useState(false);
@@ -34,19 +42,8 @@ export default function Header() {
       <AppBar position="static" sx={{ width: '100%' }}>
         <Container maxWidth="lg">
           <Toolbar disableGutters>
-            <Box
-              sx={{
-                width: '100%',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Typography
-                component={Link}
-                to="/"
-                variant="h6"
-                sx={{
+            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography component={Link} to="/" variant="h6" sx={{
                   color: theme.palette.primary.main,
                   textDecoration: 'none',
                   fontWeight: 'bold',
@@ -55,10 +52,18 @@ export default function Header() {
                   },
                   transition: 'color 0.3s ease',
                 }}
-              >
+                >
                 {SITE_TITLE}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <TagAuthorSelector
+                  tags={tags}
+                  authors={authors}
+                  selectedTags={selectedTags}
+                  selectedAuthors={selectedAuthors}
+                  onTagChange={onTagChange}
+                  onAuthorChange={onAuthorChange}
+                />
                 <SearchBar />
                 <Tooltip title="Join our Discord community!" arrow>
                   <Button

@@ -1,11 +1,11 @@
 // src/components/Header/Header.jsx
 // Version: 1.9.0
-// Description: Added Discord invite button between Add CYOA and Login buttons
+// Description:  working with searchbar
 
 import { useContext, useState } from 'react';
-import { AppBar, Toolbar, Typography, Box, Tooltip, useTheme, Container, SvgIcon } from '@mui/material';
-import { Link } from 'react-router-dom';
-import SearchBar from './SearchBar';
+import { AppBar, Toolbar, Typography, Box, Tooltip, Container, SvgIcon, useTheme } from '@mui/material';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import UnifiedSearchBar from './UnifiedSearchBar';
 import UserMenu from './UserMenu';
 import Login from './Login';
 import Button from '@mui/material/Button';
@@ -23,31 +23,47 @@ const DiscordIcon = () => (
   </SvgIcon>
 );
 
-export default function Header() {
-  const { signedIn, user } = useContext(AuthContext);
+interface HeaderProps {
+  tags: string[];
+  authors: string[];
+  selectedTags: string[];
+  selectedAuthors: string[];
+  onTagChange: (tags: string[]) => void;
+  onAuthorChange: (authors: string[]) => void;
+}
 
+export default function Header({
+  tags,
+  authors,
+  selectedTags,
+  selectedAuthors,
+  onTagChange,
+  onAuthorChange,
+}: HeaderProps) {
+  const { signedIn, user } = useContext(AuthContext);
   const [loginOpen, setLoginOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
+
+  function handleTagOrAuthorChange(newTags: string[], newAuthors: string[]) {
+    onTagChange(newTags);
+    onAuthorChange(newAuthors);
+    if (location.pathname !== '/') navigate('/');
+  }
 
   return (
     <>
       <AppBar position="static" sx={{ width: '100%' }}>
         <Container maxWidth="lg">
           <Toolbar disableGutters>
-            <Box
-              sx={{
-                width: '100%',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
+            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography
                 component={Link}
                 to="/"
                 variant="h6"
                 sx={{
-                  color: theme.palette.primary.main,
+                  color: theme.palette.primary.main, // Убедитесь, что цвет установлен правильно
                   textDecoration: 'none',
                   fontWeight: 'bold',
                   '&:hover': {
@@ -59,7 +75,14 @@ export default function Header() {
                 {SITE_TITLE}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <SearchBar />
+                <UnifiedSearchBar
+                  tags={tags}
+                  authors={authors}
+                  selectedTags={selectedTags}
+                  selectedAuthors={selectedAuthors}
+                  onTagChange={(newTags) => handleTagOrAuthorChange(newTags, selectedAuthors)}
+                  onAuthorChange={(newAuthors) => handleTagOrAuthorChange(selectedTags, newAuthors)}
+                />
                 <Tooltip title="Join our Discord community!" arrow>
                   <Button
                     color="inherit"

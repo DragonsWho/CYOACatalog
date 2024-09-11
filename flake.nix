@@ -17,12 +17,6 @@
             bun
             go
           ];
-          shellHook = ''
-            export GIT_AUTHOR_EMAIL='sgvsbg8gv29ybgqk@gmail.com'
-            export GIT_AUTHOR_NAME='sgvsbg8gv29ybgqk'
-            export GIT_COMMITTER_EMAIL='sgvsbg8gv29ybgqk@gmail.com'
-            export GIT_COMMITTER_NAME='sgvsbg8gv29ybgqk'
-          '';
         };
       });
 }

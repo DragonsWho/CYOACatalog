@@ -1,17 +1,16 @@
 // src/App.tsx
 
-import { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Container, Box } from '@mui/material';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
-import GameList from './components/GameList';
+import SearchPage from './components/Search/SearchPage';
 import GameDetails from './components/CyoaPage/GameDetails';
 import CreateGame from './components/Add/CreateGame';
 import Login from './components/Header/Login';
 import Profile from './components/Profile/Profile';
 import { AuthContext, pb, User } from './pocketbase/pocketbase';
-import SearchPage from './components/Search/SearchPage';
 import { tagsCollection, authorsCollection } from './pocketbase/pocketbase';
 
 export default function App() {
@@ -21,6 +20,9 @@ export default function App() {
   const [authors, setAuthors] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
+
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchTagsAndAuthors = async () => {
@@ -38,6 +40,28 @@ export default function App() {
     });
   }, []);
 
+  // Resetting selected tags and authors when navigating to pages other than the main page
+  useEffect(() => {
+    if (location.pathname !== '/' && location.pathname !== '/search') {
+      setSelectedTags([]);
+      setSelectedAuthors([]);
+    }
+  }, [location.pathname]);
+
+  const handleTagChange = useCallback((newTags: string[]) => {
+    setSelectedTags(newTags);
+    if (location.pathname !== '/' && location.pathname !== '/search') {
+      navigate('/');
+    }
+  }, [location.pathname, navigate]);
+
+  const handleAuthorChange = useCallback((newAuthors: string[]) => {
+    setSelectedAuthors(newAuthors);
+    if (location.pathname !== '/' && location.pathname !== '/search') {
+      navigate('/');
+    }
+  }, [location.pathname, navigate]);
+
   return (
     <AuthContext.Provider value={{ signedIn, user }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%' }}>
@@ -46,8 +70,8 @@ export default function App() {
           authors={authors}
           selectedTags={selectedTags}
           selectedAuthors={selectedAuthors}
-          onTagChange={setSelectedTags}
-          onAuthorChange={setSelectedAuthors}
+          onTagChange={handleTagChange}
+          onAuthorChange={handleAuthorChange}
         />
         <Container
           component="main"
@@ -55,12 +79,12 @@ export default function App() {
           sx={{ mt: 4, mb: 4, flex: 1, display: 'flex', flexDirection: 'column' }}
         >
           <Routes>
-            <Route path="/" element={<GameList />} />
+            <Route path="/" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />} />
+            <Route path="/search" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />} />
             <Route path="/game/:id" element={<GameDetails />} />
             <Route path="/create" element={signedIn ? <CreateGame /> : <Login />} />
             <Route path="/login" element={<Login />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/search" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />} />
           </Routes>
         </Container>
         <Footer />

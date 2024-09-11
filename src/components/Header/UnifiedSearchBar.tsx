@@ -20,13 +20,13 @@ const CHIP_FONT_SIZE = '0.8125rem';
 const CHIP_BORDER_RADIUS = '4px';
 
 export default function UnifiedSearchBar({
-  tags,
-  authors,
-  selectedTags,
-  selectedAuthors,
-  onTagChange,
-  onAuthorChange,
-}: UnifiedSearchBarProps) {
+    tags,
+    authors,
+    selectedTags,
+    selectedAuthors,
+    onTagChange,
+    onAuthorChange,
+  }: UnifiedSearchBarProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Game[]>([]);
@@ -131,7 +131,7 @@ export default function UnifiedSearchBar({
       );
     });
 
-  return (
+ return (
     <>
       <IconButton onClick={handleClick} color="inherit">
         <SearchIcon />
@@ -172,7 +172,7 @@ export default function UnifiedSearchBar({
             }}
             sx={{ width: 250 }}
           />
-          <Autocomplete
+           <Autocomplete
             multiple
             options={tags}
             value={selectedTags}

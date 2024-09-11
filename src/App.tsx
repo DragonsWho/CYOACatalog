@@ -13,6 +13,7 @@ import Login from './components/Header/Login';
 import Profile from './components/Profile/Profile';
 import { AuthContext, pb, User } from './pocketbase/pocketbase';
 import { useEffect, useState } from 'react';
+import SearchPage from './components/Search/SearchPage';
 
 export default function App() {
   const [signedIn, setSignedIn] = useState(!!pb.authStore.model);
@@ -39,6 +40,8 @@ export default function App() {
             <Route path="/create" element={signedIn ? <CreateGame /> : <Login />} />
             <Route path="/login" element={<Login />} />
             <Route path="/profile" element={<Profile />} />
+            
+            <Route path="/search" element={<SearchPage />} />
           </Routes>
         </Container>
         <Footer />

@@ -44,42 +44,78 @@ const SearchPage: React.FC<SearchPageProps> = ({ selectedTags, selectedAuthors }
     [loading, hasMore],
   );
 
+
+
+
+  
   const fetchGames = useCallback(async () => {
     if (!hasMore) return;
-
+  
     setLoading(true);
     try {
       let filterConditions = [];
-
+  
       if (selectedTags.length > 0) {
         const tagConditions = selectedTags.map(tag => `tags.name ?~ "${tag}"`);
-        filterConditions.push(`(${tagConditions.join(' && ')})`);                  //????????????????????????
+        filterConditions.push(`(${tagConditions.join(' || ')})`);
       }
-
+  
       if (selectedAuthors.length > 0) {
         const authorConditions = selectedAuthors.map(author => `authors_via_games.name ?~ "${author}"`);
         filterConditions.push(`(${authorConditions.join(' || ')})`);
       }
-
+  
       const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
-
+  
+      console.log("Filter string:", filterString);
+  
       const fetchedGames = await gamesCollection.getList(page, ITEMS_PER_PAGE, {
         sort: '-created',
-        expand: 'tags.tag_categories_via_tags,authors_via_games',
+        expand: 'tags,authors_via_games',
         filter: filterString,
       });
-
+  
+      console.log("Fetched games:", fetchedGames.items.length);
+  
+      // Client-side filtering
+      const filteredGames = Array.isArray(fetchedGames.items)
+        ? fetchedGames.items.filter(game => {
+            const gameTags = game.expand?.tags?.map(tag => tag.name?.toLowerCase()).filter(Boolean) || [];
+            const gameAuthors = game.expand?.authors_via_games?.map(author => author.name?.toLowerCase()).filter(Boolean) || [];
+            
+            console.log("Game ID:", game.id);
+            console.log("Game tags:", gameTags);
+            console.log("Game authors:", gameAuthors);
+  
+            const tagsMatch = selectedTags.length === 0 || selectedTags.every(tag => 
+              tag && gameTags.some(gameTag => gameTag && gameTag.includes(tag.toLowerCase()))
+            );
+            const authorsMatch = selectedAuthors.length === 0 || selectedAuthors.some(author => 
+              author && gameAuthors.some(gameAuthor => gameAuthor && gameAuthor.includes(author.toLowerCase()))
+            );
+            
+            console.log("Tags match:", tagsMatch);
+            console.log("Authors match:", authorsMatch);
+  
+            return tagsMatch && authorsMatch;
+          })
+        : [];
+  
+      console.log("Filtered games:", filteredGames.length);
+  
       setGames(prevGames => {
-        const newGames = [...prevGames, ...fetchedGames.items];
+        const newGames = [...prevGames, ...filteredGames];
         return Array.from(new Map(newGames.map(game => [game.id, game])).values());
       });
-      setHasMore(fetchedGames.totalPages > page);
+      setHasMore(filteredGames.length > 0 && fetchedGames.totalPages > page);
     } catch (error) {
       console.error('Error fetching games:', error);
     } finally {
       setLoading(false);
     }
   }, [page, hasMore, selectedTags, selectedAuthors]);
+
+  
 
   useEffect(() => {
     setGames([]);

@@ -30,5 +30,6 @@ deploy-remote:
 .PHONY: deploy
 deploy:
 	git pull
+	bun i --frozen-lockfile
 	make build
 	sudo systemctl restart cyoa-cafe

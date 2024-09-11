@@ -1,6 +1,6 @@
 // src/components/Search/SearchPage.tsx
-// v1.5
-// Added comments
+// v1.9
+// Dynamic width Autocomplete without extra space
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
@@ -77,7 +77,6 @@ const SearchPage: React.FC<SearchPageProps> = () => {
 
       setGames(prevGames => {
         const newGames = [...prevGames, ...fetchedGames.items];
-        // Remove duplicates based on game id
         return Array.from(new Map(newGames.map(game => [game.id, game])).values());
       });
       setHasMore(fetchedGames.totalPages > page);
@@ -121,6 +120,10 @@ const SearchPage: React.FC<SearchPageProps> = () => {
     borderRadius: 1,
     transition: 'width 0.3s',
     '& .MuiOutlinedInput-root': {
+      padding: '3px !important', 
+      
+    paddingRight: '1x !important',
+      flexWrap: 'wrap',
       '& fieldset': {
         borderColor: 'transparent',
       },
@@ -130,29 +133,52 @@ const SearchPage: React.FC<SearchPageProps> = () => {
       '&.Mui-focused fieldset': {
         borderColor: 'transparent',
       },
-      '& input': {
-        padding: '7px 14px',
-        color: theme.palette.text.primary,
-        fontSize: '0.875rem',
-      },
+    },
+    '& .MuiAutocomplete-input': {
+      padding: '1px 6px !important',
+      color: theme.palette.text.primary,
+      fontSize: '0.875rem',
     },
     '& .MuiInputBase-input::placeholder': {
       color: theme.palette.text.secondary,
       opacity: 0.8,
     },
+    '& .MuiAutocomplete-popupIndicator': {
+      display: 'none',
+    },
+    '& .MuiAutocomplete-endAdornment': {
+      display: 'none',
+      
+    right: '1px !important', 
+    },
+    // Настройте отступы для контейнера чипов здесь
+    '& .MuiAutocomplete-tag': {
+      margin: '2px',
+    },
+    // Добавьте эти стили для выравнивания содержимого
+    '& .MuiInputBase-root': {
+      alignItems: 'center', // Выравнивание по центру
+      minHeight: '38px', // Минимальная высота поля ввода
+    },
   }), [theme]);
-
+  
   const chipStyles = useMemo(() => ({
-    height: CHIP_HEIGHT,
+    height: CHIP_HEIGHT, // Вы можете изменить это значение
     fontSize: CHIP_FONT_SIZE,
     borderRadius: CHIP_BORDER_RADIUS,
     backgroundColor: theme.palette.error.main,
     color: theme.palette.error.contrastText,
     '& .MuiChip-label': {
-      paddingRight: '4px',
-      paddingLeft: '4px',
+      paddingRight: '8px',
+      paddingLeft: '8px',
       fontSize: '0.75rem',
-    }
+      // Добавьте эти стили для выравнивания текста внутри чипа
+      lineHeight: '24px', // Должно соответствовать высоте чипа
+    },
+    '&:hover': {
+      backgroundColor: theme.palette.error.dark,
+      cursor: 'pointer',
+    },
   }), [theme]);
 
   const renderTags = (value: string[], getTagProps: (params: { index: number }) => any) =>
@@ -163,47 +189,59 @@ const SearchPage: React.FC<SearchPageProps> = () => {
           key={key}
           label={option}
           {...otherProps}
+          onDelete={undefined}
+          onClick={() => {
+            if (value === selectedTags) {
+              setSelectedTags(selectedTags.filter(tag => tag !== option));
+            } else if (value === selectedAuthors) {
+              setSelectedAuthors(selectedAuthors.filter(author => author !== option));
+            }
+          }}
           sx={chipStyles}
         />
       );
     });
 
-  return (
-    <Box sx={{ width: '100%', p: 3 }}>
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <Autocomplete
-          multiple
-          options={tags.map(tag => tag.name)}
-          value={selectedTags}
-          onChange={handleTagChange}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              placeholder="Tags..."
-              sx={commonStyles}
-            />
-          )}
-          renderTags={renderTags}
-        />
-        <Autocomplete
-          multiple
-          options={authors.map(author => author.name)}
-          value={selectedAuthors}
-          onChange={handleAuthorChange}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              placeholder="Authors..."
-              sx={commonStyles}
-            />
-          )}
-          renderTags={renderTags}
-        />
-      </Box>
+    return (
+      <Box sx={{ width: '100%', p: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <Autocomplete
+            multiple
+            options={tags.map(tag => tag.name)}
+            value={selectedTags}
+            onChange={handleTagChange}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                size="small"
+                placeholder={selectedTags.length === 0 ? "Tags..." : ""}
+                sx={commonStyles}
+              />
+            )}
+            renderTags={renderTags}
+            disableCloseOnSelect
+            limitTags={-1}
+          />
+          <Autocomplete
+            multiple
+            options={authors.map(author => author.name)}
+            value={selectedAuthors}
+            onChange={handleAuthorChange}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                size="small"
+                placeholder={selectedAuthors.length === 0 ? "Authors..." : ""}
+                sx={commonStyles}
+              />
+            )}
+            renderTags={renderTags}
+            disableCloseOnSelect
+            limitTags={-1}
+          />
+        </Box>
       
       <Grid container spacing={2} justifyContent="center">
         {games.map((game) => (

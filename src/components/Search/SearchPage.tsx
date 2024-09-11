@@ -2,7 +2,7 @@
 // v1.9
 // Dynamic width Autocomplete without extra space
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   Box, 
   Typography, 
@@ -150,20 +150,18 @@ const SearchPage: React.FC<SearchPageProps> = () => {
       display: 'none',
       
     right: '1px !important', 
-    },
-    // Настройте отступы для контейнера чипов здесь
+    }, 
     '& .MuiAutocomplete-tag': {
       margin: '2px',
-    },
-    // Добавьте эти стили для выравнивания содержимого
+    }, 
     '& .MuiInputBase-root': {
-      alignItems: 'center', // Выравнивание по центру
-      minHeight: '38px', // Минимальная высота поля ввода
+      alignItems: 'center',  
+      minHeight: '38px',  
     },
   }), [theme]);
   
   const chipStyles = useMemo(() => ({
-    height: CHIP_HEIGHT, // Вы можете изменить это значение
+    height: CHIP_HEIGHT, 
     fontSize: CHIP_FONT_SIZE,
     borderRadius: CHIP_BORDER_RADIUS,
     backgroundColor: theme.palette.error.main,
@@ -171,9 +169,8 @@ const SearchPage: React.FC<SearchPageProps> = () => {
     '& .MuiChip-label': {
       paddingRight: '8px',
       paddingLeft: '8px',
-      fontSize: '0.75rem',
-      // Добавьте эти стили для выравнивания текста внутри чипа
-      lineHeight: '24px', // Должно соответствовать высоте чипа
+      fontSize: '0.75rem', 
+      lineHeight: '24px',  
     },
     '&:hover': {
       backgroundColor: theme.palette.error.dark,

@@ -67,15 +67,15 @@ const SearchPage: React.FC<SearchPageProps> = ({ selectedTags, selectedAuthors }
   
       const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
   
-      console.log("Filter string:", filterString);
+      // console.log("Filter string:", filterString);
   
       const fetchedGames = await gamesCollection.getList(page, ITEMS_PER_PAGE, {
         sort: '-created',
-        expand: 'tags,authors_via_games',
+        expand: 'tags.tag_categories_via_tags,authors_via_games',
         filter: filterString,
       });
   
-      console.log("Fetched games:", fetchedGames.items.length);
+      // console.log("Fetched games:", fetchedGames.items.length);
   
       // Client-side filtering
       const filteredGames = Array.isArray(fetchedGames.items)
@@ -83,10 +83,6 @@ const SearchPage: React.FC<SearchPageProps> = ({ selectedTags, selectedAuthors }
             const gameTags = game.expand?.tags?.map(tag => tag.name?.toLowerCase()).filter(Boolean) || [];
             const gameAuthors = game.expand?.authors_via_games?.map(author => author.name?.toLowerCase()).filter(Boolean) || [];
             
-            console.log("Game ID:", game.id);
-            console.log("Game tags:", gameTags);
-            console.log("Game authors:", gameAuthors);
-  
             const tagsMatch = selectedTags.length === 0 || selectedTags.every(tag => 
               tag && gameTags.some(gameTag => gameTag && gameTag.includes(tag.toLowerCase()))
             );
@@ -94,14 +90,11 @@ const SearchPage: React.FC<SearchPageProps> = ({ selectedTags, selectedAuthors }
               author && gameAuthors.some(gameAuthor => gameAuthor && gameAuthor.includes(author.toLowerCase()))
             );
             
-            console.log("Tags match:", tagsMatch);
-            console.log("Authors match:", authorsMatch);
-  
             return tagsMatch && authorsMatch;
           })
         : [];
   
-      console.log("Filtered games:", filteredGames.length);
+      // console.log("Filtered games:", filteredGames.length);
   
       setGames(prevGames => {
         const newGames = [...prevGames, ...filteredGames];

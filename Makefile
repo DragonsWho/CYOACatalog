@@ -17,8 +17,8 @@ build:
 run:
 	./dist/serve serve --dir ./pb_data
 
-.PHONY: deploy
-deploy:
+.PHONY: deploy-remote
+deploy-remote:
 	rm -f ./dist/serve
 	./node_modules/.bin/tsc -b
 	./node_modules/.bin/vite build
@@ -26,3 +26,9 @@ deploy:
 	scp -i ~/.ssh/cyoa ./dist/servelinux root@194.54.156.199:/root/cyoa-cafe/serve
 	rm -f ./dist/servelinux
 	ssh -i ~/.ssh/cyoa root@194.54.156.199 'systemctl restart cyoa-cafe'
+
+.PHONY: deploy
+deploy:
+	git pull
+	make build
+	sudo systemctl restart cyoa-cafe

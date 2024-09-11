@@ -7,8 +7,7 @@ import {
   Box, 
   Typography, 
   CircularProgress,
-  Grid,
-  useTheme
+  Grid, 
 } from '@mui/material';
 import { Game, gamesCollection } from '../../pocketbase/pocketbase';
 import GameCard from '../GameCard';
@@ -21,7 +20,7 @@ interface SearchPageProps {
 }
 
 const SearchPage: React.FC<SearchPageProps> = ({ selectedTags, selectedAuthors }) => {
-  const theme = useTheme();
+ 
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState(1);

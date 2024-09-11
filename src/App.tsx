@@ -55,7 +55,7 @@ export default function App() {
           sx={{ mt: 4, mb: 4, flex: 1, display: 'flex', flexDirection: 'column' }}
         >
           <Routes>
-            <Route path="/" element={<GameList selectedTags={selectedTags} selectedAuthors={selectedAuthors} />} />
+            <Route path="/" element={<GameList />} />
             <Route path="/game/:id" element={<GameDetails />} />
             <Route path="/create" element={signedIn ? <CreateGame /> : <Login />} />
             <Route path="/login" element={<Login />} />

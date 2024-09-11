@@ -1,16 +1,15 @@
 // src/components/Header/Header.jsx
 // Version: 1.9.0
-// Description: Added Discord invite button between Add CYOA and Login buttons
+// Description:  working with searchbar
 
 import { useContext, useState } from 'react';
-import { AppBar, Toolbar, Typography, Box, Tooltip, useTheme, Container, SvgIcon } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Tooltip, Container, SvgIcon } from '@mui/material';
 import { Link } from 'react-router-dom';
-import SearchBar from './SearchBar';
+import UnifiedSearchBar from './UnifiedSearchBar';
 import UserMenu from './UserMenu';
 import Login from './Login';
 import Button from '@mui/material/Button';
 import { AuthContext } from '../../pocketbase/pocketbase';
-import TagAuthorSelector from './TagAuthorSelector';
 
 const SITE_TITLE = 'CYOA.CAFE';
 const ADD_CYOA_TEXT = 'Add CYOA';
@@ -24,6 +23,15 @@ const DiscordIcon = () => (
   </SvgIcon>
 );
 
+interface HeaderProps {
+  tags: string[];
+  authors: string[];
+  selectedTags: string[];
+  selectedAuthors: string[];
+  onTagChange: (tags: string[]) => void;
+  onAuthorChange: (authors: string[]) => void;
+}
+
 export default function Header({ 
   tags,
   authors,
@@ -31,11 +39,9 @@ export default function Header({
   selectedAuthors,
   onTagChange,
   onAuthorChange
-})  {
+}: HeaderProps)  {
   const { signedIn, user } = useContext(AuthContext);
-
   const [loginOpen, setLoginOpen] = useState(false);
-  const theme = useTheme();
 
   return (
     <>
@@ -43,20 +49,11 @@ export default function Header({
         <Container maxWidth="lg">
           <Toolbar disableGutters>
             <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography component={Link} to="/" variant="h6" sx={{
-                  color: theme.palette.primary.main,
-                  textDecoration: 'none',
-                  fontWeight: 'bold',
-                  '&:hover': {
-                    color: theme.palette.primary.light,
-                  },
-                  transition: 'color 0.3s ease',
-                }}
-                >
+              <Typography component={Link} to="/" variant="h6" sx={{ /* ... */ }}>
                 {SITE_TITLE}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <TagAuthorSelector
+                <UnifiedSearchBar
                   tags={tags}
                   authors={authors}
                   selectedTags={selectedTags}
@@ -64,7 +61,6 @@ export default function Header({
                   onTagChange={onTagChange}
                   onAuthorChange={onAuthorChange}
                 />
-                <SearchBar />
                 <Tooltip title="Join our Discord community!" arrow>
                   <Button
                     color="inherit"

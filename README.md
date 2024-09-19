@@ -4,13 +4,17 @@
 
 [go](https://golang.org/)
 
+node.js
+
+typescript
+
 # For *nix
 
 `make install` to install dependencies
 
-`make dev` to start development server
-
 `make build` to build the project
+
+`make dev` to start development server
 
 `make run` to run the build
 

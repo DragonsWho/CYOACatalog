@@ -21,3 +21,9 @@ input:-webkit-autofill:active {
     -webkit-box-shadow: 0 0 0 30px #1e1e1e inset !important;
     -webkit-text-fill-color: #e0e0e0 !important;
 }
+.Crop-Controls {
+    margin-bottom: 10px;
+}
+.Crop-Controls > * {
+    margin-bottom: 3px;
+}

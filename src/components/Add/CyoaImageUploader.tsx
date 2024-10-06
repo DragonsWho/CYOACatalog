@@ -3,12 +3,16 @@
 // Changes: Removed immediate image processing, added function to get images for upload
 
 import React, { useState } from 'react';
-import { Box, Button, Typography, List, ListItem, ListItemText, IconButton } from '@mui/material';
+import { Box, Button, Typography, List, ListItem, ListItemText, IconButton, Modal } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import HorizontalSplitIcon from '@mui/icons-material/HorizontalSplit';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import ImageSplitter from './ImageSplitter/ImageSpliter';
+import { createPortal } from 'react-dom';
 
 export default function CyoaImageUploader({ onImagesChange }: { onImagesChange: (files: File[]) => void }) {
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
+  const [showModal, setShowModal] = useState<boolean[]>([]);
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files || []);
@@ -18,7 +22,25 @@ export default function CyoaImageUploader({ onImagesChange }: { onImagesChange: 
     }));
 
     setImages((prevImages) => [...prevImages, ...newImages]);
-    onImagesChange([...images, ...newImages].map((img) => img.file));
+    onImagesChange([...images, ...newImages].map((img, index) => {
+      showModal[index] = false;
+      setShowModal([...showModal]);
+      return img.file
+  }));
+  }
+
+  function recreateImageArray(files: File[]) {
+    const newImages = files.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+
+    setImages([...newImages]);
+    onImagesChange([...images, ...newImages].map((img, index) => {
+      showModal[index] = false;
+      setShowModal([...showModal]);
+      return img.file
+  }));
   }
 
   function handleDragStart(e: React.DragEvent<HTMLLIElement>, index: number) {
@@ -45,6 +67,20 @@ export default function CyoaImageUploader({ onImagesChange }: { onImagesChange: 
     onImagesChange(newImages.map((img) => img.file));
   }
 
+  function handleClose(index: number) {
+    showModal[index] = false;
+    setShowModal([...showModal]);
+  }
+
+  function handleSplit(updatedImages: File[], insertIndex: number) {
+    console.log(insertIndex, updatedImages)
+    let files: File[] = images.map((x: {file: File, preview: string}) => x.file);
+    files.splice(insertIndex, 1, ...updatedImages);
+    console.log(files)
+    recreateImageArray(files);
+  }
+
+  
   return (
     <Box>
       <input
@@ -70,9 +106,19 @@ export default function CyoaImageUploader({ onImagesChange }: { onImagesChange: 
             onDrop={(e) => handleDrop(e, index)}
             sx={{ cursor: 'move' }}
             secondaryAction={
+              <>             
+              <HorizontalSplitIcon onClick={() => {
+                showModal[index] = true;
+                setShowModal([...showModal])
+              }} />
+              {showModal[index] && createPortal(
+                <ImageSplitter  file={image.file} index={index} returnImages={handleSplit} close={handleClose} />,
+                document.body
+              )}
               <IconButton edge="end" aria-label="delete" onClick={() => removeImage(index)}>
                 <DeleteIcon />
               </IconButton>
+              </>
             }
           >
             <DragIndicatorIcon sx={{ mr: 2 }} />

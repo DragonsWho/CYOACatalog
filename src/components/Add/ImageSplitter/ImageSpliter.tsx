@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-import { Box, Button, Typography, List, ListItem, ListItemText, IconButton, Modal } from '@mui/material';
+import { Button } from '@mui/material';
 import ReactCrop, { Crop, PixelCrop } from 'react-image-crop';
 import { CanvasPreview } from './CanvasPreview';
-import { useDebounceEffect } from './useDebounceEffect';
+import { useDebounceEffect } from '../../../utils/useDebounceEffect';
 import 'react-image-crop/dist/ReactCrop.css';
 
 export default function ImageSplitter({
@@ -32,7 +32,7 @@ export default function ImageSplitter({
     reader.readAsDataURL(file);
   }, [file]);
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
-    const { width, height } = e.currentTarget;
+    const { height } = e.currentTarget;
     setCrop({
       unit: '%',
       x: 0,
@@ -53,9 +53,6 @@ export default function ImageSplitter({
         bottomCanvasRef.current
       ) {
         const image = imgRef.current;
-        // const scaleY = image.naturalHeight / image.height
-        // const scaleX = image.naturalWidth / image.width
-
         const cropHeightPx = completedCrop.height * 2;
 
         CanvasPreview(image, topCanvasRef.current, {
@@ -79,6 +76,7 @@ export default function ImageSplitter({
     [completedCrop],
   );
 
+  // return top and bottom split images as pngs
   async function onSplitImage() {
     if (!topCanvasRef.current) {
       return;
@@ -89,7 +87,12 @@ export default function ImageSplitter({
     }
     const bottomBlob = await new Promise<Blob | null>((resolve) => bottomCanvasRef.current!.toBlob(resolve));
 
-    returnImages([topBlob, bottomBlob], index);
+
+    const topFile = new File([topBlob!], 'split1.png', { type: 'image.png' });
+    const bottomFile = new File([bottomBlob!], 'split2.png', { type: 'image.png' });
+
+
+    returnImages([topFile, bottomFile], index);
   }
 
   return (

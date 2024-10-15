@@ -2,7 +2,7 @@
 // Version 1.9.6
 // Changes: Added null check for onLoad function and improved error handling
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
 import { tagCategoriesCollection, TagCategory } from '../../pocketbase/pocketbase';
 
@@ -78,7 +78,8 @@ function DelayedTooltip({
   );
 }
 
-export default function TagSelector({
+// memoize this as it was a major performance issue
+const TagSelector = memo(function TagSelector({
   selectedTags,
   onTagsChange,
   onLoad,
@@ -225,4 +226,6 @@ export default function TagSelector({
       })}
     </Box>
   );
-}
+});
+
+export default TagSelector;

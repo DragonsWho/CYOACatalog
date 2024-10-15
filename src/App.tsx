@@ -1,15 +1,18 @@
 // src/App.tsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { Container, Box } from '@mui/material';
+import { Container, Box, CircularProgress } from '@mui/material';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
 import SearchPage from './components/Search/SearchPage';
-import GameDetails from './components/CyoaPage/GameDetails';
-import CreateGame from './components/Add/CreateGame';
+// const SearchPage = lazy(() => import('./components/Search/SearchPage'));
+const GameDetails = lazy(() => import('./components/CyoaPage/GameDetails'));
+const CreateGame = lazy(() => import('./components/Add/CreateGame'));
+// import CreateGame from './components/Add/CreateGame';
 import Login from './components/Header/Login';
-import Profile from './components/Profile/Profile';
+// import Profile from './components/Profile/Profile';
+const Profile = lazy(() => import('./components/Profile/Profile'));
 import { AuthContext, pb, User } from './pocketbase/pocketbase';
 import { tagsCollection, authorsCollection } from './pocketbase/pocketbase';
 
@@ -74,17 +77,19 @@ export default function App() {
           maxWidth={false}
           sx={{ mt: 4, mb: 4, flex: 1, display: 'flex', flexDirection: 'column' }}
         >
+          <Suspense fallback={<Box sx={{ display: 'flex' }}><CircularProgress /></Box>}>
           <Routes>
-            <Route path="/" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />} />
-            <Route
-              path="/search"
-              element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />}
-            />
-            <Route path="/game/:id" element={<GameDetails />} />
-            <Route path="/create" element={signedIn ? <CreateGame /> : <Login />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/profile" element={<Profile />} />
+              <Route path="/" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />} />
+              <Route
+                path="/search"
+                element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />}
+              />
+              <Route path="/game/:id" element={<GameDetails />} />
+              <Route path="/create" element={signedIn ? <CreateGame /> : <Login />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/profile" element={<Profile />} />
           </Routes>
+          </Suspense>
         </Container>
         <Footer />
       </Box>

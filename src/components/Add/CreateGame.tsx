@@ -29,6 +29,9 @@ import {
   tagCategoriesCollection,
   TagCategory,
 } from '../../pocketbase/pocketbase';
+
+import { encode as webpencode } from '@jsquash/webp';
+
 import DOMPurify from 'dompurify';
 
 export default function CreateGame() {
@@ -45,6 +48,7 @@ export default function CreateGame() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [initialDataLoading, setInitialDataLoading] = useState<boolean>(true);
+  const [splitsNeeded, setSplitsNeeded] = useState<boolean>(false);
   const { user } = useContext(AuthContext);
 
   const navigate = useNavigate();
@@ -71,6 +75,10 @@ export default function CreateGame() {
 
   function handleCyoaImagesChange(newImages: File[]) {
     setCyoaImages(newImages);
+  }
+
+  function handleNeedsSplitChange(splitNeeded: boolean) {
+    setSplitsNeeded(splitNeeded);
   }
 
   function validateTags(): string[] {
@@ -125,6 +133,12 @@ export default function CreateGame() {
       return;
     }
 
+    if (splitsNeeded) {
+      setError('Please split images into vertical segments of less than 16,383 pixels.');
+      setLoading(false);
+      return;
+    }
+
     const formData = new FormData();
 
     const descriptionData = DOMPurify.sanitize(`<p>${description}</p>`);
@@ -136,7 +150,28 @@ export default function CreateGame() {
     formData.append('img_or_link', imgOrLink);
     if (imgOrLink === 'link') formData.append('iframe_url', iframeUrl);
     if (imgOrLink === 'img') {
-      for (const img of cyoaImages) formData.append('cyoa_pages', new Blob([img], { type: img.type }));
+      for (const imageFile of cyoaImages) {
+        // convert to imageData for encoder
+
+          let image;
+          // if it isn't an image return the file unchanged
+          try {
+            image = await createImageBitmap(imageFile);
+          } catch (e) {
+            return imageFile;
+          }
+
+          const canvas = new OffscreenCanvas(image.width, image.height);
+          const ctx = canvas.getContext('2d', { alpha: false });
+          ctx!.drawImage(image, 0 ,0, image.width, image.height);
+          const imageData = ctx!.getImageData(0, 0, image.width, image.height);
+
+          const webPBuffer = await webpencode(imageData!, {quality: 75, lossless: 1});
+
+          const b = new Blob([webPBuffer]);
+
+          formData.append('cyoa_pages', new Blob([b], { type: 'image/webp' }));
+        }
     }
     if (user) formData.append('uploader', user.id);
 
@@ -220,7 +255,7 @@ export default function CreateGame() {
       </Box>
       {imgOrLink === 'img' && (
         <Box sx={{ mt: 2 }}>
-          <CyoaImageUploader onImagesChange={handleCyoaImagesChange} />
+          <CyoaImageUploader onImagesChange={handleCyoaImagesChange} onNeedsSplitChange={handleNeedsSplitChange}/>
         </Box>
       )}
       <Button type="submit" variant="contained" color="primary" sx={{ mt: 3 }} disabled={loading}>

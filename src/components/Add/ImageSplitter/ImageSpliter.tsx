@@ -1,6 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-
-import { Button } from '@mui/material';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogActions, 
+  Button, 
+  Box, 
+  Typography,
+  Grid,
+} from '@mui/material';
+import ContentCutIcon from '@mui/icons-material/ContentCut';
 import ReactCrop, { Crop, PixelCrop } from 'react-image-crop';
 import { CanvasPreview } from './CanvasPreview';
 import { useDebounceEffect } from '../../../utils/useDebounceEffect';
@@ -26,11 +34,12 @@ export default function ImageSplitter({
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
 
   useEffect(() => {
-    setCrop(undefined); // Update cropping when loading a new image
+    setCrop(undefined);
     const reader = new FileReader();
     reader.addEventListener('load', () => setImgSrc(reader.result?.toString() || ''));
     reader.readAsDataURL(file);
   }, [file]);
+
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const { height } = e.currentTarget;
     setCrop({
@@ -38,7 +47,7 @@ export default function ImageSplitter({
       x: 0,
       y: 0,
       width: 100,
-      height: 50, // Initial selection of about half of the picture
+      height: 50,
     });
     divRef.current?.scrollTo(0, Math.min(height / 2 - 600, 16383));
   }
@@ -76,105 +85,197 @@ export default function ImageSplitter({
     [completedCrop],
   );
 
-  // return top and bottom split images as pngs
   async function onSplitImage() {
-    if (!topCanvasRef.current) {
-      return;
-    }
+    if (!topCanvasRef.current) return;
     const topBlob = await new Promise<Blob | null>((resolve) => topCanvasRef.current!.toBlob(resolve));
-    if (!bottomCanvasRef.current) {
-      return;
-    }
+    if (!bottomCanvasRef.current) return;
     const bottomBlob = await new Promise<Blob | null>((resolve) => bottomCanvasRef.current!.toBlob(resolve));
 
-
-    const topFile = new File([topBlob!], 'split1.png', { type: 'image.png' });
-    const bottomFile = new File([bottomBlob!], 'split2.png', { type: 'image.png' });
-
+    const topFile = new File([topBlob!], 'split1.png', { type: 'image/png' });
+    const bottomFile = new File([bottomBlob!], 'split2.png', { type: 'image/png' });
 
     returnImages([topFile, bottomFile], index);
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[1000] overflow-scroll overscroll-contain max-h-[100vh]">
-      <div className="container bg-black border-white mx-auto">
-        {!!imgSrc && (
-          <>
-            <div className='flex flex-row justify-end m-2.5'>
-                <Button variant="contained" className="!mt-2.5" onClick={() => close(index)}>
-                X
-                </Button>
-            </div>
-            <div
-              style={{
-                maxHeight: '1200px',
-                overflow: 'auto',
-                transform: 'scale(0.5)',
-                margin: `-${Math.min((imgRef.current?.height ?? 0) / 4, 300)}px 0`,
-              }}
-              ref={divRef}
-            >
-              <ReactCrop
-                crop={crop}
-                onChange={(_, percentCrop) => {
-                  setCrop({
-                    ...percentCrop,
-                    x: 0,
-                    y: 0,
-                    width: 100,
-                  });
-                }}
-                onComplete={(c) => setCompletedCrop(c)}
-                minHeight={10}
-              >
-                <img
-                  ref={imgRef}
-                  alt="Crop me"
-                  src={imgSrc}
+    <Dialog 
+      open={true} 
+      onClose={() => close(index)}
+      maxWidth={false}
+      PaperProps={{
+        sx: {
+          width: '60%',
+          bgcolor: 'background.paper',
+          color: 'text.primary',
+          maxHeight: '90vh',
+          '& ::-webkit-scrollbar': {
+            width: '8px',
+            height: '8px',
+          },
+          '& ::-webkit-scrollbar-track': {
+            background: '#1e1e1e',
+          },
+          '& ::-webkit-scrollbar-thumb': {
+            background: '#fc3447',
+            borderRadius: '4px',
+          },
+          '& ::-webkit-scrollbar-thumb:hover': {
+            background: '#FF0000c363f',
+          }
+        }
+      }}
+    >
+      <DialogContent sx={{ 
+        p: 0, 
+        overflowX: 'hidden',
+        '&.MuiDialogContent-root': {
+          padding: 0,
+        }
+      }}>
+        <Box sx={{ bgcolor: 'background.default' }}>
+          {!!imgSrc && (
+            <>
+                <div
                   style={{
-                    maxHeight: 'none',
-                    maxWidth: '100%',
+                    maxHeight: '1200px',
+                    overflowY: 'auto',  
+                    overflowX: 'hidden',  
+                    transform: 'scale(0.5)',
+                    margin: `-${Math.min((imgRef.current?.height ?? 0) / 4, 300)}px 0`,
+                    width: '100%',
                   }}
-                  onLoad={onImageLoad}
-                />
-              </ReactCrop>
-            </div>
-            <div className='flex flex-row justify-start m-2.5'>
-            <Button variant="contained" className="!my-2.5" onClick={() => onSplitImage()}>
-              Split Image
-            </Button>
-            </div>
-          </>
-        )}
+                  ref={divRef}
+                >
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(_, percentCrop) => {
+                      setCrop({
+                        ...percentCrop,
+                        x: 0,
+                        y: 0,
+                        width: 100,
+                      });
+                    }}
+                    onComplete={(c) => setCompletedCrop(c)}
+                    minHeight={10}
+                  >
+                    <img
+                      ref={imgRef}
+                      alt="Crop me"
+                      src={imgSrc}
+                      style={{
+                        maxHeight: 'none',
+                        maxWidth: '100%',
+                      }}
+                      onLoad={onImageLoad}
+                    />
+                  </ReactCrop>
+                </div>
+              <DialogActions 
+                sx={{ 
+                  justifyContent: 'center', 
+                  py: 2,  
+                  bgcolor: 'background.default'
+                }}
+              >
+                <Button 
+                  variant="outlined"  
+                  onClick={() => close(index)}
+                  sx={{ 
+                    mr: 2,
+                    color: '#fc3447',
+                    textTransform: 'uppercase',
+                    border: '1px solid #fc3447',
+                    '&:hover': {
+                      backgroundColor: 'rgba(252, 52, 71, 0.04)',
+                      border: '1px solid #fc3447'  
+                    }
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={onSplitImage}
+                  startIcon={<ContentCutIcon />}
+                  sx={{ 
+                    bgcolor: 'primary.main',
+                    '&:hover': {
+                      bgcolor: '#cc363f'
+                    }
+                  }}
+                >
+                  Split Image
+                </Button>
+              </DialogActions>
+            </>
+          )}
+        </Box>
+
         {!!completedCrop && (
-          <>
-            <div>
-              <h3 className="m-2.5">top part</h3>
-              <canvas
-                ref={topCanvasRef}
-                style={{
-                  border: '1px solid white',
-                  width: '100%',
-                  maxWidth: '400px'
+          <Grid 
+            container 
+            spacing={2} 
+            sx={{ 
+              p: 2,
+              bgcolor: 'background.default',
+              m: 0,
+              width: '100%' // Фиксируем ширину Grid
+            }}
+          >
+            <Grid item xs={6}>
+              <Typography 
+                variant="subtitle1" 
+                sx={{ 
+                  mb: 1,
+                  color: 'text.primary'
                 }}
-                className="m-2.5"
-              />
-            </div>
-            <div>
-              <h3 className="m-2.5">bottom part</h3>
-              <canvas
-                ref={bottomCanvasRef}
-                style={{
-                  border: '1px solid white',
-                  width: '100%',
-                  maxWidth: '400px',
+              >
+                Top Part
+              </Typography>
+              <Box sx={{ 
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: 2,
+                overflow: 'hidden',
+                backgroundColor: 'background.default'
+              }}>
+                <canvas
+                  ref={topCanvasRef}
+                  style={{
+                    width: '100%',
+                    display: 'block'
+                  }}
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={6}>
+              <Typography 
+                variant="subtitle1" 
+                sx={{ 
+                  mb: 1,
+                  color: 'text.primary'
                 }}
-                className="m-2.5"
-              />
-            </div>
-          </>
+              >
+                Bottom Part
+              </Typography>
+              <Box sx={{ 
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: 2,
+                overflow: 'hidden',
+                backgroundColor: 'background.default'
+              }}>
+                <canvas
+                  ref={bottomCanvasRef}
+                  style={{
+                    width: '100%',
+                    display: 'block'
+                  }}
+                />
+              </Box>
+            </Grid>
+          </Grid>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

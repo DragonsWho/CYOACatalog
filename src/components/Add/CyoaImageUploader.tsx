@@ -4,8 +4,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { Box, Button, Typography, List, ListItem, ListItemText, IconButton } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import { ImageSplitterIcon } from './ImageSplitter/ImageSplitterIcon';
+import DeleteIcon from '@mui/icons-material/Delete'; 
+import ContentCutIcon from '@mui/icons-material/ContentCut';
+
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import ImageSplitter from './ImageSplitter/ImageSpliter';
 import { createPortal } from 'react-dom';
@@ -173,7 +174,7 @@ export default function CyoaImageUploader({
                       });
                     }}
                   >
-                    <ImageSplitterIcon />
+                    <ContentCutIcon />
                   </IconButton>
                 )}
                 {showModal[index] &&

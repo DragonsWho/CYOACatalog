@@ -258,9 +258,19 @@ export default function CreateGame() {
           <CyoaImageUploader onImagesChange={handleCyoaImagesChange} onNeedsSplitChange={handleNeedsSplitChange}/>
         </Box>
       )}
-      <Button type="submit" variant="contained" color="primary" sx={{ mt: 3 }} disabled={loading}>
-        {loading ? <CircularProgress size={24} /> : 'Create Game'}
-      </Button>
+<Button 
+  type="submit" 
+  variant="contained" 
+  color="primary" 
+  sx={{ 
+    mt: 3,
+    ml: 'auto', // добавляем автоматический отступ слева
+    display: 'block' // убеждаемся, что margn работает корректно
+  }} 
+  disabled={loading}
+>
+  {loading ? <CircularProgress size={24} /> : 'Create Game'}
+</Button>
       {error && (
         <Alert severity="error" sx={{ mt: 2 }}>
           {error}

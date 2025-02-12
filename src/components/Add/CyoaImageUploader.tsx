@@ -1,13 +1,11 @@
 // src/components/Add/CyoaImageUploader.tsx
 // Version 1.4.0
-// Changes: Removed immediate image processing, added function to get images for upload
+// Changes: Fixed the display of ImageSplitterIcon, now it is displayed next to the images that should be split. 
 
 import React, { useEffect, useState } from 'react';
 import { Box, Button, Typography, List, ListItem, ListItemText, IconButton } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { ImageSplitterIcon } from './ImageSplitter/ImageSplitterIcon';
-import HorizontalSplitIcon from '@mui/icons-material/HorizontalSplit';
-
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import ImageSplitter from './ImageSplitter/ImageSpliter';
 import { createPortal } from 'react-dom';
@@ -28,61 +26,76 @@ export default function CyoaImageUploader({
   const [needsSplit, setNeedsSplit] = useState<boolean[]>([]);
 
   useEffect(() => {
-    onNeedsSplitChange(needsSplit.some(x => x === true))
-  }, [needsSplit])
+    onNeedsSplitChange(needsSplit.some(x => x === true));
+  }, [needsSplit, onNeedsSplitChange]);
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  // Determines whether to split the image
+  async function getNeedsSplit(file: File): Promise<boolean> {
+    try {
+      const image = await createImageBitmap(file);
+      return image.height > 16383;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Updates the needsSplit state for all images
+  async function updateNeedsSplitStates(files: File[]) {
+    const splitStates = await Promise.all(files.map(file => getNeedsSplit(file)));
+    setNeedsSplit(splitStates);
+  }
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files || []);
     const newImages = files.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
     }));
 
-    newImages.map(async (image, idx) => {
-      const update: boolean = await getNeedsSplit(image.file);
-      setNeedsSplit((needsSplit) => {
-        needsSplit[idx] = update;
-        return [...needsSplit];
-      });
-    });
-
-    setImages((prevImages) => [...prevImages, ...newImages]);
-    onImagesChange(
-      [...images, ...newImages].map((img, index) => {
-        showModal[index] = false;
-        setShowModal([...showModal]);
-        return img.file;
-      }),
-    );
+    const updatedImages = [...images, ...newImages];
+    setImages(updatedImages);
+    
+    // Update modal window array
+    setShowModal(new Array(updatedImages.length).fill(false));
+    
+    // Update needsSplit for all images
+    await updateNeedsSplitStates(updatedImages.map(img => img.file));
+    
+    onImagesChange(updatedImages.map(img => img.file));
   }
 
-
-  // utility function to handle everything that needs to be done
-  // after changing file array
-  // basically the same as the above function, except it takes the already
-  // updated file array as input
-  function recreateImageArray(files: File[]) {
+  async function recreateImageArray(files: File[]) {
     const newImages = files.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
     }));
 
-    newImages.map(async (image, idx) => {
-      const update: boolean = await getNeedsSplit(image.file);
-      setNeedsSplit((needsSplit) => {
-        needsSplit[idx] = update;
-        return [...needsSplit];
-      });
-    });
+    setImages(newImages);
+    setShowModal(new Array(newImages.length).fill(false));
+    
+    // Update needsSplit for all images
+    await updateNeedsSplitStates(files);
+    
+    onImagesChange(newImages.map(img => img.file));
+  }
 
-    setImages([...newImages]);
-    onImagesChange(
-      [...newImages].map((img, index) => {
-        showModal[index] = false;
-        setShowModal([...showModal]);
-        return img.file;
-      }),
-    );
+  async function handleDrop(e: React.DragEvent<HTMLLIElement>, dropIndex: number) {
+    e.preventDefault();
+    const dragIndex = Number(e.dataTransfer.getData('text/plain'));
+    
+    const newImages = [...images];
+    const [reorderedItem] = newImages.splice(dragIndex, 1);
+    newImages.splice(dropIndex, 0, reorderedItem);
+    
+    setImages(newImages);
+    
+    // Update needsSplit according to the new order
+    const newNeedsSplit = [...needsSplit];
+    const [reorderedSplit] = newNeedsSplit.splice(dragIndex, 1);
+    newNeedsSplit.splice(dropIndex, 0, reorderedSplit);
+    setNeedsSplit(newNeedsSplit);
+    
+    onImagesChange(newImages.map(img => img.file));
   }
 
   function handleDragStart(e: React.DragEvent<HTMLLIElement>, index: number) {
@@ -93,50 +106,34 @@ export default function CyoaImageUploader({
     e.preventDefault();
   }
 
-  function handleDrop(e: React.DragEvent<HTMLLIElement>, dropIndex: number) {
-    e.preventDefault();
-    const dragIndex = Number(e.dataTransfer.getData('text/plain'));
-    const newImages = [...images];
-    const [reorderedItem] = newImages.splice(dragIndex, 1);
-    newImages.splice(dropIndex, 0, reorderedItem);
-    setImages(newImages);
-    onImagesChange(newImages.map((img) => img.file));
-  }
-
   function removeImage(index: number) {
     const newImages = images.filter((_, i) => i !== index);
+    const newNeedsSplit = needsSplit.filter((_, i) => i !== index);
+    const newShowModal = showModal.filter((_, i) => i !== index);
+    
     setImages(newImages);
-    onImagesChange(newImages.map((img) => img.file));
+    setNeedsSplit(newNeedsSplit);
+    setShowModal(newShowModal);
+    
+    onImagesChange(newImages.map(img => img.file));
   }
 
-  // modal
   function handleClose(index: number) {
-    showModal[index] = false;
-    setShowModal([...showModal]);
+    setShowModal(prev => {
+      const newShowModal = [...prev];
+      newShowModal[index] = false;
+      return newShowModal;
+    });
   }
 
-
-  // of we split a image, this inserts the new images
-  // updatedImages: the 2 images that the image was split into
-  // insertIndex: the array index of the image that was split
-  function handleSplit(updatedImages: File[], insertIndex: number) {
-    let files: File[] = images.map((x: { file: File; preview: string }) => x.file);
-    files.splice(insertIndex, 1, ...updatedImages);
-    recreateImageArray(files);
-  }
-
-
-  // determines if the image needs to be split
-  // loads the image as a bitmap object
-  // couldn't find a better way to do it than this
-  async function getNeedsSplit(file: File): Promise<boolean> {
-    let image;
-    try {
-      image = await createImageBitmap(file);
-    } catch (e) {
-      return false;
-    }
-    return image.height > 16383;
+  async function handleSplit(updatedImages: File[], insertIndex: number) {
+    const currentFiles = images.map(x => x.file);
+    const newFiles = [
+      ...currentFiles.slice(0, insertIndex),
+      ...updatedImages,
+      ...currentFiles.slice(insertIndex + 1)
+    ];
+    await recreateImageArray(newFiles);
   }
 
   return (
@@ -157,7 +154,7 @@ export default function CyoaImageUploader({
       <List>
         {images.map((image, index) => (
           <ListItem
-            key={index}
+            key={image.preview}
             draggable
             onDragStart={(e) => handleDragStart(e, index)}
             onDragOver={handleDragOver}
@@ -169,8 +166,11 @@ export default function CyoaImageUploader({
                   <IconButton
                     aria-label="split image"
                     onClick={() => {
-                      showModal[index] = true;
-                      setShowModal([...showModal]);
+                      setShowModal(prev => {
+                        const newShowModal = [...prev];
+                        newShowModal[index] = true;
+                        return newShowModal;
+                      });
                     }}
                   >
                     <ImageSplitterIcon />
@@ -178,7 +178,12 @@ export default function CyoaImageUploader({
                 )}
                 {showModal[index] &&
                   createPortal(
-                    <ImageSplitter file={image.file} index={index} returnImages={handleSplit} close={handleClose} />,
+                    <ImageSplitter 
+                      file={image.file} 
+                      index={index} 
+                      returnImages={handleSplit} 
+                      close={handleClose} 
+                    />,
                     document.body,
                   )}
                 <IconButton edge="end" aria-label="delete" onClick={() => removeImage(index)}>
@@ -198,7 +203,9 @@ export default function CyoaImageUploader({
         ))}
       </List>
       {images.length > 0 && (
-        <Typography sx={{ mt: 1 }}>{images.length} image(s) uploaded. Drag and drop to reorder.</Typography>
+        <Typography sx={{ mt: 1 }}>
+          {images.length} image(s) uploaded. Drag and drop to reorder.
+        </Typography>
       )}
     </Box>
   );

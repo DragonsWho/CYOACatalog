@@ -1,3 +1,8 @@
+// src/components/Add/ImageSplitter/ImgPreview.tsx
+// Version 1.0.0
+// Changes: 
+
+
 import { PixelCrop } from 'react-image-crop'
 import { CanvasPreview } from './CanvasPreview'
 

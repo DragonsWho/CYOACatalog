@@ -5,7 +5,9 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Button, Typography, List, ListItem, ListItemText, IconButton } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { ImageSplitterIcon } from './ImageSplitter/ImageSplitterIcon';
 import HorizontalSplitIcon from '@mui/icons-material/HorizontalSplit';
+
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import ImageSplitter from './ImageSplitter/ImageSpliter';
 import { createPortal } from 'react-dom';
@@ -164,12 +166,15 @@ export default function CyoaImageUploader({
             secondaryAction={
               <>
                 {needsSplit[index] && (
-                  <HorizontalSplitIcon
+                  <IconButton
+                    aria-label="split image"
                     onClick={() => {
                       showModal[index] = true;
                       setShowModal([...showModal]);
                     }}
-                  />
+                  >
+                    <ImageSplitterIcon />
+                  </IconButton>
                 )}
                 {showModal[index] &&
                   createPortal(

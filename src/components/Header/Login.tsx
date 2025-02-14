@@ -126,7 +126,7 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
         throw new Error('Auth0 provider not found');
       }
 
-      const redirectUri = 'http://127.0.0.1:8090/api/oauth2-redirect';
+      const redirectUri = 'https://cyoa.cafe/api/oauth2-redirect';
       const authUrl = new URL(auth0Provider.authUrl, window.location.origin);
       authUrl.searchParams.set('redirect_uri', redirectUri);
       window.location.href = authUrl.toString();

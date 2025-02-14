@@ -12,9 +12,8 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SvgIcon from '@mui/material/SvgIcon';
-import { AuthContext, login, pb } from '../../pocketbase/pocketbase';
+import { AuthContext, login, pb, handleAuth0Login } from '../../pocketbase/pocketbase';
 
- 
 interface ErrorResponse {
   response?: {
     data?: {
@@ -111,34 +110,6 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     setIsLoading(true);
     setError('');
     await login({ provider: 'discord' });
-  }
-
-  async function handleAuth0Login() {
-    setIsLoading(true);
-    setError('');
-    try {
-      const authMethods = await pb.collection('users').listAuthMethods();
-      const auth0Provider = authMethods.authProviders.find(
-        provider => provider.displayName === 'auth0'
-      );
-
-      if (!auth0Provider) {
-        throw new Error('Auth0 provider not found');
-      }
-
-      const redirectUri = 'https://cyoa.cafe/api/oauth2-redirect';
-      const authUrl = new URL(auth0Provider.authUrl, window.location.origin);
-      authUrl.searchParams.set('redirect_uri', redirectUri);
-      window.location.href = authUrl.toString();
-
-    } catch (err) {
-      console.error('Full error object:', err);
-      const error = err as ErrorResponse;
-      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
-      setError(`${errorMessage} (${error.status || 'unknown status'})`);
-    } finally {
-      setIsLoading(false);
-    }
   }
 
   useEffect(() => {

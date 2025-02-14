@@ -97,7 +97,7 @@ export type Author = RecordModel & {
 
 export const authorsCollection = pb.collection('authors') as RecordService<Author>;
 
-type Provider = 'discord';
+type Provider = 'discord' | 'auth0';
 
 export async function register(args: { username: string; email?: string; password: string } | { provider: Provider }) {
   if ('password' in args) {
@@ -118,6 +118,15 @@ export async function login(args: { usernameOrEmail: string; password: string } 
     await usersCollection.authWithPassword(args.usernameOrEmail, args.password);
   } else {
     await usersCollection.authWithOAuth2({ provider: args.provider });
+  }
+}
+
+export async function handleAuth0Login() {
+  try {
+  await login({ provider: 'auth0' });
+  } catch (err) {
+    console.error('Full error object:', err);
+    throw err; // Rethrow the error to handle it in the calling context
   }
 }
 

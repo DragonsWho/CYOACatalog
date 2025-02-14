@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SvgIcon from '@mui/material/SvgIcon';
-import { AuthContext, login, pb, handleAuth0Login } from '../../pocketbase/pocketbase';
+import { AuthContext, login, handleAuth0Login } from '../../pocketbase/pocketbase';
 
 interface ErrorResponse {
   response?: {

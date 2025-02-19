@@ -162,14 +162,25 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     setIsLoading(true);
     setError('');
     try {
-      await pb.collection('users').create({
+      const record = await pb.collection('users').create({
         username,
         email,
         password,
-        passwordConfirm: password
+        passwordConfirm: password,
+        emailVisibility: true
       });
-      onLoginSuccess();
-      handleClose();
+      
+      // Отправка письма с подтверждением
+      await pb.collection('users').requestVerification(email);
+      
+      // Показываем сообщение о необходимости подтверждения email
+      setError('Please check your email to verify your account');
+      setIsLoading(false);
+      
+      // Закрываем окно через 3 секунды
+      setTimeout(() => {
+        handleClose();
+      }, 3000);
     } catch (err) {
       console.error('Registration error:', err);
       const error = err as ErrorResponse;

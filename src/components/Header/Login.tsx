@@ -33,7 +33,7 @@ const DiscordIcon = () => (
 );
 
 // Стили для текстовых полей
-const StyledTextField = styled(TextField)(({ theme }) => ({
+const StyledTextField = styled(TextField)(() => ({
   '& .MuiInputBase-input': {
     backgroundColor: '#1e1e1e',
     color: '#e0e0e0',

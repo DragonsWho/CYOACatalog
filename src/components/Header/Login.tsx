@@ -79,6 +79,7 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -154,7 +155,7 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
   // Обработчик регистрации
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!username || !password) {
+    if (!username || !email || !password) {
       setError('Please fill in all fields');
       return;
     }
@@ -163,6 +164,7 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     try {
       await pb.collection('users').create({
         username,
+        email,
         password,
         passwordConfirm: password
       });
@@ -192,6 +194,24 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
               label="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              fullWidth
+              margin="normal"
+              disabled={isLoading}
+              required
+              slotProps={{
+                input: {
+                  style: {
+                    backgroundColor: '#1e1e1e',
+                    color: '#e0e0e0',
+                  },
+                },
+              }}
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               fullWidth
               margin="normal"
               disabled={isLoading}
@@ -249,38 +269,38 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
                 style: {
                   backgroundColor: '#1e1e1e',
                   color: '#e0e0e0',
+                  },
                 },
-              },
-            }}
-          />
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            fullWidth
-            margin="normal"
-            disabled={isLoading}
-            required
-            slotProps={{
-              input: {
-                style: {
-                  backgroundColor: '#1e1e1e',
-                  color: '#e0e0e0',
+              }}
+            />
+            <TextField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              fullWidth
+              margin="normal"
+              disabled={isLoading}
+              required
+              slotProps={{
+                input: {
+                  style: {
+                    backgroundColor: '#1e1e1e',
+                    color: '#e0e0e0',
+                  },
                 },
-              },
-            }}
-          />
-          <Button
-            type="submit"
-            color="primary"
-            variant="contained"
-            fullWidth
-            style={{ marginTop: '20px' }}
-            disabled={isLoading}
-          >
-            {isLoading ? <CircularProgress size={24} /> : 'Login'}
-          </Button>
+              }}
+            />
+            <Button
+              type="submit"
+              color="primary"
+              variant="contained"
+              fullWidth
+              style={{ marginTop: '20px' }}
+              disabled={isLoading}
+            >
+              {isLoading ? <CircularProgress size={24} /> : 'Login'}
+            </Button>
           </form>
         )}
         <Divider style={{ margin: '20px 0' }}>

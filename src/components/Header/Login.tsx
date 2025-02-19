@@ -162,7 +162,7 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     setIsLoading(true);
     setError('');
     try {
-      const record = await pb.collection('users').create({
+      await pb.collection('users').create({
         username,
         email,
         password,

@@ -4,6 +4,21 @@
 
 import { createTheme, ThemeOptions } from '@mui/material/styles';
 
+declare module '@mui/material/styles' {
+  interface Palette {
+    discord: {
+      main: string;
+      dark: string;
+    };
+  }
+  interface PaletteOptions {
+    discord?: {
+      main: string;
+      dark: string;
+    };
+  }
+}
+
 const themeOptions: ThemeOptions = {
   palette: {
     mode: 'dark',
@@ -20,6 +35,10 @@ const themeOptions: ThemeOptions = {
     text: {
       primary: '#dcdcdc',
       secondary: 'rgba(255, 255, 255, 0.7)',
+    },
+    discord: {
+      main: '#5865F2',
+      dark: '#4752C4',
     },
   },
   components: {

@@ -1,6 +1,5 @@
 import { FormEvent, useCallback, useContext, useEffect, useState } from 'react';
 import {
-  TextField,
   Button,
   Typography,
   Dialog,
@@ -9,6 +8,7 @@ import {
   DialogActions,
   Divider,
   CircularProgress,
+  TextField,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SvgIcon from '@mui/material/SvgIcon';
@@ -32,12 +32,20 @@ const DiscordIcon = () => (
   </SvgIcon>
 );
 
+// Стили для текстовых полей
+const StyledTextField = styled(TextField)(({ theme }) => ({
+  '& .MuiInputBase-input': {
+    backgroundColor: '#1e1e1e',
+    color: '#e0e0e0',
+  },
+}));
+
 // Стили для кнопки Discord
-const DiscordButton = styled(Button)(() => ({
-  backgroundColor: '#5865F2',
-  color: 'white',
+const DiscordButton = styled(Button)(({ theme }) => ({
+  backgroundColor: theme.palette.discord.main,
+  color: theme.palette.common.white,
   '&:hover': {
-    backgroundColor: '#4752C4',
+    backgroundColor: theme.palette.discord.dark,
   },
   width: '70%',
   margin: '0 auto',
@@ -53,29 +61,40 @@ const DiscordButton = styled(Button)(() => ({
   textTransform: 'none',
 }));
 
-// Стили для кнопки Auth0 (временно закомментировано)
-/* const Auth0Button = styled(Button)(() => ({
-  backgroundColor: '#635DFF',
-  color: 'white',
-  '&:hover': {
-    backgroundColor: '#4752C4',
-  },
-  width: '70%',
-  margin: '10px auto',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '10px',
-  borderRadius: '3px',
-  fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-  fontWeight: 500,
-  fontSize: '14px',
-  lineHeight: '20px',
-  textTransform: 'none',
-})); */
+// Валидация email
+const validateEmail = (email: string) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return 'Invalid email format';
+  }
+  if (email.length > 255) {
+    return 'Email must be less than 255 characters';
+  }
+  return null;
+};
+
+// Валидация пароля
+const validatePassword = (password: string) => {
+  if (password.length < 8) {
+    return 'Password must be at least 8 characters';
+  }
+  if (password.length > 72) {
+    return 'Password must be less than 72 characters';
+  }
+  if (!/^[\x20-\x7E]+$/.test(password)) {
+    return 'Password contains invalid characters';
+  }
+  return null;
+};
 
 // Основной компонент Login
-export default function Login({ open = false, onClose = () => {}, onLoginSuccess = () => {} }) {
+interface LoginProps {
+  open?: boolean;
+  onClose?: () => void;
+  onLoginSuccess?: () => void;
+}
+
+export default function Login({ open = false, onClose = () => {}, onLoginSuccess = () => {} }: LoginProps) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -86,7 +105,6 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const { signedIn } = useContext(AuthContext);
 
-  // Обработчик закрытия модального окна
   const handleClose = useCallback(() => {
     setIdentifier('');
     setPassword('');
@@ -96,7 +114,6 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     onClose();
   }, [onClose]);
 
-  // Обработчик восстановления пароля
   async function handlePasswordReset(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!email) {
@@ -115,9 +132,10 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     try {
       await pb.collection('users').requestPasswordReset(email);
       setError('Password reset instructions have been sent to your email');
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         handleClose();
       }, 3000);
+      return () => clearTimeout(timer);
     } catch (err) {
       console.error('Password reset error:', err);
       const error = err as ErrorResponse;
@@ -127,7 +145,6 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     }
   }
 
-  // Обработчик входа
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!identifier || !password) {
@@ -149,84 +166,34 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     }
   }
 
-  // Обработчик входа через Discord
   async function handleDiscordLogin() {
     setIsLoading(true);
     setError('');
-    await login({ provider: 'discord' });
-  }
-
-  // Обработчик входа через Auth0 (временно закомментировано)
-  /* async function handleAuth0Login() {
-    setIsLoading(true);
-    setError('');
     try {
-      const authMethods = await pb.collection('users').listAuthMethods();
-      const auth0Provider = authMethods.authProviders.find(
-        provider => provider.displayName === 'auth0'
-      );
-
-      if (!auth0Provider) {
-        throw new Error('Auth0 provider not found');
-      }
-
-      const redirectUri = 'https://cyoa.cafe/api/oauth2-redirect';
-      const authUrl = new URL(auth0Provider.authUrl, window.location.origin);
-      authUrl.searchParams.set('redirect_uri', redirectUri);
-      window.location.href = authUrl.toString();
-
+      await login({ provider: 'discord' });
     } catch (err) {
-      console.error('Full error object:', err);
+      console.error('Discord login error:', err);
       const error = err as ErrorResponse;
-      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
-      setError(`${errorMessage} (${error.status || 'unknown status'})`);
+      setError(error.response?.data?.message || error.message || 'Discord login failed');
     } finally {
       setIsLoading(false);
     }
-  } */
-
-  // Обработчик регистрации
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return 'Invalid email format';
-    }
-    if (email.length > 255) {
-      return 'Email must be less than 255 characters';
-    }
-    return null;
-  };
-
-  const validatePassword = (password: string) => {
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters';
-    }
-    if (password.length > 72) {
-      return 'Password must be less than 72 characters';
-    }
-    if (!/^[\x20-\x7E]+$/.test(password)) {
-      return 'Password contains invalid characters';
-    }
-    return null;
-  };
+  }
 
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     
-    // Проверка заполненности полей
     if (!username || !email || !password) {
       setError('Please fill in all fields');
       return;
     }
 
-    // Валидация email
     const emailError = validateEmail(email);
     if (emailError) {
       setError(emailError);
       return;
     }
 
-    // Валидация пароля
     const passwordError = validatePassword(password);
     if (passwordError) {
       setError(passwordError);
@@ -243,17 +210,15 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
         emailVisibility: true
       });
       
-      // Отправка письма с подтверждением
       await pb.collection('users').requestVerification(email);
       
-      // Показываем сообщение о необходимости подтверждения email
       setError('Please check your email to verify your account');
       setIsLoading(false);
       
-      // Закрываем окно через 3 секунды
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         handleClose();
       }, 3000);
+      return () => clearTimeout(timer);
     } catch (err) {
       console.error('Registration error:', err);
       const error = err as ErrorResponse;
@@ -263,7 +228,6 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     }
   }
 
-  // Эффект для автоматического закрытия при успешной авторизации
   useEffect(() => {
     if (signedIn) handleClose();
   }, [signedIn, handleClose]);
@@ -276,23 +240,15 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
       <DialogContent>
         {isResettingPassword ? (
           <form onSubmit={(e) => handlePasswordReset(e)}>
-            <TextField
+            <StyledTextField
               label="Email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               fullWidth
               margin="normal"
               disabled={isLoading}
               required
-              slotProps={{
-                input: {
-                  style: {
-                    backgroundColor: '#1e1e1e',
-                    color: '#e0e0e0',
-                  },
-                },
-              }}
             />
             <Button
               type="submit"
@@ -307,58 +263,34 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
           </form>
         ) : isRegistering ? (
           <form onSubmit={(e) => handleRegister(e)}>
-            <TextField
+            <StyledTextField
               label="Username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
               fullWidth
               margin="normal"
               disabled={isLoading}
               required
-              slotProps={{
-                input: {
-                  style: {
-                    backgroundColor: '#1e1e1e',
-                    color: '#e0e0e0',
-                  },
-                },
-              }}
             />
-            <TextField
+            <StyledTextField
               label="Email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               fullWidth
               margin="normal"
               disabled={isLoading}
               required
-              slotProps={{
-                input: {
-                  style: {
-                    backgroundColor: '#1e1e1e',
-                    color: '#e0e0e0',
-                  },
-                },
-              }}
             />
-            <TextField
+            <StyledTextField
               label="Password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               fullWidth
               margin="normal"
               disabled={isLoading}
               required
-              slotProps={{
-                input: {
-                  style: {
-                    backgroundColor: '#1e1e1e',
-                    color: '#e0e0e0',
-                  },
-                },
-              }}
             />
             <Button
               type="submit"
@@ -373,40 +305,24 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
           </form>
         ) : (
           <form onSubmit={(e) => handleLogin(e)}>
-          <TextField
-            label="Email or username"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            fullWidth
-            margin="normal"
-            disabled={isLoading}
-            required
-            slotProps={{
-              input: {
-                style: {
-                  backgroundColor: '#1e1e1e',
-                  color: '#e0e0e0',
-                  },
-                },
-              }}
-            />
-            <TextField
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+            <StyledTextField
+              label="Email or username"
+              value={identifier}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIdentifier(e.target.value)}
               fullWidth
               margin="normal"
               disabled={isLoading}
               required
-              slotProps={{
-                input: {
-                  style: {
-                    backgroundColor: '#1e1e1e',
-                    color: '#e0e0e0',
-                  },
-                },
-              }}
+            />
+            <StyledTextField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+              fullWidth
+              margin="normal"
+              disabled={isLoading}
+              required
             />
             <Button
               type="submit"
@@ -437,10 +353,6 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
         <DiscordButton onClick={handleDiscordLogin} disabled={isLoading} startIcon={<DiscordIcon />}>
           {isLoading ? <CircularProgress size={24} /> : 'Sign in with Discord'}
         </DiscordButton>
-        {/* Кнопка Auth0 временно скрыта
-        <Auth0Button onClick={handleAuth0Login} disabled={isLoading}>
-          {isLoading ? <CircularProgress size={24} /> : 'Continue with Auth0'}
-        </Auth0Button> */}
         {error && (
           <Typography color="error" style={{ marginTop: '10px', textAlign: 'center' }}>
             {error}

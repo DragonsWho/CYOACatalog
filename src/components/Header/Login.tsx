@@ -83,6 +83,7 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const { signedIn } = useContext(AuthContext);
 
   // Обработчик закрытия модального окна
@@ -91,8 +92,40 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     setPassword('');
     setError('');
     setIsLoading(false);
+    setIsResettingPassword(false);
     onClose();
   }, [onClose]);
+
+  // Обработчик восстановления пароля
+  async function handlePasswordReset(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!email) {
+      setError('Please enter your email');
+      return;
+    }
+
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setError(emailError);
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    try {
+      await pb.collection('users').requestPasswordReset(email);
+      setError('Password reset instructions have been sent to your email');
+      setTimeout(() => {
+        handleClose();
+      }, 3000);
+    } catch (err) {
+      console.error('Password reset error:', err);
+      const error = err as ErrorResponse;
+      setError(error.response?.data?.message || error.message || 'Password reset failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   // Обработчик входа
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
@@ -237,9 +270,42 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
 
   return (
     <Dialog open={open} onClose={handleClose}>
-      <DialogTitle>{isRegistering ? 'Register' : 'Login'}</DialogTitle>
+      <DialogTitle>
+        {isResettingPassword ? 'Reset Password' : (isRegistering ? 'Register' : 'Login')}
+      </DialogTitle>
       <DialogContent>
-        {isRegistering ? (
+        {isResettingPassword ? (
+          <form onSubmit={(e) => handlePasswordReset(e)}>
+            <TextField
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              fullWidth
+              margin="normal"
+              disabled={isLoading}
+              required
+              slotProps={{
+                input: {
+                  style: {
+                    backgroundColor: '#1e1e1e',
+                    color: '#e0e0e0',
+                  },
+                },
+              }}
+            />
+            <Button
+              type="submit"
+              color="primary"
+              variant="contained"
+              fullWidth
+              style={{ marginTop: '20px' }}
+              disabled={isLoading}
+            >
+              {isLoading ? <CircularProgress size={24} /> : 'Reset Password'}
+            </Button>
+          </form>
+        ) : isRegistering ? (
           <form onSubmit={(e) => handleRegister(e)}>
             <TextField
               label="Username"
@@ -352,6 +418,15 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
             >
               {isLoading ? <CircularProgress size={24} /> : 'Login'}
             </Button>
+            <Button
+              color="secondary"
+              fullWidth
+              style={{ marginTop: '10px' }}
+              onClick={() => setIsResettingPassword(true)}
+              disabled={isLoading}
+            >
+              Forgot password?
+            </Button>
           </form>
         )}
         <Divider style={{ margin: '20px 0' }}>
@@ -373,13 +448,23 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
         )}
       </DialogContent>
       <DialogActions>
-        <Button 
-          onClick={() => setIsRegistering(!isRegistering)} 
-          color="primary" 
-          disabled={isLoading}
-        >
-          {isRegistering ? 'Back to Login' : 'Register'}
-        </Button>
+        {isResettingPassword ? (
+          <Button 
+            onClick={() => setIsResettingPassword(false)} 
+            color="primary" 
+            disabled={isLoading}
+          >
+            Back to Login
+          </Button>
+        ) : (
+          <Button 
+            onClick={() => setIsRegistering(!isRegistering)} 
+            color="primary" 
+            disabled={isLoading}
+          >
+            {isRegistering ? 'Back to Login' : 'Register'}
+          </Button>
+        )}
         <Button onClick={handleClose} color="primary" disabled={isLoading}>
           Cancel
         </Button>

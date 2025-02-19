@@ -153,10 +153,50 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
   } */
 
   // Обработчик регистрации
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'Invalid email format';
+    }
+    if (email.length > 255) {
+      return 'Email must be less than 255 characters';
+    }
+    return null;
+  };
+
+  const validatePassword = (password: string) => {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (password.length > 72) {
+      return 'Password must be less than 72 characters';
+    }
+    if (!/^[\x20-\x7E]+$/.test(password)) {
+      return 'Password contains invalid characters';
+    }
+    return null;
+  };
+
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    
+    // Проверка заполненности полей
     if (!username || !email || !password) {
       setError('Please fill in all fields');
+      return;
+    }
+
+    // Валидация email
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setError(emailError);
+      return;
+    }
+
+    // Валидация пароля
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
     setIsLoading(true);

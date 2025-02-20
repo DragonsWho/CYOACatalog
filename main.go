@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 	"github.com/pocketbase/pocketbase"
@@ -64,6 +65,11 @@ func skipper(c echo.Context) bool {
 }
 
 func main() {
+
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables")
+	}
+
 	isDevelopment := os.Getenv("NODE_ENV") == "development"
 
 	app := pocketbase.New()

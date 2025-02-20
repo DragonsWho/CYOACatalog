@@ -206,68 +206,47 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
 
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
+  
     if (!username || !email || !password) {
       setError('Please fill in all fields');
       return;
     }
-
+  
     const emailError = validateEmail(email);
     if (emailError) {
       setError(emailError);
       return;
     }
-
+  
     const passwordError = validatePassword(password);
     if (passwordError) {
       setError(passwordError);
       return;
     }
-
-    // Получение токена Turnstile из формы
+  
     const formData = new FormData(e.currentTarget);
     const turnstileToken = formData.get('cf-turnstile-response') as string;
-
+  
     if (!turnstileToken) {
       setError('Please complete the verification');
       return;
     }
-
+  
     setIsLoading(true);
     setError('');
-
+  
     try {
-      // Валидация токена Turnstile (отправка на ваш сервер или прямо на Cloudflare)
-      const verifyResponse = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          secret: '0x4AAAAAAA9kgvkCQry9mPSXwDED2D1HVDI', // Замените на ваш Secret Key из Cloudflare
-          response: turnstileToken,
-        }),
-      });
-
-      const verifyData: TurnstileResponse = await verifyResponse.json();
-
-      if (!verifyData.success) {
-        setError('Verification failed. Are you a bot?');
-        setIsLoading(false);
-        return;
-      }
-
-      // Если токен валиден, продолжаем регистрацию
       await pb.collection('users').create({
         username,
         email,
         password,
         passwordConfirm: password,
         emailVisibility: true,
+        'cf-turnstile-response': turnstileToken, // Отправляем токен на сервер
       });
-
+  
       await pb.collection('users').requestVerification(email);
-
+  
       setError('Please check your email to verify your account');
       const timer = setTimeout(() => {
         handleClose();

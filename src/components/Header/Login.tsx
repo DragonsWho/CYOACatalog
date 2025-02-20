@@ -25,6 +25,12 @@ interface ErrorResponse {
   status?: number;
 }
 
+// Интерфейс для ответа Turnstile
+interface TurnstileResponse {
+  success: boolean;
+  error_codes?: string[];
+}
+
 // Компонент иконки Discord
 const DiscordIcon = () => (
   <SvgIcon>
@@ -105,6 +111,9 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const { signedIn } = useContext(AuthContext);
 
+ 
+  const TURNSTILE_SITE_KEY = '0x4AAAAAAA9kgpL5L0h777U9';  
+
   const handleClose = useCallback(() => {
     setIdentifier('');
     setPassword('');
@@ -113,6 +122,21 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     setIsResettingPassword(false);
     onClose();
   }, [onClose]);
+
+  // Динамическая загрузка Turnstile скрипта
+  useEffect(() => {
+    if (isRegistering) {
+      const script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+      script.async = true;
+      script.defer = true;
+      document.body.appendChild(script);
+
+      return () => {
+        document.body.removeChild(script);
+      };
+    }
+  }, [isRegistering]);
 
   async function handlePasswordReset(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -182,7 +206,7 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
 
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    
+
     if (!username || !email || !password) {
       setError('Please fill in all fields');
       return;
@@ -199,22 +223,52 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
       setError(passwordError);
       return;
     }
+
+    // Получение токена Turnstile из формы
+    const formData = new FormData(e.currentTarget);
+    const turnstileToken = formData.get('cf-turnstile-response') as string;
+
+    if (!turnstileToken) {
+      setError('Please complete the verification');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
+
     try {
+      // Валидация токена Turnstile (отправка на ваш сервер или прямо на Cloudflare)
+      const verifyResponse = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          secret: '0x4AAAAAAA9kgvkCQry9mPSXwDED2D1HVDI', // Замените на ваш Secret Key из Cloudflare
+          response: turnstileToken,
+        }),
+      });
+
+      const verifyData: TurnstileResponse = await verifyResponse.json();
+
+      if (!verifyData.success) {
+        setError('Verification failed. Are you a bot?');
+        setIsLoading(false);
+        return;
+      }
+
+      // Если токен валиден, продолжаем регистрацию
       await pb.collection('users').create({
         username,
         email,
         password,
         passwordConfirm: password,
-        emailVisibility: true
+        emailVisibility: true,
       });
-      
+
       await pb.collection('users').requestVerification(email);
-      
+
       setError('Please check your email to verify your account');
-      setIsLoading(false);
-      
       const timer = setTimeout(() => {
         handleClose();
       }, 3000);
@@ -291,6 +345,12 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
               margin="normal"
               disabled={isLoading}
               required
+            />
+            {/* Turnstile виджет */}
+            <div
+              className="cf-turnstile"
+              data-sitekey={TURNSTILE_SITE_KEY}
+              style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}
             />
             <Button
               type="submit"

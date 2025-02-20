@@ -2,7 +2,9 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -23,6 +25,40 @@ import (
 //go:embed dist/*
 var assets embed.FS
 
+type TurnstileResponse struct {
+	Success    bool     `json:"success"`
+	ErrorCodes []string `json:"error-codes"`
+}
+
+func verifyTurnstile(token string) (bool, error) {
+	secretKey := os.Getenv("TURNSTILE_SECRET_KEY")
+	if secretKey == "" {
+		return false, fmt.Errorf("TURNSTILE_SECRET_KEY is not set")
+	}
+
+	data := url.Values{}
+	data.Set("secret", secretKey)
+	data.Set("response", token)
+
+	resp, err := http.PostForm("https://challenges.cloudflare.com/turnstile/v0/siteverify", data)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+
+	var turnstileResp TurnstileResponse
+	if err := json.Unmarshal(body, &turnstileResp); err != nil {
+		return false, err
+	}
+
+	return turnstileResp.Success, nil
+}
+
 func skipper(c echo.Context) bool {
 	return strings.HasPrefix(c.Request().URL.Path, "/api") || strings.HasPrefix(c.Request().URL.Path, "/_")
 }
@@ -33,6 +69,25 @@ func main() {
 	app := pocketbase.New()
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
 		apiGroup := e.Router.Group("/api/custom")
+
+		// Endpoint for Turnstile (cloudflare captha) token validation
+		apiGroup.POST("/verify-turnstile", func(c echo.Context) error {
+			token := c.FormValue("token")
+			if token == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "Token required"})
+			}
+
+			success, err := verifyTurnstile(token)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+
+			if !success {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": "Turnstile verification failed"})
+			}
+
+			return c.JSON(http.StatusOK, map[string]bool{"success": true})
+		})
 
 		commentGroup := apiGroup.Group("/comments")
 

@@ -236,13 +236,31 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     setError('');
   
     try {
+      // Проверка токена через эндпоинт PocketBase
+      const verifyResponse = await fetch('/api/custom/verify-turnstile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          token: turnstileToken,
+        }),
+      });
+  
+      if (!verifyResponse.ok) {
+        const errorData = await verifyResponse.json();
+        setError(errorData.error || 'Verification failed. Are you a bot?');
+        setIsLoading(false);
+        return;
+      }
+  
+      // Если токен валиден, продолжаем регистрацию
       await pb.collection('users').create({
         username,
         email,
         password,
         passwordConfirm: password,
         emailVisibility: true,
-        'cf-turnstile-response': turnstileToken, // Отправляем токен на сервер
       });
   
       await pb.collection('users').requestVerification(email);

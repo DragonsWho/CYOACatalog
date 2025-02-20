@@ -28,7 +28,7 @@ interface ErrorResponse {
 // Интерфейс для ответа Turnstile
 interface TurnstileResponse {
   success: boolean;
-  error_codes?: string[];
+  error?: string; // Добавлено для обработки ошибок от эндпоинта
 }
 
 // Компонент иконки Discord
@@ -110,9 +110,6 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
   const [isRegistering, setIsRegistering] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const { signedIn } = useContext(AuthContext);
-
- 
-  const TURNSTILE_SITE_KEY = '0x4AAAAAAA9kgpL5L0h777U9';  
 
   const handleClose = useCallback(() => {
     setIdentifier('');
@@ -206,35 +203,35 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
 
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-  
+
     if (!username || !email || !password) {
       setError('Please fill in all fields');
       return;
     }
-  
+
     const emailError = validateEmail(email);
     if (emailError) {
       setError(emailError);
       return;
     }
-  
+
     const passwordError = validatePassword(password);
     if (passwordError) {
       setError(passwordError);
       return;
     }
-  
+
     const formData = new FormData(e.currentTarget);
     const turnstileToken = formData.get('cf-turnstile-response') as string;
-  
+
     if (!turnstileToken) {
       setError('Please complete the verification');
       return;
     }
-  
+
     setIsLoading(true);
     setError('');
-  
+
     try {
       // Проверка токена через эндпоинт PocketBase
       const verifyResponse = await fetch('/api/custom/verify-turnstile', {
@@ -246,14 +243,14 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
           token: turnstileToken,
         }),
       });
-  
+
       if (!verifyResponse.ok) {
-        const errorData = await verifyResponse.json();
+        const errorData: TurnstileResponse = await verifyResponse.json(); // Используем TurnstileResponse для типизации
         setError(errorData.error || 'Verification failed. Are you a bot?');
         setIsLoading(false);
         return;
       }
-  
+
       // Если токен валиден, продолжаем регистрацию
       await pb.collection('users').create({
         username,
@@ -262,9 +259,9 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
         passwordConfirm: password,
         emailVisibility: true,
       });
-  
+
       await pb.collection('users').requestVerification(email);
-  
+
       setError('Please check your email to verify your account');
       const timer = setTimeout(() => {
         handleClose();
@@ -286,7 +283,7 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
   return (
     <Dialog open={open} onClose={handleClose}>
       <DialogTitle>
-        {isResettingPassword ? 'Reset Password' : (isRegistering ? 'Register' : 'Login')}
+        {isResettingPassword ? 'Reset Password' : isRegistering ? 'Register' : 'Login'}
       </DialogTitle>
       <DialogContent>
         {isResettingPassword ? (
@@ -343,10 +340,9 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
               disabled={isLoading}
               required
             />
-            {/* Turnstile виджет */}
             <div
               className="cf-turnstile"
-              data-sitekey={TURNSTILE_SITE_KEY}
+              data-sitekey="0x4AAAAAAA9kgpL5L0h777U9"  
               style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}
             />
             <Button
@@ -418,17 +414,17 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
       </DialogContent>
       <DialogActions>
         {isResettingPassword ? (
-          <Button 
-            onClick={() => setIsResettingPassword(false)} 
-            color="primary" 
+          <Button
+            onClick={() => setIsResettingPassword(false)}
+            color="primary"
             disabled={isLoading}
           >
             Back to Login
           </Button>
         ) : (
-          <Button 
-            onClick={() => setIsRegistering(!isRegistering)} 
-            color="primary" 
+          <Button
+            onClick={() => setIsRegistering(!isRegistering)}
+            color="primary"
             disabled={isLoading}
           >
             {isRegistering ? 'Back to Login' : 'Register'}

@@ -1,6 +1,6 @@
 // src/components/CyoaPage/GameDetails.tsx
-// v4.1
-// Fixed TypeScript errors and improved type safety
+// v4.2
+// Удален устаревший пропс onExpand и упрощена интеграция GameContent
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
@@ -27,7 +27,6 @@ interface CustomTheme extends Theme {
 export default function GameDetails() {
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [expanded, setExpanded] = useState<boolean>(false);
   const { id } = useParams<{ id: string }>();
   const theme = useTheme<CustomTheme>();
   const sanitizedDescription = useMemo(() => (game ? DOMPurify.sanitize(game.description) : ''), [game]);
@@ -105,7 +104,6 @@ export default function GameDetails() {
                   chipProps={{
                     size: 'small',
                     sx: {
-                      // @ts-expect-error custom theme property
                       bgcolor: theme.palette.grey[800],
                       color: theme.palette.text.primary,
                       '&:hover': {
@@ -117,12 +115,7 @@ export default function GameDetails() {
               </Box>
             )}
 
-            <GameAdditionalInfo
-              gameId={id as string}
-              upvotes={game.upvotes}
-              expanded={expanded}
-              onExpand={() => setExpanded(!expanded)}
-            />
+            <GameAdditionalInfo gameId={id as string} upvotes={game.upvotes} />
           </Grid2>
         </Grid2>
 
@@ -137,17 +130,8 @@ export default function GameDetails() {
         </Box>
       </Paper>
 
-      <Box
-        sx={{
-          mb: 3,
-          mt: 3,
-          borderRadius: theme.custom?.borderRadius,
-          boxShadow: theme.custom?.boxShadow,
-          overflow: expanded ? 'visible' : 'hidden',
-          transition: 'all 0.3s ease',
-        }}
-      >
-        <GameContent game={game} expanded={expanded} onExpand={() => setExpanded(!expanded)} />
+      <Box sx={{ mb: 3, mt: 3 }}>
+        <GameContent game={game} />
       </Box>
 
       <Box sx={{}}>

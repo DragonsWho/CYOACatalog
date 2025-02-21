@@ -1,8 +1,9 @@
 // src/components/CyoaPage/GameContent.tsx
-// v2.5
-// Fixed TypeScript errors and improved type safety
+// v2.6
+// Используем Fullscreen API для интерактивных CYOA
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Box, Button, CircularProgress } from '@mui/material';
 import { Game } from '../../pocketbase/pocketbase';
 
 interface ImageSizes {
@@ -12,43 +13,14 @@ interface ImageSizes {
   };
 }
 
-export default function GameContent({
-  game,
-  expanded,
-  onExpand,
-}: {
-  game: Game;
-  expanded: boolean;
-  onExpand: (expanded: boolean) => void;
-}) {
+export default function GameContent({ game }: { game: Game }) {
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({});
   const [imageSizes, setImageSizes] = useState<ImageSizes>({});
-  const [iframeStyle, setIframeStyle] = useState<React.CSSProperties>({});
   const [loadingImages, setLoadingImages] = useState(game.cyoa_pages.length || 0);
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  useEffect(() => {
-    if (game.img_or_link === 'link') {
-      if (expanded) {
-        setIframeStyle({
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          zIndex: 9999,
-        });
-      } else {
-        setIframeStyle({
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-        });
-      }
-    }
-  }, [expanded, game.img_or_link]);
-
+  // Обработка загрузки изображений
   function handleImageLoad(id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) {
     setLoadingImages((prev) => prev - 1);
     setImageSizes((prev) => ({
@@ -65,85 +37,102 @@ export default function GameContent({
     setLoadingImages((prev) => prev - 1);
   }
 
-  const collapseButtonStyle: React.CSSProperties = {
-    position: 'fixed',
-    bottom: '20px',
-    right: '20px',
-    zIndex: 10000,
-    padding: '10px 20px',
+  // Переключение в полноэкранный режим
+  const toggleFullscreen = () => {
+    if (!iframeRef.current) return;
+
+    if (!document.fullscreenElement) {
+      iframeRef.current.requestFullscreen().catch((err) => {
+        console.error(`Ошибка при переходе в полноэкранный режим: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  // Стили для кнопки
+  const buttonStyle: React.CSSProperties = {
+    position: 'absolute',
+    bottom: '10px',
+    right: '10px',
+    zIndex: 10,
+    padding: '8px 16px',
     backgroundColor: '#007bff',
     color: 'white',
     border: 'none',
-    borderRadius: '5px',
+    borderRadius: '4px',
     cursor: 'pointer',
   };
 
   return (
-    <div style={{ backgroundColor: '#121212' }}>
+    <Box sx={{ backgroundColor: '#121212', position: 'relative' }}>
       {game.img_or_link === 'img' && game.cyoa_pages.length ? (
-        <div>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '1rem',
-              transition: 'all 0.3s ease',
-            }}
-          >
-            {loadingImages > 0 && <div>Loading...</div>}
-            {game.cyoa_pages.map((image, index) => (
-              <div
-                key={index}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  backgroundColor: '#121212',
-                  transition: 'all 0.3s ease',
-                }}
-              >
-                {!imageErrors[index] && (
-                  <img
-                    src={`/api/files/games/${game.id}/${image}`}
-                    alt={`Game content ${index + 1}`}
-                    style={{
-                      maxWidth: expanded ? 'none' : '100%',
-                      width: expanded ? 'auto' : imageSizes[index]?.width > window.innerWidth ? '100%' : 'auto',
-                      height: 'auto',
-                      display: loadingImages > 0 ? 'none' : 'block',
-                      transition: 'all 0.3s ease',
-                    }}
-                    onLoad={(event) => handleImageLoad(index, event)}
-                    onError={() => handleImageError(index)}
-                  />
-                )}
-                {imageErrors[index] && <div style={{ color: 'red' }}>Failed to load image {index + 1}</div>}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : game.img_or_link === 'link' && game.iframe_url ? (
-        <div
-          style={{
-            width: '100%',
-            height: 0,
-            paddingBottom: expanded ? '0' : '56.25%', // 16:9 aspect ratio when not expanded
-            position: 'relative',
-            overflow: 'hidden',
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '1rem',
+            transition: 'all 0.3s ease',
           }}
         >
-          <iframe src={game.iframe_url} style={iframeStyle} title="Game content" allowFullScreen loading="lazy" />
-          {expanded && (
-            <button style={collapseButtonStyle} onClick={() => onExpand(false)}>
-              Collapse
-            </button>
+          {loadingImages > 0 && <CircularProgress />}
+          {game.cyoa_pages.map((image, index) => (
+            <Box
+              key={index}
+              sx={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: '#121212',
+                transition: 'all 0.3s ease',
+              }}
+            >
+              {!imageErrors[index] && (
+                <img
+                  src={`/api/files/games/${game.id}/${image}`}
+                  alt={`Game content ${index + 1}`}
+                  style={{
+                    maxWidth: '100%',
+                    width: imageSizes[index]?.width > window.innerWidth ? '100%' : 'auto',
+                    height: 'auto',
+                    display: loadingImages > 0 ? 'none' : 'block',
+                    transition: 'all 0.3s ease',
+                  }}
+                  onLoad={(event) => handleImageLoad(index, event)}
+                  onError={() => handleImageError(index)}
+                />
+              )}
+              {imageErrors[index] && <div style={{ color: 'red' }}>Failed to load image {index + 1}</div>}
+            </Box>
+          ))}
+        </Box>
+      ) : game.img_or_link === 'link' && game.iframe_url ? (
+        <Box sx={{ position: 'relative', width: '100%', height: '500px' }}>
+          {isIframeLoading && (
+            <CircularProgress sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
           )}
-        </div>
+          <iframe
+            ref={iframeRef}
+            src={game.iframe_url}
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              display: isIframeLoading ? 'none' : 'block',
+            }}
+            title="Interactive CYOA"
+            allowFullScreen
+            onLoad={() => setIsIframeLoading(false)}
+          />
+          <button style={buttonStyle} onClick={toggleFullscreen}>
+            {document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen'}
+          </button>
+        </Box>
       ) : (
         <div>No game content available</div>
       )}
-    </div>
+    </Box>
   );
 }

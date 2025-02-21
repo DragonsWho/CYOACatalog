@@ -5,7 +5,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Box, Chip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Tag, GameTagVote, pb, AuthContext, gameTagVotesCollection } from '../../pocketbase/pocketbase';
+import { Tag, GameTagVote, AuthContext, gameTagVotesCollection } from '../../pocketbase/pocketbase';
 
 const CATEGORY_ORDER = [
   'Rating',
@@ -36,11 +36,9 @@ const SECTION_GAP = 0.5;
 export default function TagDisplay({
   tags,
   gameId, // Добавляем ID игры
-  chipProps = {},
 }: {
   tags: Tag[];
   gameId: string; // Новый пропс
-  chipProps?: { size?: 'small' | 'medium'; sx?: React.CSSProperties };
 }) {
   const theme = useTheme();
   const { user } = useContext(AuthContext);

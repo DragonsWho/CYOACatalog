@@ -1,8 +1,8 @@
 // src/components/CyoaPage/GameContent.tsx
-// v2.6
-// Используем Fullscreen API для интерактивных CYOA
+// v2.7
+// Исправлены ошибки TS, кнопка заменена на MUI Button с цветом #e8484e
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
 import { Game } from '../../pocketbase/pocketbase';
 
@@ -48,20 +48,6 @@ export default function GameContent({ game }: { game: Game }) {
     } else {
       document.exitFullscreen();
     }
-  };
-
-  // Стили для кнопки
-  const buttonStyle: React.CSSProperties = {
-    position: 'absolute',
-    bottom: '10px',
-    right: '10px',
-    zIndex: 10,
-    padding: '8px 16px',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
   };
 
   return (
@@ -126,9 +112,22 @@ export default function GameContent({ game }: { game: Game }) {
             allowFullScreen
             onLoad={() => setIsIframeLoading(false)}
           />
-          <button style={buttonStyle} onClick={toggleFullscreen}>
+          <Button
+            onClick={toggleFullscreen}
+            sx={{
+              position: 'absolute',
+              bottom: '10px',
+              right: '10px',
+              zIndex: 10,
+              backgroundColor: '#e8484e',
+              color: 'white',
+              '&:hover': {
+                backgroundColor: '#d73b41', // Темнее на hover
+              },
+            }}
+          >
             {document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen'}
-          </button>
+          </Button>
         </Box>
       ) : (
         <div>No game content available</div>

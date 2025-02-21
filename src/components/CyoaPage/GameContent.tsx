@@ -1,8 +1,8 @@
 // src/components/CyoaPage/GameContent.tsx
-// v2.7
-// Исправлены ошибки TS, кнопка заменена на MUI Button с цветом #e8484e
+// v2.9
+// Улучшена совместимость с мобильными устройствами
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
 import { Game } from '../../pocketbase/pocketbase';
 
@@ -20,7 +20,13 @@ export default function GameContent({ game }: { game: Game }) {
   const [isIframeLoading, setIsIframeLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Обработка загрузки изображений
+  // Логирование для отладки
+  useEffect(() => {
+    if (game.img_or_link === 'link' && game.iframe_url) {
+      console.log('Iframe URL:', game.iframe_url);
+    }
+  }, [game]);
+
   function handleImageLoad(id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) {
     setLoadingImages((prev) => prev - 1);
     setImageSizes((prev) => ({
@@ -37,7 +43,6 @@ export default function GameContent({ game }: { game: Game }) {
     setLoadingImages((prev) => prev - 1);
   }
 
-  // Переключение в полноэкранный режим
   const toggleFullscreen = () => {
     if (!iframeRef.current) return;
 
@@ -48,6 +53,12 @@ export default function GameContent({ game }: { game: Game }) {
     } else {
       document.exitFullscreen();
     }
+  };
+
+  // Обработка ошибок загрузки iframe
+  const handleIframeError = () => {
+    console.error('Iframe failed to load:', game.iframe_url);
+    setIsIframeLoading(false); // Показываем, что загрузка завершилась с ошибкой
   };
 
   return (
@@ -95,7 +106,14 @@ export default function GameContent({ game }: { game: Game }) {
           ))}
         </Box>
       ) : game.img_or_link === 'link' && game.iframe_url ? (
-        <Box sx={{ position: 'relative', width: '100%', height: '500px' }}>
+        <Box
+          sx={{
+            position: 'relative',
+            width: '100%',
+            height: { xs: '50vh', sm: '500px' }, // Адаптивная высота для мобильных
+            minHeight: '300px', // Минимальная высота
+          }}
+        >
           {isIframeLoading && (
             <CircularProgress sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
           )}
@@ -110,7 +128,11 @@ export default function GameContent({ game }: { game: Game }) {
             }}
             title="Interactive CYOA"
             allowFullScreen
-            onLoad={() => setIsIframeLoading(false)}
+            onLoad={() => {
+              console.log('Iframe loaded successfully');
+              setIsIframeLoading(false);
+            }}
+            onError={handleIframeError} // Обработка ошибок
           />
           <Button
             onClick={toggleFullscreen}
@@ -122,7 +144,7 @@ export default function GameContent({ game }: { game: Game }) {
               backgroundColor: '#e8484e',
               color: 'white',
               '&:hover': {
-                backgroundColor: '#d73b41', // Темнее на hover
+                backgroundColor: '#d73b41',
               },
             }}
           >

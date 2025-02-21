@@ -34,11 +34,16 @@ export default function GameDetails() {
 
   useEffect(() => {
     (async () => {
-      const game = await gamesCollection.getOne(id as string, {
-        expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
-      });
-      setGame(game);
-      setLoading(false);
+      try {
+        const game = await gamesCollection.getOne(id as string, {
+          expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
+        });
+        setGame(game);
+        setLoading(false);
+      } catch (error) {
+        console.error('Ошибка при загрузке игры:', error);
+        setLoading(false);
+      }
     })();
   }, [id]);
 
@@ -105,13 +110,14 @@ export default function GameDetails() {
           </Grid2>
 
           <Grid2 size={{ xs: 12, md: 6 }}>
-            {game.expand?.tags?.length && game.expand.tags?.length > 0 && (
+          {game.expand?.tags?.length && game.expand.tags?.length > 0 && (
               <Box>
                 <TagDisplay
                   tags={game.expand.tags}
+                  gameId={id as string} // Добавляем gameId
                   chipProps={{
                     size: 'small',
-                    sx: chipSx, // Используем типизированный объект
+                    sx: chipSx,
                   }}
                 />
               </Box>

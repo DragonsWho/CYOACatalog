@@ -1,10 +1,10 @@
 // src/components/CyoaPage/GameDetails.tsx
-// v4.6
-// Используем SxProps для корректной типизации &:hover
+// v4.7
+// убрал SxProps 
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme, SxProps } from '@mui/material';
+import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import TagDisplay from './TagDisplay';
 import GameContent from './GameContent';
@@ -34,22 +34,20 @@ export default function GameDetails() {
 
   useEffect(() => {
     (async () => {
-      const game = await gamesCollection.getOne(id as string, {
-        expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
-      });
-      setGame(game);
-      setLoading(false);
+      try {
+        const game = await gamesCollection.getOne(id as string, {
+          expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
+        });
+        setGame(game);
+        setLoading(false);
+      } catch (error) {
+        console.error('Ошибка при загрузке игры:', error);
+        setLoading(false);
+      }
     })();
   }, [id]);
 
-  // Явная типизация для sx в chipProps
-  const chipSx: SxProps<Theme> = {
-    backgroundColor: theme.palette.grey[800],
-    color: theme.palette.text.primary,
-    '&:hover': {
-      backgroundColor: theme.palette.grey[700],
-    },
-  };
+  
 
   if (loading) return <CircularProgress />;
   if (!game) return <Typography>Game not found</Typography>;
@@ -105,14 +103,11 @@ export default function GameDetails() {
           </Grid2>
 
           <Grid2 size={{ xs: 12, md: 6 }}>
-            {game.expand?.tags?.length && game.expand.tags?.length > 0 && (
+          {game.expand?.tags?.length && game.expand.tags?.length > 0 && (
               <Box>
                 <TagDisplay
                   tags={game.expand.tags}
-                  chipProps={{
-                    size: 'small',
-                    sx: chipSx, // Используем типизированный объект
-                  }}
+                  gameId={id as string} // Добавляем gameId
                 />
               </Box>
             )}

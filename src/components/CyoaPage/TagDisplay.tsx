@@ -1,11 +1,11 @@
 // src/components/CyoaPage/TagDisplay.tsx
-// v2.2
-// Converted to TypeScript
+// v2.3
+// tag upvotes
 
-import React from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Box, Chip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Tag } from '../../pocketbase/pocketbase';
+import { Tag, GameTagVote, AuthContext, gameTagVotesCollection } from '../../pocketbase/pocketbase';
 
 const CATEGORY_ORDER = [
   'Rating',
@@ -29,24 +29,39 @@ const CHIP_HEIGHT = '24px';
 const CHIP_FONT_SIZE = '0.8125rem';
 const CHIP_PADDING = '0 8px';
 const CHIP_BORDER_RADIUS = '4px';
-const GAP = 0.75; // Gap between chips
+const GAP = 0.75;
 const CATEGORY_FONT_WEIGHT = '500';
-const SECTION_GAP = 0.5; // Gap between sections
+const SECTION_GAP = 0.5;
 
 export default function TagDisplay({
   tags,
-  chipProps = {},
+  gameId, // Добавляем ID игры
 }: {
   tags: Tag[];
-  chipProps?: { size?: 'small' | 'medium'; sx?: React.CSSProperties };
+  gameId: string; // Новый пропс
 }) {
   const theme = useTheme();
+  const { user } = useContext(AuthContext);
+  const [tagVotes, setTagVotes] = useState<Record<string, GameTagVote>>({});
+
+  useEffect(() => {
+    const loadVotes = async () => {
+      const votes = await gameTagVotesCollection.getFullList({
+        filter: `gameId = "${gameId}"`,
+      });
+      const voteMap: Record<string, GameTagVote> = {};
+      votes.forEach((vote) => {
+        voteMap[vote.tagId] = vote;
+      });
+      setTagVotes(voteMap);
+    };
+    loadVotes();
+  }, [gameId]);
 
   if (!tags || tags.length === 0) {
     return null;
   }
 
-  // Group tags by their category
   const groupedTags = tags.reduce<Record<string, Tag[]>>((acc, tag) => {
     const categoryName = tag.expand?.tag_categories_via_tags?.[0].name ?? 'Uncategorized';
     if (!acc[categoryName]) acc[categoryName] = [];
@@ -54,7 +69,6 @@ export default function TagDisplay({
     return acc;
   }, {});
 
-  // Sort categories based on CATEGORY_ORDER
   const sortedCategories = Object.keys(groupedTags).sort((a, b) => {
     const indexA = CATEGORY_ORDER.indexOf(a);
     const indexB = CATEGORY_ORDER.indexOf(b);
@@ -63,6 +77,105 @@ export default function TagDisplay({
     if (indexB === -1) return -1;
     return indexA - indexB;
   });
+
+  const handleTagClick = async (tag: Tag) => {
+    if (!user) return;
+    if ((tagVotes[tag.id]?.votes || 0) <= -50) return;
+
+    const userId = user.id;
+    const vote = tagVotes[tag.id] || {
+      gameId,
+      tagId: tag.id,
+      votes: 0,
+      upVoters: [],
+      downVoters: [],
+    };
+    let newVote = 0;
+
+    if (vote.upVoters.includes(userId)) newVote = -1; // Был за, станет против
+    else if (vote.downVoters.includes(userId)) newVote = 0; // Был против, станет нейтрально
+    else newVote = 1; // Нейтрально, станет за
+
+    const updatedVote = { ...vote };
+    if (newVote === 1) {
+      updatedVote.upVoters = [...(vote.upVoters || []), userId];
+      updatedVote.downVoters = (vote.downVoters || []).filter((id) => id !== userId);
+    } else if (newVote === -1) {
+      updatedVote.downVoters = [...(vote.downVoters || []), userId];
+      updatedVote.upVoters = (vote.upVoters || []).filter((id) => id !== userId);
+    } else {
+      updatedVote.upVoters = (vote.upVoters || []).filter((id) => id !== userId);
+      updatedVote.downVoters = (vote.downVoters || []).filter((id) => id !== userId);
+    }
+    updatedVote.votes = (updatedVote.upVoters || []).length - (updatedVote.downVoters || []).length;
+
+    setTagVotes((prev) => ({
+      ...prev,
+      [tag.id]: updatedVote,
+    }));
+
+    setTimeout(async () => {
+      try {
+        if (vote.id) {
+          await gameTagVotesCollection.update(vote.id, {
+            votes: updatedVote.votes,
+            upVoters: updatedVote.upVoters,
+            downVoters: updatedVote.downVoters,
+          });
+        } else {
+          await gameTagVotesCollection.create({
+            gameId,
+            tagId: tag.id,
+            votes: updatedVote.votes,
+            upVoters: updatedVote.upVoters,
+            downVoters: updatedVote.downVoters,
+          });
+        }
+      } catch (error) {
+        console.error('Ошибка при голосовании:', error);
+        setTagVotes((prev) => {
+          const newVotes = { ...prev };
+          delete newVotes[tag.id];
+          return newVotes;
+        });
+      }
+    }, 2000);
+  };
+
+  const getTagStyle = (tag: Tag) => {
+    const vote = tagVotes[tag.id] || { votes: 0, upVoters: [], downVoters: [] };
+    const votes = vote.votes || 0;
+    const userVote = vote.upVoters?.includes(user?.id || '') ? 1 : vote.downVoters?.includes(user?.id || '') ? -1 : 0;
+
+    let style: React.CSSProperties = {
+      height: CHIP_HEIGHT,
+      borderRadius: CHIP_BORDER_RADIUS,
+      backgroundColor: theme.palette.grey[800],
+      color: theme.palette.text.primary,
+      cursor: user ? 'pointer' : 'default',
+    };
+
+    if (userVote === 1) style.color = 'green';
+    else if (userVote === -1) style.color = 'red';
+
+    if (votes >= 50) style.boxShadow = '0 0 5px rgba(255, 215, 0, 0.8)';
+    else if (votes >= 20) style.fontWeight = 'bold';
+    else if (votes <= -20) {
+      style.fontSize = '0.7em';
+      style.opacity = 0.7;
+    }
+
+    return {
+      ...style,
+      '& .MuiChip-label': {
+        fontSize: CHIP_FONT_SIZE,
+        padding: CHIP_PADDING,
+      },
+      '&:hover': {
+        backgroundColor: theme.palette.grey[700],
+      },
+    };
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
@@ -81,23 +194,18 @@ export default function TagDisplay({
           >
             {category}:
           </Typography>
-          {groupedTags[category].map((tag) => (
-            <Chip
-              key={tag.id}
-              label={tag.name}
-              size="small"
-              sx={{
-                height: CHIP_HEIGHT,
-                borderRadius: CHIP_BORDER_RADIUS,
-                '& .MuiChip-label': {
-                  fontSize: CHIP_FONT_SIZE,
-                  padding: CHIP_PADDING,
-                },
-                ...chipProps.sx,
-              }}
-              {...chipProps}
-            />
-          ))}
+          {groupedTags[category].map((tag) => {
+            if ((tagVotes[tag.id]?.votes || 0) <= -50) return null;
+            return (
+              <Chip
+                key={tag.id}
+                label={tag.name}
+                size="small"
+                onClick={() => handleTagClick(tag)}
+                sx={getTagStyle(tag)}
+              />
+            );
+          })}
         </Box>
       ))}
     </Box>

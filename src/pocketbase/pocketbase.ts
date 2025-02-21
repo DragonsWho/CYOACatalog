@@ -32,6 +32,16 @@ export type Tag = RecordModel & {
   };
 };
 
+export type GameTagVote = RecordModel & {
+  gameId: string;
+  tagId: string;
+  votes: number;
+  upVoters: string[]; 
+  downVoters: string[];  
+};
+
+export const gameTagVotesCollection = pb.collection('game_tag_votes') as RecordService<GameTagVote>;
+
 export const tagsCollection = pb.collection('tags') as RecordService<Tag>;
 
 export type TagCategory = RecordModel & {

@@ -1,10 +1,10 @@
 // src/components/CyoaPage/GameDetails.tsx
-// v4.4
-// Убедимся, что компонент самодостаточен и не требует пропсов
+// v4.6
+// Используем SxProps для корректной типизации &:hover
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme } from '@mui/material';
+import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme, SxProps } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import TagDisplay from './TagDisplay';
 import GameContent from './GameContent';
@@ -41,6 +41,15 @@ export default function GameDetails() {
       setLoading(false);
     })();
   }, [id]);
+
+  // Явная типизация для sx в chipProps
+  const chipSx: SxProps<Theme> = {
+    backgroundColor: theme.palette.grey[800],
+    color: theme.palette.text.primary,
+    '&:hover': {
+      backgroundColor: theme.palette.grey[700],
+    },
+  };
 
   if (loading) return <CircularProgress />;
   if (!game) return <Typography>Game not found</Typography>;
@@ -102,13 +111,7 @@ export default function GameDetails() {
                   tags={game.expand.tags}
                   chipProps={{
                     size: 'small',
-                    sx: {
-                      backgroundColor: theme.palette.grey[800],
-                      color: theme.palette.text.primary,
-                      '&:hover': {
-                        backgroundColor: theme.palette.grey[700],
-                      },
-                    },
+                    sx: chipSx, // Используем типизированный объект
                   }}
                 />
               </Box>

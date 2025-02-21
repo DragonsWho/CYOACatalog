@@ -1,137 +1,149 @@
-// src/components/CyoaPage/GameContent.tsx
-// v2.8
-// Исправлен синтаксис sx для &:hover
+// src/components/CyoaPage/GameDetails.tsx
+// v4.6
+// Используем SxProps для корректной типизации &:hover
 
-import React, { useState, useRef } from 'react';
-import { Box, Button, CircularProgress } from '@mui/material';
-import { Game } from '../../pocketbase/pocketbase';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme, SxProps } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import TagDisplay from './TagDisplay';
+import GameContent from './GameContent';
+import SimpleComments from './SimpleComments';
+import GameAdditionalInfo from './GameAdditionalInfo';
+import { Game, gamesCollection } from '../../pocketbase/pocketbase';
+import DOMPurify from 'dompurify';
 
-interface ImageSizes {
-  [key: number]: {
-    width: number;
-    height: number;
+interface CustomTheme extends Theme {
+  custom?: {
+    borderRadius?: string;
+    boxShadow?: string;
+    comments?: {
+      backgroundColor?: string;
+      borderRadius?: string;
+    };
   };
 }
 
-export default function GameContent({ game }: { game: Game }) {
-  const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({});
-  const [imageSizes, setImageSizes] = useState<ImageSizes>({});
-  const [loadingImages, setLoadingImages] = useState(game.cyoa_pages.length || 0);
-  const [isIframeLoading, setIsIframeLoading] = useState(true);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+export default function GameDetails() {
+  const [game, setGame] = useState<Game | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [expanded, setExpanded] = useState<boolean>(false);
+  const { id } = useParams<{ id: string }>();
+  const theme = useTheme<CustomTheme>();
+  const sanitizedDescription = useMemo(() => (game ? DOMPurify.sanitize(game.description) : ''), [game]);
 
-  // Обработка загрузки изображений
-  function handleImageLoad(id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) {
-    setLoadingImages((prev) => prev - 1);
-    setImageSizes((prev) => ({
-      ...prev,
-      [id]: {
-        width: (event.target as HTMLImageElement).naturalWidth,
-        height: (event.target as HTMLImageElement).naturalHeight,
-      },
-    }));
-  }
-
-  function handleImageError(id: number) {
-    setImageErrors((prev) => ({ ...prev, [id]: true }));
-    setLoadingImages((prev) => prev - 1);
-  }
-
-  // Переключение в полноэкранный режим
-  const toggleFullscreen = () => {
-    if (!iframeRef.current) return;
-
-    if (!document.fullscreenElement) {
-      iframeRef.current.requestFullscreen().catch((err) => {
-        console.error(`Ошибка при переходе в полноэкранный режим: ${err.message}`);
+  useEffect(() => {
+    (async () => {
+      const game = await gamesCollection.getOne(id as string, {
+        expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
       });
-    } else {
-      document.exitFullscreen();
-    }
+      setGame(game);
+      setLoading(false);
+    })();
+  }, [id]);
+
+  // Явная типизация для sx в chipProps
+  const chipSx: SxProps<Theme> = {
+    backgroundColor: theme.palette.grey[800],
+    color: theme.palette.text.primary,
+    '&:hover': {
+      backgroundColor: theme.palette.grey[700],
+    },
   };
 
+  if (loading) return <CircularProgress />;
+  if (!game) return <Typography>Game not found</Typography>;
+
   return (
-    <Box sx={{ backgroundColor: '#121212', position: 'relative' }}>
-      {game.img_or_link === 'img' && game.cyoa_pages.length ? (
+    <Container maxWidth="lg" disableGutters>
+      <Paper
+        elevation={3}
+        sx={{
+          p: 2,
+          mb: 0,
+          bgcolor: theme.palette.background.paper,
+          color: theme.palette.common.white,
+        }}
+      >
         <Box
           sx={{
+            mb: 1,
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '1rem',
-            transition: 'all 0.3s ease',
+            justifyContent: 'center',
+            alignItems: 'flex-end',
           }}
         >
-          {loadingImages > 0 && <CircularProgress />}
-          {game.cyoa_pages.map((image, index) => (
-            <Box
-              key={index}
-              sx={{
-                width: '100%',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                backgroundColor: '#121212',
-                transition: 'all 0.3s ease',
-              }}
-            >
-              {!imageErrors[index] && (
-                <img
-                  src={`/api/files/games/${game.id}/${image}`}
-                  alt={`Game content ${index + 1}`}
-                  style={{
-                    maxWidth: '100%',
-                    width: imageSizes[index]?.width > window.innerWidth ? '100%' : 'auto',
-                    height: 'auto',
-                    display: loadingImages > 0 ? 'none' : 'block',
-                    transition: 'all 0.3s ease',
-                  }}
-                  onLoad={(event) => handleImageLoad(index, event)}
-                  onError={() => handleImageError(index)}
-                />
-              )}
-              {imageErrors[index] && <div style={{ color: 'red' }}>Failed to load image {index + 1}</div>}
-            </Box>
-          ))}
-        </Box>
-      ) : game.img_or_link === 'link' && game.iframe_url ? (
-        <Box sx={{ position: 'relative', width: '100%', height: '500px' }}>
-          {isIframeLoading && (
-            <CircularProgress sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+          <Typography variant="h4" component="h1" sx={{ mr: 1, color: theme.palette.text.primary }}>
+            {game.title || 'Untitled Game'}
+          </Typography>
+          {game.expand?.authors_via_games?.length && game.expand.authors_via_games?.length > 0 && (
+            <Typography variant="subtitle1" sx={{ mb: '0.05em', color: theme.palette.text.primary }}>
+              by {game.expand.authors_via_games.map((author) => author.name).join(', ')}
+            </Typography>
           )}
-          <iframe
-            ref={iframeRef}
-            src={game.iframe_url}
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              display: isIframeLoading ? 'none' : 'block',
-            }}
-            title="Interactive CYOA"
-            allowFullScreen
-            onLoad={() => setIsIframeLoading(false)}
-          />
-          <Button
-            onClick={toggleFullscreen}
-            sx={{
-              position: 'absolute',
-              bottom: '10px',
-              right: '10px',
-              zIndex: 10,
-              backgroundColor: '#e8484e',
-              color: 'white',
-              '&:hover': {  // Исправленный синтаксис для псевдокласса
-                backgroundColor: '#d73b41',
-              },
-            }}
-          >
-            {document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen'}
-          </Button>
         </Box>
-      ) : (
-        <div>No game content available</div>
-      )}
-    </Box>
+
+        <Grid2 container spacing={3}>
+          <Grid2 size={{ xs: 12, md: 6 }}>
+            {game.image && (
+              <Box
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <img
+                  src={`/api/files/games/${game.id}/${game.image}`}
+                  alt={game.title}
+                  style={{ maxWidth: '60%', height: 'auto', objectFit: 'contain' }}
+                />
+              </Box>
+            )}
+          </Grid2>
+
+          <Grid2 size={{ xs: 12, md: 6 }}>
+            {game.expand?.tags?.length && game.expand.tags?.length > 0 && (
+              <Box>
+                <TagDisplay
+                  tags={game.expand.tags}
+                  chipProps={{
+                    size: 'small',
+                    sx: chipSx, // Используем типизированный объект
+                  }}
+                />
+              </Box>
+            )}
+
+            <GameAdditionalInfo
+              gameId={id as string}
+              upvotes={game.upvotes}
+              expanded={expanded}
+              onExpand={() => setExpanded(!expanded)}
+            />
+          </Grid2>
+        </Grid2>
+
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="h6" gutterBottom textAlign="center" sx={{ color: theme.palette.text.primary }}>
+            Description
+          </Typography>
+          <div
+            style={{ paddingLeft: 12, paddingRight: 12, color: theme.palette.text.primary }}
+            dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
+          />
+        </Box>
+      </Paper>
+
+      <Box sx={{ mb: 3, mt: 3 }}>
+        <GameContent game={game} />
+      </Box>
+
+      <Box sx={{}}>
+        <SimpleComments game={game} />
+      </Box>
+    </Container>
   );
 }

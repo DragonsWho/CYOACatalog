@@ -41,16 +41,16 @@ export default function TagChip({ tag, vote, isUpdating, user, onClick }: TagChi
     };
 
     // Применяем стили на основе голосов для всех пользователей
-    if (votes >= 50 && votes !== PROPOSED_TAG_VOTE_VALUE) {
+    if (votes >= 30 && votes !== PROPOSED_TAG_VOTE_VALUE) {
       style.fontWeight = 'bold';
       style.fontSize = '0.875rem';
       style.letterSpacing = '0.02em';
       style.color = '#ffec85'; // Золотой цвет текста
       style.backgroundColor = 'rgba(72, 72, 72, 1)';
-    } else if (votes >= 1 && votes !== PROPOSED_TAG_VOTE_VALUE) {
+    } else if (votes >= 10 && votes !== PROPOSED_TAG_VOTE_VALUE) {
       style.fontWeight = 'bold';
       style.color = '#ffffff'; // Делаем более заметным
-    } else if (votes <= -1 && votes > HIDDEN_TAG_THRESHOLD && votes !== PROPOSED_TAG_VOTE_VALUE) {
+    } else if (votes <= -10 && votes > HIDDEN_TAG_THRESHOLD && votes !== PROPOSED_TAG_VOTE_VALUE) {
       style.opacity = 0.7;
       style.color = theme.palette.text.secondary; // Приглушенный цвет
     }

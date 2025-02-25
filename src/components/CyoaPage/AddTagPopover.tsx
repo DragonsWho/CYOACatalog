@@ -60,9 +60,7 @@ const AddTagPopover: React.FC<AddTagPopoverProps> = ({
         }
       }}
     >
-      <Typography variant="subtitle2" sx={{ mb: 1, color: theme.palette.grey[400] }}>
-        Доступные теги для {currentCategory}:
-      </Typography>
+ 
       
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
         {availableTags.length > 0 ? (
@@ -97,12 +95,7 @@ const AddTagPopover: React.FC<AddTagPopoverProps> = ({
         )}
       </Box>
       
-      <Divider sx={{ my: 1.5, borderColor: theme.palette.grey[800] }} />
-      
-      <Typography variant="body2" sx={{ color: theme.palette.info.light, fontSize: '0.8rem' }}>
-        Когда вы предлагаете тег, он будет виден только вам до тех пор, пока {ACTIVATION_THRESHOLD} пользователей 
-        не предложат его. После этого тег станет доступен для всех с начальным рейтингом {INITIAL_ACTIVE_VOTE}.
-      </Typography>
+ 
     </Popover>
   );
 };

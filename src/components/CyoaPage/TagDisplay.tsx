@@ -271,7 +271,7 @@ export default function TagDisplay({
     const userId = user.id;
     const currentVote = tagVotes[tag.id];
     
-    // Если тег предложен и текущий пользователь голосовал за него
+    // Обработка голосов за предложенные теги
     if (currentVote && currentVote.votes === PROPOSED_TAG_VOTE_VALUE && currentVote.upVoters?.includes(userId)) {
       setIsUpdating(prev => ({
         ...prev,
@@ -285,7 +285,7 @@ export default function TagDisplay({
         // Удаляем текущего пользователя из списка
         const updatedUpVoters = upVoters.filter(id => id !== userId);
         
-        // Обновляем запись, даже если список пустой
+        // Обновляем запись, никогда не удаляем
         if (currentVote.id) {
           const updatedVote = await gameTagVotesCollection.update(currentVote.id, {
             upVoters: updatedUpVoters
@@ -339,45 +339,40 @@ export default function TagDisplay({
     
     try {
       if (currentVote?.id) {
-        if (newUserVoteStatus === 0) {
-          await gameTagVotesCollection.delete(currentVote.id);
-          setTagVotes(prev => {
-            const newState = { ...prev };
-            delete newState[tag.id];
-            return newState;
-          });
-        } else {
-          const upVoters = [...(currentVote.upVoters || [])];
-          const downVoters = [...(currentVote.downVoters || [])];
-          const filteredUpVoters = upVoters.filter(id => id !== userId);
-          const filteredDownVoters = downVoters.filter(id => id !== userId);
-          
-          if (newUserVoteStatus === 1) {
-            filteredUpVoters.push(userId);
-          } else if (newUserVoteStatus === -1) {
-            filteredDownVoters.push(userId);
-          }
-          
-          const newVote = {
-            ...currentVote,
-            votes: filteredUpVoters.length - filteredDownVoters.length,
-            upVoters: filteredUpVoters,
-            downVoters: filteredDownVoters
-          };
-          
-          setTagVotes(prev => ({
-            ...prev,
-            [tag.id]: newVote
-          }));
-          
-          await gameTagVotesCollection.update(currentVote.id, {
-            votes: newVote.votes,
-            upVoters: newVote.upVoters,
-            downVoters: newVote.downVoters
-          });
+        const upVoters = [...(currentVote.upVoters || [])];
+        const downVoters = [...(currentVote.downVoters || [])];
+        const filteredUpVoters = upVoters.filter(id => id !== userId);
+        const filteredDownVoters = downVoters.filter(id => id !== userId);
+        
+        if (newUserVoteStatus === 1) {
+          filteredUpVoters.push(userId);
+        } else if (newUserVoteStatus === -1) {
+          filteredDownVoters.push(userId);
         }
+        // Если newUserVoteStatus === 0, то пользователь отменяет свой голос,
+        // но мы не удаляем запись, а только удаляем его из списков голосующих
+        
+        const newVotes = filteredUpVoters.length - filteredDownVoters.length;
+        
+        const newVote = {
+          ...currentVote,
+          votes: newVotes,
+          upVoters: filteredUpVoters,
+          downVoters: filteredDownVoters
+        };
+        
+        setTagVotes(prev => ({
+          ...prev,
+          [tag.id]: newVote
+        }));
+        
+        await gameTagVotesCollection.update(currentVote.id, {
+          votes: newVotes,
+          upVoters: filteredUpVoters,
+          downVoters: filteredDownVoters
+        });
       } else if (newUserVoteStatus !== 0) {
-        // Use Partial<GameTagVote> to fix the TypeScript error
+        // Создание новой записи (это не удаление, так что оставляем как есть)
         const newVote: Partial<GameTagVote> = {
           gameId,
           tagId: tag.id,
@@ -386,10 +381,8 @@ export default function TagDisplay({
           downVoters: newUserVoteStatus === -1 ? [userId] : []
         };
         
-        // Create the vote and get the created record with id
         const createdVote = await gameTagVotesCollection.create(newVote);
         
-        // Update the state with the complete vote record
         setTagVotes(prev => ({
           ...prev,
           [tag.id]: createdVote as GameTagVote
@@ -401,8 +394,6 @@ export default function TagDisplay({
         const newState = { ...prev };
         if (currentVote) {
           newState[tag.id] = currentVote;
-        } else {
-          delete newState[tag.id];
         }
         return newState;
       });

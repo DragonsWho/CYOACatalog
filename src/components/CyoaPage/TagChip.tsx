@@ -36,9 +36,9 @@ export default function TagChip({ tag, vote, isUpdating, user, onClick }: TagChi
 
     // Если пользователь предложил тег или проголосовал за него, показываем как выбранный (зеленый)
     if (isUserVoted || (votes === PROPOSED_TAG_VOTE_VALUE && isUserVoted)) {
-      style.color = 'green';
+      style.color = '#67ad5b';
     } else if (isUserDownVoted) {
-      style.color = 'red';
+      style.color = '#c02c1f';
     }
 
     // Остальные стили на основе количества голосов (для обычных тегов)

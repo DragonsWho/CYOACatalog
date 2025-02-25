@@ -31,38 +31,19 @@ export default function TagCategory({
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: GAP }}>
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-        <Typography
-          variant="subtitle2"
-          sx={{
-            fontWeight: CATEGORY_FONT_WEIGHT,
-            display: 'inline-flex',
-            alignItems: 'center',
-            mr: 1,
-            minWidth: 'max-content',
-            color: theme.palette.text.primary,
-          }}
-        >
-          {category}:
-        </Typography>
-        {user && (
-          <IconButton 
-            size="small" 
-            onClick={(e) => onAddTagClick(e, category)}
-            sx={{ 
-              ml: 0.5, 
-              color: theme.palette.grey[500],
-              padding: '2px',
-              '&:hover': {
-                backgroundColor: theme.palette.grey[800],
-                color: theme.palette.grey[300],
-              }
-            }}
-          >
-            <AddIcon fontSize="small" />
-          </IconButton>
-        )}
-      </Box>
+      <Typography
+        variant="subtitle2"
+        sx={{
+          fontWeight: CATEGORY_FONT_WEIGHT,
+          display: 'inline-flex',
+          alignItems: 'center',
+          mr: 1,
+          minWidth: 'max-content',
+          color: theme.palette.text.primary,
+        }}
+      >
+        {category}:
+      </Typography>
       
       {tags.map((tag) => (
         <TagChip
@@ -74,6 +55,36 @@ export default function TagCategory({
           onClick={() => onTagClick(tag)}
         />
       ))}
+      
+      {user && (
+        <IconButton 
+          size="small" 
+          onClick={(e) => onAddTagClick(e, category)}
+          sx={{ 
+            color: theme.palette.mode === 'dark' 
+              ? theme.palette.grey[700]  // Более темный оттенок для темной темы
+              : theme.palette.grey[400], // Более светлый оттенок для светлой темы
+            padding: '2px',
+            opacity: 0.25,              // Уменьшаем непрозрачность для дополнительного снижения заметности
+            '&:hover': {
+              backgroundColor: theme.palette.mode === 'dark'
+                ? theme.palette.grey[800]
+                : theme.palette.grey[200],
+              color: theme.palette.mode === 'dark'
+                ? theme.palette.grey[500]  // Светлее при наведении, но не слишком
+                : theme.palette.grey[600], // Темнее при наведении для светлой темы
+              opacity: 1,                  // Увеличиваем непрозрачность при наведении
+            }
+          }}
+          aria-label={`Добавить тег в категорию ${category}`}
+        >
+          <AddIcon 
+            sx={{ 
+              fontSize: '1rem' // Меньший размер иконки
+            }} 
+          />
+        </IconButton>
+      )}
     </Box>
   );
 }

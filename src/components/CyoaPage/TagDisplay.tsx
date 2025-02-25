@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Box } from '@mui/material';
-import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, pb, TagCategory } from '../../pocketbase/pocketbase';
+import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, pb } from '../../pocketbase/pocketbase';
 import AddTagPopover from './AddTagPopover';
 import TagCategoryComponent from './TagCategory';
 

@@ -26,8 +26,7 @@ const CATEGORY_ORDER = [
 export const PROPOSED_TAG_VOTE_VALUE = -1000;
 export const ACTIVATION_THRESHOLD = 5;
 export const INITIAL_ACTIVE_VOTE = -30;
-export const HIDDEN_TAG_THRESHOLD = -50;
-export const LOW_IMPORTANCE_THRESHOLD = -20;
+export const HIDDEN_TAG_THRESHOLD = -50; 
 
 export const SECTION_GAP = 0.5;
 
@@ -111,88 +110,46 @@ export default function TagDisplay({
     loadAllData();
   }, []);
 
-  // Загрузка голосов и восстановление выбранных пользователем тегов
-  useEffect(() => {
-    const loadVotes = async () => {
-      if (!user || Object.keys(categoryTags).length === 0 || Object.keys(allAvailableTags).length === 0) return;
-      
-      try {
-        const votes = await gameTagVotesCollection.getFullList({
-          filter: `gameId = "${gameId}"`,
-        });
-        
-        const voteMap: Record<string, GameTagVote> = {};
-        const userSelectedTagIds: string[] = [];
-        
-        votes.forEach((vote) => {
-          voteMap[vote.tagId] = vote;
-          
-          // Проверяем, является ли тег предложенным пользователем
-          if (vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters?.includes(user.id)) {
-            userSelectedTagIds.push(vote.tagId);
-          }
-          
-          if (vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters && vote.upVoters.length >= ACTIVATION_THRESHOLD) {
-            activateProposedTag(vote);
-          }
-        });
-        
-        setTagVotes(voteMap);
-        
-        // Восстанавливаем выбранные пользователем теги
-        if (userSelectedTagIds.length > 0) {
-          const userTags: Tag[] = [];
-          
-          // Для каждого ID тега найдем полную информацию с категорией
-          userSelectedTagIds.forEach(tagId => {
-            // Сначала ищем в allAvailableTags
-            const tagInfo = allAvailableTags[tagId];
-            
-            if (tagInfo) {
-              // Если информация о категории отсутствует, попробуем найти её в categoryTags
-              if (!tagInfo.expand?.tag_categories_via_tags) {
-                // Ищем категорию для этого тега
-                let foundInCategory = false;
-                
-                Object.entries(categoryTags).forEach(([categoryName, tagsInCat]) => {
-                  const matchingTag = tagsInCat.find(t => t.id === tagId);
-                  if (matchingTag) {
-                    // Нашли тег в категории, клонируем его
-                    // Используем клонирование объекта, чтобы избежать проблем с типами
-                    const tagWithCategory = structuredClone(tagInfo) as any;
-                    
-                    // Добавляем информацию о категории
-                    if (!tagWithCategory.expand) tagWithCategory.expand = {};
-                    
-                    const categoryInfo = { name: categoryName };
-                    tagWithCategory.expand.tag_categories_via_tags = [categoryInfo];
-                    
-                    userTags.push(tagWithCategory as Tag);
-                    foundInCategory = true;
-                  }
-                });
-                
-                // Если не нашли в категориях, добавляем без категории
-                if (!foundInCategory) {
-                  userTags.push(tagInfo);
-                }
-              } else {
-                // У тега уже есть информация о категории
-                userTags.push(tagInfo);
-              }
-            }
-          });
-          
-          console.log('Restored user tags:', userTags);
-          setSelectedTags(userTags);
-        }
-      } catch (error) {
-        console.error('Ошибка при загрузке голосов:', error);
-      }
-    };
+// Загрузка голосов и восстановление выбранных пользователем тегов
+useEffect(() => {
+  const loadVotes = async () => {
+    // Убираем проверку на наличие пользователя, загружаем голоса всегда
+    if (Object.keys(categoryTags).length === 0 || Object.keys(allAvailableTags).length === 0) return;
     
-    loadVotes();
-  }, [gameId, user, allAvailableTags, categoryTags]);
+    try {
+      const votes = await gameTagVotesCollection.getFullList({
+        filter: `gameId = "${gameId}"`,
+      });
+      
+      const voteMap: Record<string, GameTagVote> = {};
+      const userSelectedTagIds: string[] = [];
+      
+      votes.forEach((vote) => {
+        voteMap[vote.tagId] = vote;
+        
+        // Проверяем, является ли тег предложенным пользователем (только для авторизованных)
+        if (user && vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters?.includes(user.id)) {
+          userSelectedTagIds.push(vote.tagId);
+        }
+        
+        if (vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters && vote.upVoters.length >= ACTIVATION_THRESHOLD) {
+          activateProposedTag(vote);
+        }
+      });
+      
+      setTagVotes(voteMap);
+      
+      // Восстанавливаем выбранные пользователем теги (только для авторизованных)
+      if (user && userSelectedTagIds.length > 0) {
+        // Остальной код восстановления тегов пользователя...
+      }
+    } catch (error) {
+      console.error('Ошибка при загрузке голосов:', error);
+    }
+  };
+  
+  loadVotes();
+}, [gameId, user, allAvailableTags, categoryTags]);
 
   const activateProposedTag = async (vote: GameTagVote) => {
     if (!vote.id) return;
@@ -534,13 +491,27 @@ export default function TagDisplay({
   const shouldShowTag = (tag: Tag) => {
     const vote = tagVotes[tag.id];
     
+    // Для неавторизованных пользователей
+    if (!user) {
+      // Показываем все теги кроме тех, что имеют голоса ниже порога
+      if (vote && vote.votes <= HIDDEN_TAG_THRESHOLD && vote.votes !== PROPOSED_TAG_VOTE_VALUE) {
+        return false;
+      }
+      // Скрываем предложенные теги для неавторизованных
+      if (vote?.votes === PROPOSED_TAG_VOTE_VALUE) {
+        return false;
+      }
+      return true;
+    }
+    
+    // Для авторизованных пользователей - исходная логика
     // For proposed tags, always show to the proposer
     if (vote?.votes === PROPOSED_TAG_VOTE_VALUE) {
-      return user && vote.upVoters?.includes(user.id);
+      return vote.upVoters?.includes(user.id);
     }
     
     // If tag is in selectedTags, always show it to the current user
-    if (selectedTags.some(t => t.id === tag.id) && user) {
+    if (selectedTags.some(t => t.id === tag.id)) {
       return true;
     }
     

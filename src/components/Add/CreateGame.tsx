@@ -1,6 +1,5 @@
 // src/components/Add/CreateGame.tsx
-// Version 2.2.2
-// Updated to fix linting error with AxiosError and improve error handling
+// Updated version to include CustomTagSelector
 
 import { useState, useEffect, ChangeEvent, FormEvent, useContext } from 'react';
 import {
@@ -15,18 +14,22 @@ import {
   FormControl,
   Alert,
   SelectChangeEvent,
+  Divider,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import AuthorSelector from './AuthorSelector';
 import TagSelector from './TagSelector';
+import CustomTagSelector from './CustomTagSelector'; // Import our new component
 import CyoaImageUploader from './CyoaImageUploader';
 import ImageCompressor from './ImageCompressor';
 import {
   AuthContext,
   Author,
+  Tag, // Make sure Tag is exported from pocketbase.ts
   authorsCollection,
   gamesCollection,
   tagCategoriesCollection,
+  tagsCollection, // Make sure this is exported
   TagCategory,
 } from '../../pocketbase/pocketbase';
 import DOMPurify from 'dompurify';
@@ -43,6 +46,8 @@ export default function CreateGame() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTags, setCustomTags] = useState<Tag[]>([]);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [tagCategories, setTagCategories] = useState<TagCategory[]>([]);
   const [initialDataLoading, setInitialDataLoading] = useState<boolean>(true);
   const { user } = useContext(AuthContext);
@@ -54,13 +59,18 @@ export default function CreateGame() {
     setAvailableAuthors(authorsData);
   }
 
+  async function refreshTags() {
+    const tagsData = await tagsCollection.getFullList();
+    setAvailableTags(tagsData);
+  }
+
   async function refreshTagCategories() {
     const categoriesData = await tagCategoriesCollection.getFullList({ expand: 'tags' });
     setTagCategories(categoriesData);
   }
 
   useEffect(() => {
-    Promise.all([refreshAuthors(), refreshTagCategories()]).then(() => {
+    Promise.all([refreshAuthors(), refreshTagCategories(), refreshTags()]).then(() => {
       setInitialDataLoading(false);
     });
   }, []);
@@ -71,6 +81,18 @@ export default function CreateGame() {
 
   function handleCyoaImagesChange(newImages: File[]) {
     setCyoaImages(newImages);
+  }
+
+  function handleTagsChange(newSelectedTags: string[]) {
+    setSelectedTags(newSelectedTags);
+  }
+
+  function handleCustomTagsChange(newCustomTags: Tag[]) {
+    setCustomTags(newCustomTags);
+  }
+
+  function handleAvailableTagsChange(newAvailableTags: Tag[]) {
+    setAvailableTags(newAvailableTags);
   }
 
   function validateTags(): string[] {
@@ -132,7 +154,11 @@ export default function CreateGame() {
     formData.append('title', title);
     formData.append('description', descriptionData);
     formData.append('image', new Blob([cardImage], { type: cardImage.type }));
+    
+    // Add all selected tags and custom tags to the formData
     for (const tag of selectedTags) formData.append('tags', tag);
+    for (const customTag of customTags) formData.append('tags', customTag.id);
+    
     formData.append('img_or_link', imgOrLink);
     if (imgOrLink === 'link') formData.append('iframe_url', iframeUrl);
     if (imgOrLink === 'img') {
@@ -207,7 +233,21 @@ export default function CreateGame() {
 
       <Box sx={{ mt: 2 }}>
         <Typography variant="h6">Select Tags</Typography>
-        <TagSelector selectedTags={selectedTags} onTagsChange={setSelectedTags} />
+        <TagSelector selectedTags={selectedTags} onTagsChange={handleTagsChange} />
+      </Box>
+
+      <Box sx={{ mt: 3, mb: 2 }}>
+        <Divider />
+      </Box>
+
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="h6">Custom Tags</Typography>
+        <CustomTagSelector
+          value={customTags}
+          onChange={handleCustomTagsChange}
+          availableTags={availableTags}
+          onTagsChange={handleAvailableTagsChange}
+        />
       </Box>
 
       <Box sx={{ mt: 2 }}>

@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, pb } from '../../pocketbase/pocketbase';
 import AddTagPopover from './AddTagPopover';
 import TagCategoryComponent from './TagCategory';
+import CustomTagPopover from './CustomTagPopover';
 
 // Constants
 const CATEGORY_ORDER = [
@@ -21,6 +22,7 @@ const CATEGORY_ORDER = [
   'Visual Style',
   'Language',
   'Kinks',
+  'Custom', // Added Custom to the order instead of Uncategorized
 ];
 
 export const PROPOSED_TAG_VOTE_VALUE = -1000;
@@ -41,6 +43,7 @@ export default function TagDisplay({
   const [tagVotes, setTagVotes] = useState<Record<string, GameTagVote>>({});
   const [isUpdating, setIsUpdating] = useState<Record<string, boolean>>({});
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [customAnchorEl, setCustomAnchorEl] = useState<null | HTMLElement>(null); // New state for custom tag popover
   const [currentCategory, setCurrentCategory] = useState<string>('');
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [categoryTags, setCategoryTags] = useState<Record<string, Tag[]>>({});
@@ -150,7 +153,30 @@ useEffect(() => {
       
       // Восстанавливаем выбранные пользователем теги (только для авторизованных)
       if (user && userSelectedTagIds.length > 0) {
-        // Остальной код восстановления тегов пользователя...
+        // Находим теги в allAvailableTags по их идентификаторам
+        const selectedTagsToRestore = userSelectedTagIds
+          .map(tagId => allAvailableTags[tagId])
+          .filter(tag => tag); // Отфильтровываем undefined значения
+        
+        // Добавляем информацию о категории для каждого тега
+        const tagsWithCategories = selectedTagsToRestore.map(tag => {
+          // Создаем копию тега
+          const tagCopy = structuredClone(tag) as Tag;
+          
+          // Проверяем, существует ли структура expand и tag_categories_via_tags
+          if (!tagCopy.expand) tagCopy.expand = {};
+          
+          // Устанавливаем категорию 'Custom' по умолчанию, если другая не известна
+          if (!tagCopy.expand.tag_categories_via_tags) {
+            tagCopy.expand.tag_categories_via_tags = [{ name: 'Custom' }];
+          }
+          
+          return tagCopy;
+        });
+        
+        // Обновляем выбранные теги
+        setSelectedTags(tagsWithCategories);
+        console.log('Restored user tags:', tagsWithCategories);
       }
     } catch (error) {
       console.error('Ошибка при загрузке голосов:', error);
@@ -200,7 +226,8 @@ useEffect(() => {
 
   // Group tags by categories
   const groupedTags = tags.reduce<Record<string, Tag[]>>((acc, tag) => {
-    const categoryName = tag.expand?.tag_categories_via_tags?.[0]?.name ?? 'Uncategorized';
+    // Replace 'Uncategorized' with 'Custom' for uncategorized tags
+    const categoryName = tag.expand?.tag_categories_via_tags?.[0]?.name ?? 'Custom';
     if (!acc[categoryName]) acc[categoryName] = [];
     acc[categoryName].push(tag);
     return acc;
@@ -208,7 +235,8 @@ useEffect(() => {
 
   // Add the selected tags to their respective categories
   selectedTags.forEach(tag => {
-    const categoryName = tag.expand?.tag_categories_via_tags?.[0]?.name ?? 'Uncategorized';
+    // Replace 'Uncategorized' with 'Custom' for selected tags too
+    const categoryName = tag.expand?.tag_categories_via_tags?.[0]?.name ?? 'Custom';
     if (!groupedTags[categoryName]) groupedTags[categoryName] = [];
     // Check if the tag is already in the group before adding
     if (!groupedTags[categoryName].some(t => t.id === tag.id)) {
@@ -222,6 +250,11 @@ useEffect(() => {
       groupedTags[category] = [];
     }
   });
+
+  // Make sure 'Custom' category exists
+  if (!groupedTags['Custom']) {
+    groupedTags['Custom'] = [];
+  }
 
   // Sort categories
   const sortedCategories = Object.keys(groupedTags).sort((a, b) => {
@@ -377,27 +410,37 @@ useEffect(() => {
   };
 
   const handleAddTagClick = (event: React.MouseEvent<HTMLElement>, category: string) => {
-    setAnchorEl(event.currentTarget);
-    setCurrentCategory(category);
-    
-    // Filter available tags for the category
-    const existingTagIds = tags.map(tag => tag.id);
-    const selectedTagIds = selectedTags.map(tag => tag.id);
-    const existingProposedTagIds = Object.keys(tagVotes).filter(tagId => 
-      tagVotes[tagId].votes === PROPOSED_TAG_VOTE_VALUE && 
-      tagVotes[tagId].upVoters?.includes(user?.id || ''));
-    
-    const allExistingIds = [...existingTagIds, ...existingProposedTagIds, ...selectedTagIds];
-    
-    const availableCategoryTags = categoryTags[category]?.filter(
-      tag => !allExistingIds.includes(tag.id)
-    ) || [];
-    
-    setAvailableTags(availableCategoryTags);
+    if (category === 'Custom') {
+      // For Custom category, open the CustomTagPopover
+      setCustomAnchorEl(event.currentTarget);
+    } else {
+      // For other categories, open the regular AddTagPopover
+      setAnchorEl(event.currentTarget);
+      setCurrentCategory(category);
+      
+      // Filter available tags for the category
+      const existingTagIds = tags.map(tag => tag.id);
+      const selectedTagIds = selectedTags.map(tag => tag.id);
+      const existingProposedTagIds = Object.keys(tagVotes).filter(tagId => 
+        tagVotes[tagId].votes === PROPOSED_TAG_VOTE_VALUE && 
+        tagVotes[tagId].upVoters?.includes(user?.id || ''));
+      
+      const allExistingIds = [...existingTagIds, ...existingProposedTagIds, ...selectedTagIds];
+      
+      const availableCategoryTags = categoryTags[category]?.filter(
+        tag => !allExistingIds.includes(tag.id)
+      ) || [];
+      
+      setAvailableTags(availableCategoryTags);
+    }
   };
 
   const handleClosePopover = () => {
     setAnchorEl(null);
+  };
+
+  const handleCloseCustomPopover = () => {
+    setCustomAnchorEl(null);
   };
 
   const handleTagSelect = async (tag: Tag) => {
@@ -500,6 +543,115 @@ useEffect(() => {
     handleClosePopover();
   };
 
+  const handleCustomTagCreate = async (tagName: string) => {
+    if (!user || !tagName.trim()) return;
+    
+    try {
+      // Check if a tag with this name already exists
+      const normalizedTagName = tagName.trim();
+      const existingTag = Object.values(allAvailableTags).find(
+        tag => tag.name.toLowerCase() === normalizedTagName.toLowerCase()
+      );
+      
+      let tagToUse: Tag;
+      
+      if (existingTag) {
+        // If tag already exists, use the existing tag
+        tagToUse = existingTag;
+        console.log('Using existing tag:', existingTag);
+      } else {
+        // Step 1: Create a new tag in the tags collection
+        const newTagData = {
+          name: normalizedTagName,
+          description: "Custom user tag",
+          is_custom: true
+        };
+        
+        // Create the tag in the database
+        const createdTag = await pb.collection('tags').create(newTagData);
+        console.log('Created new tag:', createdTag);
+        
+        // Step 2: Create a tag with Custom category information
+        tagToUse = {
+          ...createdTag,
+          expand: {
+            tag_categories_via_tags: [{ name: 'Custom' }]
+          }
+        } as Tag;
+        
+        // Update allAvailableTags with the new tag
+        setAllAvailableTags(prev => ({
+          ...prev,
+          [createdTag.id]: tagToUse
+        }));
+      }
+      
+      // Step 3: Check if the tag is already associated with this game
+      let existingVote: GameTagVote | null = null;
+      
+      try {
+        existingVote = await gameTagVotesCollection.getFirstListItem(`gameId="${gameId}" && tagId="${tagToUse.id}"`);
+      } catch (error) {
+        console.log('No existing vote found for this tag');
+      }
+      
+      if (existingVote) {
+        // If vote exists, add user to upVoters if not already there
+        const upVoters = [...(existingVote.upVoters || [])];
+        if (!upVoters.includes(user.id)) {
+          upVoters.push(user.id);
+          
+          // Update the vote record
+          const updatedVote = await gameTagVotesCollection.update(existingVote.id, {
+            upVoters: upVoters
+          });
+          
+          // Check if threshold is reached
+          if (upVoters.length >= ACTIVATION_THRESHOLD) {
+            await activateProposedTag(updatedVote);
+          }
+          
+          // Update local state
+          setTagVotes(prev => ({
+            ...prev,
+            [tagToUse.id]: updatedVote
+          }));
+        }
+      } else {
+        // Create new vote record
+        const newVote: Partial<GameTagVote> = {
+          gameId,
+          tagId: tagToUse.id,
+          votes: PROPOSED_TAG_VOTE_VALUE,
+          upVoters: [user.id],
+          downVoters: []
+        };
+        
+        const createdVote = await gameTagVotesCollection.create(newVote);
+        
+        // Update local state
+        setTagVotes(prev => ({
+          ...prev,
+          [tagToUse.id]: createdVote as GameTagVote
+        }));
+      }
+      
+      // Add tag to selectedTags if not already there
+      setSelectedTags(prev => {
+        if (!prev.some(t => t.id === tagToUse.id)) {
+          return [...prev, tagToUse];
+        }
+        return prev;
+      });
+      
+    } catch (error) {
+      console.error('Error creating custom tag:', error);
+      // You might want to show an error notification to the user here
+    }
+    
+    handleCloseCustomPopover();
+  };
+
   const shouldShowTag = (tag: Tag) => {
     const vote = tagVotes[tag.id];
     
@@ -536,6 +688,7 @@ useEffect(() => {
   };
 
   const popoverOpen = Boolean(anchorEl);
+  const customPopoverOpen = Boolean(customAnchorEl);
 
   // Отладка для отслеживания структуры groupedTags
   useEffect(() => {
@@ -565,6 +718,7 @@ useEffect(() => {
         );
       })}
 
+      {/* Regular tag selection popover for standard categories */}
       <AddTagPopover 
         open={popoverOpen}
         anchorEl={anchorEl}
@@ -573,6 +727,16 @@ useEffect(() => {
         onClose={handleClosePopover}
         onTagSelect={handleTagSelect}
         isUpdating={isUpdating}
+      />
+      
+      {/* Custom tag input popover for the Custom category */}
+      <CustomTagPopover
+        open={customPopoverOpen}
+        anchorEl={customAnchorEl}
+        onClose={handleCloseCustomPopover}
+        onTagCreate={handleCustomTagCreate}
+        availableTags={Object.values(allAvailableTags)} 
+        isCreating={Object.values(isUpdating).some(v => v)} // Pass isCreating based on any ongoing tag update
       />
     </Box>
   );

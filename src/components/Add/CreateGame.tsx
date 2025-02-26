@@ -14,7 +14,6 @@ import {
   FormControl,
   Alert,
   SelectChangeEvent,
-  Divider,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import AuthorSelector from './AuthorSelector';
@@ -234,10 +233,6 @@ export default function CreateGame() {
       <Box sx={{ mt: 2 }}>
         <Typography variant="h6">Select Tags</Typography>
         <TagSelector selectedTags={selectedTags} onTagsChange={handleTagsChange} />
-      </Box>
-
-      <Box sx={{ mt: 3, mb: 2 }}>
-        <Divider />
       </Box>
 
       <Box sx={{ mt: 2 }}>

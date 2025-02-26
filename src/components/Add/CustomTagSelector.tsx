@@ -1,18 +1,11 @@
 // src/components/Add/CustomTagSelector.tsx
 import { useState, useEffect, KeyboardEvent, ChangeEvent } from 'react';
 import { TextField, Chip, Typography, Box, Button } from '@mui/material';
-import { tagsCollection } from '../../pocketbase/pocketbase';
+import { tagsCollection, tagCategoriesCollection, Tag } from '../../pocketbase/pocketbase';
 
 // Configurable maximum Levenshtein distance
 const MAX_LEVENSHTEIN_DISTANCE = 3;
-
-// Tag interface based on your existing schema
-interface Tag {
-  id: string;
-  name: string;
-  description?: string;
-}
-
+ 
 interface TagWithDistance extends Tag {
   distance: number;
 }
@@ -22,7 +15,6 @@ interface CustomTagSelectorProps {
   onChange: (tags: Tag[]) => void;
   availableTags: Tag[];
   onTagsChange: (tags: Tag[]) => void;
-  categoryId?: string; // Optional category ID for new tags
 }
 
 function levenshteinDistance(a: string, b: string, maxDistance: number = MAX_LEVENSHTEIN_DISTANCE): number {
@@ -72,13 +64,42 @@ function findSimilarTags(input: string, availableTags: Tag[], maxResults: number
   return filteredTags.slice(0, maxResults);
 }
 
-async function createNewTag(tagName: string, categoryId?: string): Promise<Tag> {
-  const tagData: {name: string, description?: string} = { name: tagName };
-  
-  return await tagsCollection.create(tagData);
-}
+async function createNewTag(tagName: string): Promise<Tag> {
+    try {
+      // Создаем тег
+      const tagData: { name: string, description?: string } = { name: tagName };
+      const newTag = await tagsCollection.create(tagData);
+      console.log("Тег создан:", newTag);
+      
+      // Хардкодим ID категории "Custom"
+      const customCategoryId = "phc2n4pqe7hxe36"; // ID категории из скриншота
+      
+      try {
+        // Получаем текущую категорию
+        const category = await tagCategoriesCollection.getOne(customCategoryId);
+        console.log("Текущая категория:", category);
+        
+        // Создаем новый массив тегов, добавляя новый тег
+        const updatedTags = Array.isArray(category.tags) ? [...category.tags, newTag.id] : [newTag.id];
+        console.log("Обновленный список тегов:", updatedTags);
+        
+        // Обновляем категорию
+        const updatedCategory = await tagCategoriesCollection.update(customCategoryId, {
+          tags: updatedTags
+        });
+        console.log("Категория обновлена:", updatedCategory);
+      } catch (categoryError) {
+        console.error("Ошибка при обновлении категории:", categoryError);
+      }
+      
+      return newTag;
+    } catch (error) {
+      console.error("Ошибка при создании тега:", error);
+      throw error;
+    }
+  }
 
-export default function CustomTagSelector({ value, onChange, availableTags, onTagsChange, categoryId }: CustomTagSelectorProps) {
+export default function CustomTagSelector({ value, onChange, availableTags, onTagsChange }: CustomTagSelectorProps) {
   const [inputValue, setInputValue] = useState<string>('');
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<Tag[]>([]);
   const [similarTags, setSimilarTags] = useState<TagWithDistance[]>([]);
@@ -117,13 +138,12 @@ export default function CustomTagSelector({ value, onChange, availableTags, onTa
 
   async function handleCreateNewTag() {
     setIsCreatingTag(true);
-    const newTag = await createNewTag(inputValue.trim(), categoryId);
+    const newTag = await createNewTag(inputValue.trim());  
     onChange([...value, newTag]);
     onTagsChange([...availableTags, newTag]);
     setIsCreatingTag(false);
     setInputValue('');
   }
-
   function handleTagDelete(tagToDelete: Tag) {
     onChange(value.filter((tag) => tag.id !== tagToDelete.id));
   }

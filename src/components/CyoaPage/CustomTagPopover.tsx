@@ -11,7 +11,7 @@ import {
   Divider
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Tag, GameTagVote, pb, tagsCollection, tagCategoriesCollection } from '../../pocketbase/pocketbase';
+import { Tag, GameTagVote } from '../../pocketbase/pocketbase';
 import { ACTIVATION_THRESHOLD, PROPOSED_TAG_VOTE_VALUE } from './TagDisplay';
 
 interface CustomTagPopoverProps {
@@ -92,22 +92,7 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
   const [suggestions, setSuggestions] = useState<Tag[]>([]);
   const [localIsCreating, setLocalIsCreating] = useState<boolean>(false);
   const [proposedTags, setProposedTags] = useState<Tag[]>([]);
-  const [customCategoryId, setCustomCategoryId] = useState<string | null>(null);
-
-  // Получаем ID категории "Custom" при инициализации
-  useEffect(() => {
-    const getCustomCategoryId = async () => {
-      try {
-        const categoryResponse = await tagCategoriesCollection.getFirstListItem('name="Custom"');
-        setCustomCategoryId(categoryResponse.id);
-        console.log('Custom category ID:', categoryResponse.id);
-      } catch (error) {
-        console.error('Ошибка при получении ID категории Custom:', error);
-      }
-    };
-    
-    getCustomCategoryId();
-  }, []);
+ 
 
   // Находим все предложенные кастомные теги, которые еще не прошли порог активации
   useEffect(() => {

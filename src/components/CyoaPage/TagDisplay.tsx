@@ -2,7 +2,7 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import { Box } from '@mui/material';
-import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, pb } from '../../pocketbase/pocketbase';
+import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, tagsCollection, pb } from '../../pocketbase/pocketbase';
 import AddTagPopover from './AddTagPopover';
 import TagCategoryComponent from './TagCategory';
 import CustomTagPopover from './CustomTagPopover';
@@ -110,12 +110,7 @@ export default function TagDisplay({
         });
         
         setCategoryTags(catTags);
-        
-        // Отладка
-        console.log('Categories loaded:', categoriesResponse);
-        console.log('Tags with categories:', tagsMap);
-        console.log('Category tags:', catTags);
-        console.log('All category names:', categoryNames);
+         
       } catch (error) {
         console.error('Ошибка при загрузке данных:', error);
       }
@@ -574,58 +569,69 @@ useEffect(() => {
         tagToUse = existingTag;
         console.log('Using existing tag:', existingTag);
       } else {
-        // Find the Custom category ID
+        // Получаем ID категории "Custom"
         let customCategoryId: string;
+        
         try {
-          const categoryResponse = await tagCategoriesCollection.getFirstListItem('name="Custom"');
-          customCategoryId = categoryResponse.id;
-        } catch (error) {
-          console.error('Error getting Custom category:', error);
-          throw new Error('Custom category not found');
+          // Получаем категорию Custom
+          const customCategoryResponse = await tagCategoriesCollection.getFirstListItem('name="Custom"');
+          customCategoryId = customCategoryResponse.id;
+          console.log("Категория Custom:", customCategoryResponse);
+          
+          // Создаем тег
+          const tagData: {name: string, description?: string} = { 
+            name: normalizedTagName,
+            description: "Custom user tag" 
+          };
+          
+          const newTag = await tagsCollection.create(tagData);
+          console.log("Тег создан:", newTag);
+          
+          // Получаем текущие теги категории
+          const category = await tagCategoriesCollection.getOne(customCategoryId);
+          console.log("Текущая категория:", category);
+          
+          // Создаем новый массив тегов, добавляя новый тег
+          const updatedTags = Array.isArray(category.tags) ? [...category.tags, newTag.id] : [newTag.id];
+          console.log("Обновленный список тегов:", updatedTags);
+          
+          // Обновляем категорию
+          const updatedCategory = await tagCategoriesCollection.update(customCategoryId, {
+            tags: updatedTags
+          });
+          console.log("Категория обновлена:", updatedCategory);
+          
+          // Получаем тег с информацией о категории
+          const tagWithCategory = await tagsCollection.getOne(newTag.id, {
+            expand: 'tag_categories(tags),tag_categories_via_tags'
+          });
+          
+          tagToUse = tagWithCategory as Tag;
+          
+          // Обновляем allAvailableTags
+          setAllAvailableTags(prev => ({
+            ...prev,
+            [newTag.id]: tagToUse
+          }));
+          
+          // Обновляем структуру categoryTags
+          setCategoryTags(prev => {
+            const updatedCategoryTags = { ...prev };
+            if (!updatedCategoryTags['Custom']) {
+              updatedCategoryTags['Custom'] = [tagToUse];
+            } else {
+              updatedCategoryTags['Custom'] = [...updatedCategoryTags['Custom'], tagToUse];
+            }
+            return updatedCategoryTags;
+          });
+        } catch (categoryError) {
+          console.error("Ошибка при работе с категорией Custom:", categoryError);
+          // Прерываем выполнение функции, если не удалось получить категорию Custom или создать тег
+          throw new Error("Не удалось создать тег в категории Custom");
         }
-        
-        // Step 1: Create a new tag in the tags collection
-        const newTagData = {
-          name: normalizedTagName,
-          description: "Custom user tag"
-        };
-        
-        // Create the tag in the database
-        const createdTag = await tagsCollection.create(newTagData);
-        console.log('Created new tag:', createdTag);
-        
-        // Step 2: Link the tag to the Custom category
-        await pb.collection('tag_categories_tags').create({
-          tag_categories: customCategoryId,
-          tags: createdTag.id
-        });
-        
-        // Step 3: Get the tag with expanded category info
-        const tagWithCategory = await tagsCollection.getOne(createdTag.id, {
-          expand: 'tag_categories(tags),tag_categories_via_tags'
-        });
-        
-        tagToUse = tagWithCategory as Tag;
-        
-        // Update allAvailableTags with the new tag
-        setAllAvailableTags(prev => ({
-          ...prev,
-          [createdTag.id]: tagToUse
-        }));
-        
-        // Update categoryTags structure
-        setCategoryTags(prev => {
-          const updatedCategoryTags = { ...prev };
-          if (!updatedCategoryTags['Custom']) {
-            updatedCategoryTags['Custom'] = [tagToUse];
-          } else {
-            updatedCategoryTags['Custom'] = [...updatedCategoryTags['Custom'], tagToUse];
-          }
-          return updatedCategoryTags;
-        });
       }
       
-      // Step 4: Check if the tag is already associated with this game
+      // Проверяем, связан ли тег с игрой
       let existingVote: GameTagVote | null = null;
       
       try {
@@ -635,29 +641,29 @@ useEffect(() => {
       }
       
       if (existingVote) {
-        // If vote exists, add user to upVoters if not already there
+        // Если голос существует, добавляем пользователя в upVoters, если его там еще нет
         const upVoters = [...(existingVote.upVoters || [])];
         if (!upVoters.includes(user.id)) {
           upVoters.push(user.id);
           
-          // Update the vote record
+          // Обновляем запись голосования
           const updatedVote = await gameTagVotesCollection.update(existingVote.id, {
             upVoters: upVoters
           });
           
-          // Check if threshold is reached
+          // Проверяем, достигнут ли порог
           if (upVoters.length >= ACTIVATION_THRESHOLD) {
             await activateProposedTag(updatedVote);
           }
           
-          // Update local state
+          // Обновляем локальное состояние
           setTagVotes(prev => ({
             ...prev,
             [tagToUse.id]: updatedVote
           }));
         }
       } else {
-        // Create new vote record
+        // Создаем новую запись голосования
         const newVote: Partial<GameTagVote> = {
           gameId,
           tagId: tagToUse.id,
@@ -668,14 +674,14 @@ useEffect(() => {
         
         const createdVote = await gameTagVotesCollection.create(newVote);
         
-        // Update local state
+        // Обновляем локальное состояние
         setTagVotes(prev => ({
           ...prev,
           [tagToUse.id]: createdVote as GameTagVote
         }));
       }
       
-      // Add tag to selectedTags if not already there
+      // Добавляем тег в selectedTags, если его там еще нет
       setSelectedTags(prev => {
         if (!prev.some(t => t.id === tagToUse.id)) {
           return [...prev, tagToUse];
@@ -685,7 +691,7 @@ useEffect(() => {
       
     } catch (error) {
       console.error('Error creating custom tag:', error);
-      // You might want to show an error notification to the user here
+      // Можно добавить уведомление для пользователя
     }
     
     handleCloseCustomPopover();

@@ -19,9 +19,7 @@ interface TagChipProps {
 
 export default function TagChip({ tag, vote, isUpdating, user, onClick }: TagChipProps) {
   const theme = useTheme();
-  
-  // Добавим лог для диагностики
-  console.log(`Tag ${tag.name}, votes: ${vote?.votes}, user: ${user ? 'logged in' : 'not logged in'}`);
+   
   
   const getTagStyle = () => {
     // Проверяем, есть ли данные о голосах

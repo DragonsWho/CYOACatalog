@@ -46,6 +46,7 @@ export default function TagDisplay({
   const [categoryTags, setCategoryTags] = useState<Record<string, Tag[]>>({});
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [allAvailableTags, setAllAvailableTags] = useState<Record<string, Tag>>({});
+  const [allCategories, setAllCategories] = useState<string[]>([]);
 
   // Загрузка всех доступных тегов и категорий
   useEffect(() => {
@@ -53,6 +54,10 @@ export default function TagDisplay({
       try {
         // Загружаем категории
         const categoriesResponse = await tagCategoriesCollection.getFullList();
+        
+        // Создаем список всех категорий
+        const categoryNames = categoriesResponse.map(category => category.name);
+        setAllCategories(categoryNames);
         
         // Загружаем теги с информацией о категориях
         const tagsResponse = await pb.collection('tags').getFullList({
@@ -93,6 +98,9 @@ export default function TagDisplay({
               return tagWithCategory as Tag;
             });
             catTags[category.name] = tagsWithCategory;
+          } else {
+            // Добавляем пустой массив для категорий без тегов
+            catTags[category.name] = [];
           }
         });
         
@@ -102,6 +110,7 @@ export default function TagDisplay({
         console.log('Categories loaded:', categoriesResponse);
         console.log('Tags with categories:', tagsMap);
         console.log('Category tags:', catTags);
+        console.log('All category names:', categoryNames);
       } catch (error) {
         console.error('Ошибка при загрузке данных:', error);
       }
@@ -189,10 +198,6 @@ useEffect(() => {
     }
   }, [selectedTags]);
 
-  if (!tags || tags.length === 0) {
-    return null;
-  }
-
   // Group tags by categories
   const groupedTags = tags.reduce<Record<string, Tag[]>>((acc, tag) => {
     const categoryName = tag.expand?.tag_categories_via_tags?.[0]?.name ?? 'Uncategorized';
@@ -211,11 +216,18 @@ useEffect(() => {
     }
   });
 
+  // Add empty arrays for categories that don't have any tags
+  allCategories.forEach(category => {
+    if (!groupedTags[category]) {
+      groupedTags[category] = [];
+    }
+  });
+
   // Sort categories
   const sortedCategories = Object.keys(groupedTags).sort((a, b) => {
     const indexA = CATEGORY_ORDER.indexOf(a);
     const indexB = CATEGORY_ORDER.indexOf(b);
-    if (indexA === -1 && indexB === -1) return 0;
+    if (indexA === -1 && indexB === -1) return a.localeCompare(b); // Алфавитная сортировка для кастомных категорий
     if (indexA === -1) return 1;
     if (indexB === -1) return -1;
     return indexA - indexB;
@@ -530,12 +542,14 @@ useEffect(() => {
     console.log('Grouped tags:', groupedTags);
   }, [groupedTags]);
 
+  // Отображаем все категории, даже если у них нет тегов, но только для авторизованных пользователей
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
       {sortedCategories.map((category) => {
         const visibleTags = groupedTags[category].filter(tag => shouldShowTag(tag));
         
-        if (visibleTags.length === 0) return null;
+        // Показываем пустые категории только авторизованным пользователям
+        if (visibleTags.length === 0 && !user) return null;
         
         return (
           <TagCategoryComponent

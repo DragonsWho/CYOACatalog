@@ -1,9 +1,5 @@
-// Updated version of CustomTagPopover with these improvements:
-// 1. Better handling of the isCreating state
-// 2. Added checking for existing tags from availableTags
-// 3. Improved suggestion logic
-
-import React, { useState, KeyboardEvent, ChangeEvent } from 'react';
+// src/components/CyoaPage/CustomTagPopover.tsx
+import React, { useState, KeyboardEvent, ChangeEvent, useEffect } from 'react';
 import { 
   Box, 
   TextField, 
@@ -11,10 +7,12 @@ import {
   Typography, 
   Popover, 
   Chip,
-  CircularProgress
+  CircularProgress,
+  Divider
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Tag } from '../../pocketbase/pocketbase';
+import { Tag, GameTagVote, pb, tagsCollection, tagCategoriesCollection } from '../../pocketbase/pocketbase';
+import { ACTIVATION_THRESHOLD, PROPOSED_TAG_VOTE_VALUE } from './TagDisplay';
 
 interface CustomTagPopoverProps {
   open: boolean;
@@ -23,6 +21,9 @@ interface CustomTagPopoverProps {
   onTagCreate: (tagName: string) => Promise<void>;
   availableTags: Tag[];
   isCreating: boolean;
+  gameId: string;
+  tagVotes: Record<string, GameTagVote>;
+  userId?: string;
 }
 
 // Function to calculate Levenshtein distance for tag similarity
@@ -81,12 +82,65 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
   onClose,
   onTagCreate,
   availableTags,
-  isCreating
+  isCreating,
+  gameId,
+  tagVotes,
+  userId
 }) => {
   const theme = useTheme();
   const [inputValue, setInputValue] = useState<string>('');
   const [suggestions, setSuggestions] = useState<Tag[]>([]);
   const [localIsCreating, setLocalIsCreating] = useState<boolean>(false);
+  const [proposedTags, setProposedTags] = useState<Tag[]>([]);
+  const [customCategoryId, setCustomCategoryId] = useState<string | null>(null);
+
+  // Получаем ID категории "Custom" при инициализации
+  useEffect(() => {
+    const getCustomCategoryId = async () => {
+      try {
+        const categoryResponse = await tagCategoriesCollection.getFirstListItem('name="Custom"');
+        setCustomCategoryId(categoryResponse.id);
+        console.log('Custom category ID:', categoryResponse.id);
+      } catch (error) {
+        console.error('Ошибка при получении ID категории Custom:', error);
+      }
+    };
+    
+    getCustomCategoryId();
+  }, []);
+
+  // Находим все предложенные кастомные теги, которые еще не прошли порог активации
+  useEffect(() => {
+    if (open) {
+      // Фильтруем теги, которые имеют votes равное PROPOSED_TAG_VOTE_VALUE и относятся к текущей игре
+      const proposedTagIds = Object.keys(tagVotes).filter(tagId => 
+        tagVotes[tagId].votes === PROPOSED_TAG_VOTE_VALUE && 
+        tagVotes[tagId].gameId === gameId
+      );
+      
+      // Находим информацию о тегах из доступных тегов
+      const proposedTagsList = proposedTagIds
+        .map(tagId => {
+          const tag = availableTags.find(t => t.id === tagId);
+          if (tag) {
+            // Добавляем информацию о количестве голосов
+            return {
+              ...tag,
+              voteCount: tagVotes[tagId].upVoters?.length || 0,
+              // Проверяем, проголосовал ли текущий пользователь за этот тег
+              userVoted: userId ? (tagVotes[tagId].upVoters?.includes(userId) || false) : false
+            };
+          }
+          return null;
+        })
+        .filter((tag): tag is Tag & { voteCount: number, userVoted: boolean } => tag !== null);
+      
+      // Сортируем по количеству голосов (по убыванию)
+      proposedTagsList.sort((a, b) => b.voteCount - a.voteCount);
+      
+      setProposedTags(proposedTagsList);
+    }
+  }, [open, tagVotes, gameId, availableTags, userId]);
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const newValue = event.target.value;
@@ -135,6 +189,20 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
     try {
       setLocalIsCreating(true);
       // Here we're using the existing tag instead of creating a new one
+      await onTagCreate(tag.name);
+      setInputValue('');
+      setSuggestions([]);
+    } finally {
+      setLocalIsCreating(false);
+    }
+  };
+
+  const handleProposedTagClick = async (tag: Tag) => {
+    if (isCreating || localIsCreating) return;
+    
+    try {
+      setLocalIsCreating(true);
+      // Используем существующий предложенный тег вместо создания нового
       await onTagCreate(tag.name);
       setInputValue('');
       setSuggestions([]);
@@ -251,6 +319,42 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
                 />
               ))}
             </Box>
+          </Box>
+        )}
+        
+        {/* Раздел с предложенными тегами */}
+        {proposedTags.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            <Divider sx={{ mb: 1, backgroundColor: theme.palette.grey[700] }} />
+            <Typography variant="subtitle2" sx={{ color: theme.palette.grey[300], mb: 1 }}>
+              Proposed Custom Tags:
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+              {proposedTags.map((tag: any) => (
+                <Chip
+                  key={tag.id}
+                  label={`${tag.name} (${tag.voteCount}/${ACTIVATION_THRESHOLD})`}
+                  size="small"
+                  onClick={() => handleProposedTagClick(tag)}
+                  disabled={isCreating || localIsCreating || tag.userVoted}
+                  sx={{
+                    backgroundColor: tag.userVoted 
+                      ? theme.palette.primary.dark 
+                      : theme.palette.grey[700],
+                    color: theme.palette.grey[100],
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: tag.userVoted 
+                        ? theme.palette.primary.dark 
+                        : theme.palette.grey[600],
+                    },
+                  }}
+                />
+              ))}
+            </Box>
+            <Typography variant="caption" sx={{ color: theme.palette.grey[400], mt: 0.5, display: 'block' }}>
+              Tags need {ACTIVATION_THRESHOLD} votes to become visible to all users
+            </Typography>
           </Box>
         )}
       </Box>

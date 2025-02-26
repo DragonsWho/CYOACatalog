@@ -1,3 +1,5 @@
+//src/components/CyoaPage/TagDisplay.tsx
+
 import React, { useState, useContext, useEffect } from 'react';
 import { Box } from '@mui/material';
 import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, pb } from '../../pocketbase/pocketbase';
@@ -168,7 +170,19 @@ useEffect(() => {
           
           // Устанавливаем категорию 'Custom' по умолчанию, если другая не известна
           if (!tagCopy.expand.tag_categories_via_tags) {
-            tagCopy.expand.tag_categories_via_tags = [{ name: 'Custom' }];
+            tagCopy.expand.tag_categories_via_tags = [{
+              id: '',
+              created: '',
+              updated: '',
+              collectionId: 'poldsk30c0ykw9z', // ID коллекции tag_categories из вашей схемы
+              collectionName: 'tag_categories',
+              name: 'Custom',
+              allow_new_tags: false, // необязательное поле
+              min_tags: 0,           // необязательное поле
+              max_tags: 0,           // необязательное поле
+              tags: [],              // необязательное поле, relation
+              description: ''        // необязательное поле
+            }];
           }
           
           return tagCopy;
@@ -560,33 +574,58 @@ useEffect(() => {
         tagToUse = existingTag;
         console.log('Using existing tag:', existingTag);
       } else {
+        // Find the Custom category ID
+        let customCategoryId: string;
+        try {
+          const categoryResponse = await tagCategoriesCollection.getFirstListItem('name="Custom"');
+          customCategoryId = categoryResponse.id;
+        } catch (error) {
+          console.error('Error getting Custom category:', error);
+          throw new Error('Custom category not found');
+        }
+        
         // Step 1: Create a new tag in the tags collection
         const newTagData = {
           name: normalizedTagName,
-          description: "Custom user tag",
-          is_custom: true
+          description: "Custom user tag"
         };
         
         // Create the tag in the database
-        const createdTag = await pb.collection('tags').create(newTagData);
+        const createdTag = await tagsCollection.create(newTagData);
         console.log('Created new tag:', createdTag);
         
-        // Step 2: Create a tag with Custom category information
-        tagToUse = {
-          ...createdTag,
-          expand: {
-            tag_categories_via_tags: [{ name: 'Custom' }]
-          }
-        } as Tag;
+        // Step 2: Link the tag to the Custom category
+        await pb.collection('tag_categories_tags').create({
+          tag_categories: customCategoryId,
+          tags: createdTag.id
+        });
+        
+        // Step 3: Get the tag with expanded category info
+        const tagWithCategory = await tagsCollection.getOne(createdTag.id, {
+          expand: 'tag_categories(tags),tag_categories_via_tags'
+        });
+        
+        tagToUse = tagWithCategory as Tag;
         
         // Update allAvailableTags with the new tag
         setAllAvailableTags(prev => ({
           ...prev,
           [createdTag.id]: tagToUse
         }));
+        
+        // Update categoryTags structure
+        setCategoryTags(prev => {
+          const updatedCategoryTags = { ...prev };
+          if (!updatedCategoryTags['Custom']) {
+            updatedCategoryTags['Custom'] = [tagToUse];
+          } else {
+            updatedCategoryTags['Custom'] = [...updatedCategoryTags['Custom'], tagToUse];
+          }
+          return updatedCategoryTags;
+        });
       }
       
-      // Step 3: Check if the tag is already associated with this game
+      // Step 4: Check if the tag is already associated with this game
       let existingVote: GameTagVote | null = null;
       
       try {
@@ -736,7 +775,10 @@ useEffect(() => {
         onClose={handleCloseCustomPopover}
         onTagCreate={handleCustomTagCreate}
         availableTags={Object.values(allAvailableTags)} 
-        isCreating={Object.values(isUpdating).some(v => v)} // Pass isCreating based on any ongoing tag update
+        isCreating={Object.values(isUpdating).some(v => v)}
+        gameId={gameId} // Передаем ID игры
+        tagVotes={tagVotes} // Передаем голоса тегов
+        userId={user?.id} // Передаем ID пользователя (опционально)
       />
     </Box>
   );

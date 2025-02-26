@@ -1,8 +1,11 @@
+//src/components/CyoaPage/TagDisplay.tsx
+
 import React, { useState, useContext, useEffect } from 'react';
 import { Box } from '@mui/material';
-import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, pb } from '../../pocketbase/pocketbase';
+import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, tagsCollection, pb } from '../../pocketbase/pocketbase';
 import AddTagPopover from './AddTagPopover';
 import TagCategoryComponent from './TagCategory';
+import CustomTagPopover from './CustomTagPopover';
 
 // Constants
 const CATEGORY_ORDER = [
@@ -21,6 +24,7 @@ const CATEGORY_ORDER = [
   'Visual Style',
   'Language',
   'Kinks',
+  'Custom',
 ];
 
 export const PROPOSED_TAG_VOTE_VALUE = -1000;
@@ -41,33 +45,33 @@ export default function TagDisplay({
   const [tagVotes, setTagVotes] = useState<Record<string, GameTagVote>>({});
   const [isUpdating, setIsUpdating] = useState<Record<string, boolean>>({});
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [customAnchorEl, setCustomAnchorEl] = useState<null | HTMLElement>(null);
   const [currentCategory, setCurrentCategory] = useState<string>('');
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [categoryTags, setCategoryTags] = useState<Record<string, Tag[]>>({});
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [allAvailableTags, setAllAvailableTags] = useState<Record<string, Tag>>({});
+  const [allCategories, setAllCategories] = useState<string[]>([]);
 
   // Загрузка всех доступных тегов и категорий
   useEffect(() => {
     const loadAllData = async () => {
       try {
-        // Загружаем категории
         const categoriesResponse = await tagCategoriesCollection.getFullList();
+        const categoryNames = categoriesResponse.map(category => category.name);
+        setAllCategories(categoryNames);
         
-        // Загружаем теги с информацией о категориях
         const tagsResponse = await pb.collection('tags').getFullList({
           expand: 'tag_categories(tags),tag_categories_via_tags'
         });
         
         const tagsMap: Record<string, Tag> = {};
         tagsResponse.forEach(tag => {
-          // Создаем копию с приведением типа
           const tagCopy = { ...tag } as any as Tag;
           tagsMap[tag.id] = tagCopy;
         });
         setAllAvailableTags(tagsMap);
         
-        // Загружаем категории с тегами
         const categoriesWithTagsResponse = await tagCategoriesCollection.getFullList({
           expand: 'tags',
         });
@@ -75,33 +79,26 @@ export default function TagDisplay({
         const catTags: Record<string, Tag[]> = {};
         categoriesWithTagsResponse.forEach((category) => {
           if (category.expand?.tags) {
-            // Добавляем информацию о категории к каждому тегу
             const tagsWithCategory = category.expand.tags.map(tag => {
-              // Создаем совместимую копию тега
               const tagWithCategory = structuredClone(tag) as any;
               if (!tagWithCategory.expand) tagWithCategory.expand = {};
               
-              // Создаем кортеж с одним элементом
               const categoryInfo = {
                 id: category.id,
                 name: category.name
               };
               
-              // Присваиваем через any чтобы обойти проверку типов
               tagWithCategory.expand.tag_categories_via_tags = [categoryInfo as any];
               
               return tagWithCategory as Tag;
             });
             catTags[category.name] = tagsWithCategory;
+          } else {
+            catTags[category.name] = [];
           }
         });
         
         setCategoryTags(catTags);
-        
-        // Отладка
-        console.log('Categories loaded:', categoriesResponse);
-        console.log('Tags with categories:', tagsMap);
-        console.log('Category tags:', catTags);
       } catch (error) {
         console.error('Ошибка при загрузке данных:', error);
       }
@@ -110,52 +107,75 @@ export default function TagDisplay({
     loadAllData();
   }, []);
 
-// Загрузка голосов и восстановление выбранных пользователем тегов
-useEffect(() => {
-  const loadVotes = async () => {
-    // Убираем проверку на наличие пользователя, загружаем голоса всегда
-    if (Object.keys(categoryTags).length === 0 || Object.keys(allAvailableTags).length === 0) return;
-    
-    try {
-      const votes = await gameTagVotesCollection.getFullList({
-        filter: `gameId = "${gameId}"`,
-      });
+  // Загрузка голосов и восстановление выбранных пользователем тегов
+  useEffect(() => {
+    const loadVotes = async () => {
+      if (Object.keys(categoryTags).length === 0 || Object.keys(allAvailableTags).length === 0) return;
       
-      const voteMap: Record<string, GameTagVote> = {};
-      const userSelectedTagIds: string[] = [];
-      
-      votes.forEach((vote) => {
-        voteMap[vote.tagId] = vote;
+      try {
+        const votes = await gameTagVotesCollection.getFullList({
+          filter: `gameId = "${gameId}"`,
+        });
         
-        // Проверяем, является ли тег предложенным пользователем (только для авторизованных)
-        if (user && vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters?.includes(user.id)) {
-          userSelectedTagIds.push(vote.tagId);
-        }
+        const voteMap: Record<string, GameTagVote> = {};
+        const userSelectedTagIds: string[] = [];
         
-        if (vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters && vote.upVoters.length >= ACTIVATION_THRESHOLD) {
-          activateProposedTag(vote);
+        votes.forEach((vote) => {
+          voteMap[vote.tagId] = vote;
+          
+          if (user && vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters?.includes(user.id)) {
+            userSelectedTagIds.push(vote.tagId);
+          }
+          
+          if (vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters && vote.upVoters.length >= ACTIVATION_THRESHOLD) {
+            activateProposedTag(vote);
+          }
+        });
+        
+        setTagVotes(voteMap);
+        
+        if (user && userSelectedTagIds.length > 0) {
+          const selectedTagsToRestore = userSelectedTagIds
+            .map(tagId => allAvailableTags[tagId])
+            .filter(tag => tag);
+          
+          const tagsWithCategories = selectedTagsToRestore.map(tag => {
+            const tagCopy = structuredClone(tag) as Tag;
+            if (!tagCopy.expand) tagCopy.expand = {};
+            
+            if (!tagCopy.expand.tag_categories_via_tags) {
+              tagCopy.expand.tag_categories_via_tags = [{
+                id: '',
+                created: '',
+                updated: '',
+                collectionId: 'poldsk30c0ykw9z',
+                collectionName: 'tag_categories',
+                name: 'Custom',
+                allow_new_tags: false,
+                min_tags: 0,
+                max_tags: 0,
+                tags: [],
+                description: ''
+              }];
+            }
+            
+            return tagCopy;
+          });
+          
+          setSelectedTags(tagsWithCategories);
         }
-      });
-      
-      setTagVotes(voteMap);
-      
-      // Восстанавливаем выбранные пользователем теги (только для авторизованных)
-      if (user && userSelectedTagIds.length > 0) {
-        // Остальной код восстановления тегов пользователя...
+      } catch (error) {
+        console.error('Ошибка при загрузке голосов:', error);
       }
-    } catch (error) {
-      console.error('Ошибка при загрузке голосов:', error);
-    }
-  };
-  
-  loadVotes();
-}, [gameId, user, allAvailableTags, categoryTags]);
+    };
+    
+    loadVotes();
+  }, [gameId, user, allAvailableTags, categoryTags]);
 
   const activateProposedTag = async (vote: GameTagVote) => {
     if (!vote.id) return;
     
     try {
-      // Обновляем запись голосования
       const updatedVote = {
         ...vote,
         votes: INITIAL_ACTIVE_VOTE,
@@ -165,7 +185,6 @@ useEffect(() => {
         votes: INITIAL_ACTIVE_VOTE,
       });
       
-      // Добавляем тег в список тегов игры
       const game = await gamesCollection.getOne(vote.gameId);
       const tagIds = [...new Set([...game.tags, vote.tagId])];
       
@@ -182,40 +201,36 @@ useEffect(() => {
     }
   };
 
-  // Отладка данных
-  useEffect(() => {
-    if (selectedTags.length > 0) {
-      console.log('Selected tags:', selectedTags);
-    }
-  }, [selectedTags]);
-
-  if (!tags || tags.length === 0) {
-    return null;
-  }
-
   // Group tags by categories
   const groupedTags = tags.reduce<Record<string, Tag[]>>((acc, tag) => {
-    const categoryName = tag.expand?.tag_categories_via_tags?.[0]?.name ?? 'Uncategorized';
+    const categoryName = tag.expand?.tag_categories_via_tags?.[0]?.name ?? 'Custom';
     if (!acc[categoryName]) acc[categoryName] = [];
     acc[categoryName].push(tag);
     return acc;
   }, {});
 
-  // Add the selected tags to their respective categories
   selectedTags.forEach(tag => {
-    const categoryName = tag.expand?.tag_categories_via_tags?.[0]?.name ?? 'Uncategorized';
+    const categoryName = tag.expand?.tag_categories_via_tags?.[0]?.name ?? 'Custom';
     if (!groupedTags[categoryName]) groupedTags[categoryName] = [];
-    // Check if the tag is already in the group before adding
     if (!groupedTags[categoryName].some(t => t.id === tag.id)) {
       groupedTags[categoryName].push(tag);
     }
   });
 
-  // Sort categories
+  allCategories.forEach(category => {
+    if (!groupedTags[category]) {
+      groupedTags[category] = [];
+    }
+  });
+
+  if (!groupedTags['Custom']) {
+    groupedTags['Custom'] = [];
+  }
+
   const sortedCategories = Object.keys(groupedTags).sort((a, b) => {
     const indexA = CATEGORY_ORDER.indexOf(a);
     const indexB = CATEGORY_ORDER.indexOf(b);
-    if (indexA === -1 && indexB === -1) return 0;
+    if (indexA === -1 && indexB === -1) return a.localeCompare(b);
     if (indexA === -1) return 1;
     if (indexB === -1) return -1;
     return indexA - indexB;
@@ -228,7 +243,6 @@ useEffect(() => {
     const userId = user.id;
     const currentVote = tagVotes[tag.id];
     
-    // Обработка голосов за предложенные теги
     if (currentVote && currentVote.votes === PROPOSED_TAG_VOTE_VALUE && currentVote.upVoters?.includes(userId)) {
       setIsUpdating(prev => ({
         ...prev,
@@ -236,28 +250,21 @@ useEffect(() => {
       }));
       
       try {
-        // Получаем текущий список upVoters
         const upVoters = [...(currentVote.upVoters || [])];
-        
-        // Удаляем текущего пользователя из списка
         const updatedUpVoters = upVoters.filter(id => id !== userId);
         
-        // Обновляем запись, никогда не удаляем
         if (currentVote.id) {
           const updatedVote = await gameTagVotesCollection.update(currentVote.id, {
             upVoters: updatedUpVoters
           });
           
-          // Обновляем состояние
           setTagVotes(prev => ({
             ...prev,
             [tag.id]: updatedVote
           }));
         }
         
-        // Удаляем тег из selectedTags для текущего пользователя
         setSelectedTags(prev => prev.filter(t => t.id !== tag.id));
-        
       } catch (error) {
         console.error('Ошибка при отмене предложенного тега:', error);
       } finally {
@@ -306,8 +313,6 @@ useEffect(() => {
         } else if (newUserVoteStatus === -1) {
           filteredDownVoters.push(userId);
         }
-        // Если newUserVoteStatus === 0, то пользователь отменяет свой голос,
-        // но мы не удаляем запись, а только удаляем его из списков голосующих
         
         const newVotes = filteredUpVoters.length - filteredDownVoters.length;
         
@@ -329,7 +334,6 @@ useEffect(() => {
           downVoters: filteredDownVoters
         });
       } else if (newUserVoteStatus !== 0) {
-        // Создание новой записи (это не удаление, так что оставляем как есть)
         const newVote: Partial<GameTagVote> = {
           gameId,
           tagId: tag.id,
@@ -365,27 +369,34 @@ useEffect(() => {
   };
 
   const handleAddTagClick = (event: React.MouseEvent<HTMLElement>, category: string) => {
-    setAnchorEl(event.currentTarget);
-    setCurrentCategory(category);
-    
-    // Filter available tags for the category
-    const existingTagIds = tags.map(tag => tag.id);
-    const selectedTagIds = selectedTags.map(tag => tag.id);
-    const existingProposedTagIds = Object.keys(tagVotes).filter(tagId => 
-      tagVotes[tagId].votes === PROPOSED_TAG_VOTE_VALUE && 
-      tagVotes[tagId].upVoters?.includes(user?.id || ''));
-    
-    const allExistingIds = [...existingTagIds, ...existingProposedTagIds, ...selectedTagIds];
-    
-    const availableCategoryTags = categoryTags[category]?.filter(
-      tag => !allExistingIds.includes(tag.id)
-    ) || [];
-    
-    setAvailableTags(availableCategoryTags);
+    if (category === 'Custom') {
+      setCustomAnchorEl(event.currentTarget);
+    } else {
+      setAnchorEl(event.currentTarget);
+      setCurrentCategory(category);
+      
+      const existingTagIds = tags.map(tag => tag.id);
+      const selectedTagIds = selectedTags.map(tag => tag.id);
+      const existingProposedTagIds = Object.keys(tagVotes).filter(tagId => 
+        tagVotes[tagId].votes === PROPOSED_TAG_VOTE_VALUE && 
+        tagVotes[tagId].upVoters?.includes(user?.id || ''));
+      
+      const allExistingIds = [...existingTagIds, ...existingProposedTagIds, ...selectedTagIds];
+      
+      const availableCategoryTags = categoryTags[category]?.filter(
+        tag => !allExistingIds.includes(tag.id)
+      ) || [];
+      
+      setAvailableTags(availableCategoryTags);
+    }
   };
 
   const handleClosePopover = () => {
     setAnchorEl(null);
+  };
+
+  const handleCloseCustomPopover = () => {
+    setCustomAnchorEl(null);
   };
 
   const handleTagSelect = async (tag: Tag) => {
@@ -398,56 +409,41 @@ useEffect(() => {
     }));
     
     try {
-      // Подготавливаем тег с информацией о выбранной категории
-      // Используем клонирование для создания нового объекта и обходим проверки типов
       let fullTagInfo = structuredClone(tag) as any;
       if (!fullTagInfo.expand) fullTagInfo.expand = {};
       
-      // Добавляем информацию о категории
       const categoryInfo = { 
-        id: '', // Мы можем не знать ID, но знаем имя категории
+        id: '',
         name: currentCategory 
       };
       fullTagInfo.expand.tag_categories_via_tags = [categoryInfo];
       
-      // Сначала проверяем, существует ли уже запись для этого тега в игре
       let existingVote: GameTagVote | null = null;
       
       try {
-        // Пытаемся найти существующую запись для этого тега
         existingVote = await gameTagVotesCollection.getFirstListItem(`gameId="${gameId}" && tagId="${tag.id}"`);
       } catch (error) {
-        // Если запись не найдена, existingVote останется null
-        console.log('No existing vote found for this tag');
       }
       
       if (existingVote) {
-        // Если запись существует, добавляем пользователя в upVoters
         const upVoters = [...(existingVote.upVoters || [])];
-        
-        // Добавляем пользователя в upVoters только если его там еще нет
         if (!upVoters.includes(user.id)) {
           upVoters.push(user.id);
         }
         
-        // Обновляем запись
         const updatedVote = await gameTagVotesCollection.update(existingVote.id, {
           upVoters: upVoters,
-          // Не меняем votes, оно должно оставаться PROPOSED_TAG_VOTE_VALUE
         });
         
-        // Проверяем, достигли ли мы порога для активации тега
         if (upVoters.length >= ACTIVATION_THRESHOLD) {
           await activateProposedTag(updatedVote);
         }
         
-        // Обновляем локальное состояние
         setTagVotes(prev => ({
           ...prev,
           [tag.id]: updatedVote
         }));
       } else {
-        // Если записи нет, создаем новую
         const newVote: Partial<GameTagVote> = {
           gameId,
           tagId: tag.id,
@@ -456,21 +452,16 @@ useEffect(() => {
           downVoters: []
         };
         
-        // Создаем запись в базе данных
         const createdVote = await gameTagVotesCollection.create(newVote);
         
-        // Обновляем состояние
         setTagVotes(prev => ({
           ...prev,
           [tag.id]: createdVote as GameTagVote
         }));
       }
       
-      // Добавляем тег в selectedTags для отображения
       setSelectedTags(prev => {
-        // Добавляем тег только если его еще нет в списке
         if (!prev.some(t => t.id === tag.id)) {
-          console.log('Adding tag to selectedTags with category:', fullTagInfo);
           return [...prev, fullTagInfo as Tag];
         }
         return prev;
@@ -488,34 +479,143 @@ useEffect(() => {
     handleClosePopover();
   };
 
+  const handleCustomTagCreate = async (tagName: string) => {
+    if (!user || !tagName.trim()) return;
+    
+    try {
+      const normalizedTagName = tagName.trim();
+      const existingTag = Object.values(allAvailableTags).find(
+        tag => tag.name.toLowerCase() === normalizedTagName.toLowerCase()
+      );
+      
+      let tagToUse: Tag;
+      
+      if (existingTag) {
+        tagToUse = existingTag;
+      } else {
+        let customCategoryId: string;
+        
+        try {
+          const customCategoryResponse = await tagCategoriesCollection.getFirstListItem('name="Custom"');
+          customCategoryId = customCategoryResponse.id;
+          
+          const tagData: {name: string, description?: string} = { 
+            name: normalizedTagName,
+            description: "Custom user tag" 
+          };
+          
+          const newTag = await tagsCollection.create(tagData);
+          
+          const category = await tagCategoriesCollection.getOne(customCategoryId);
+          const updatedTags = Array.isArray(category.tags) ? [...category.tags, newTag.id] : [newTag.id];
+          
+          await tagCategoriesCollection.update(customCategoryId, {
+            tags: updatedTags
+          });
+          
+          const tagWithCategory = await tagsCollection.getOne(newTag.id, {
+            expand: 'tag_categories(tags),tag_categories_via_tags'
+          });
+          
+          tagToUse = tagWithCategory as Tag;
+          
+          setAllAvailableTags(prev => ({
+            ...prev,
+            [newTag.id]: tagToUse
+          }));
+          
+          setCategoryTags(prev => {
+            const updatedCategoryTags = { ...prev };
+            if (!updatedCategoryTags['Custom']) {
+              updatedCategoryTags['Custom'] = [tagToUse];
+            } else {
+              updatedCategoryTags['Custom'] = [...updatedCategoryTags['Custom'], tagToUse];
+            }
+            return updatedCategoryTags;
+          });
+        } catch (categoryError) {
+          console.error("Ошибка при работе с категорией Custom:", categoryError);
+          throw new Error("Не удалось создать тег в категории Custom");
+        }
+      }
+      
+      let existingVote: GameTagVote | null = null;
+      
+      try {
+        existingVote = await gameTagVotesCollection.getFirstListItem(`gameId="${gameId}" && tagId="${tagToUse.id}"`);
+      } catch (error) {
+      }
+      
+      if (existingVote) {
+        const upVoters = [...(existingVote.upVoters || [])];
+        if (!upVoters.includes(user.id)) {
+          upVoters.push(user.id);
+          
+          const updatedVote = await gameTagVotesCollection.update(existingVote.id, {
+            upVoters: upVoters
+          });
+          
+          if (upVoters.length >= ACTIVATION_THRESHOLD) {
+            await activateProposedTag(updatedVote);
+          }
+          
+          setTagVotes(prev => ({
+            ...prev,
+            [tagToUse.id]: updatedVote
+          }));
+        }
+      } else {
+        const newVote: Partial<GameTagVote> = {
+          gameId,
+          tagId: tagToUse.id,
+          votes: PROPOSED_TAG_VOTE_VALUE,
+          upVoters: [user.id],
+          downVoters: []
+        };
+        
+        const createdVote = await gameTagVotesCollection.create(newVote);
+        
+        setTagVotes(prev => ({
+          ...prev,
+          [tagToUse.id]: createdVote as GameTagVote
+        }));
+      }
+      
+      setSelectedTags(prev => {
+        if (!prev.some(t => t.id === tagToUse.id)) {
+          return [...prev, tagToUse];
+        }
+        return prev;
+      });
+      
+    } catch (error) {
+      console.error('Error creating custom tag:', error);
+    }
+    
+    handleCloseCustomPopover();
+  };
+
   const shouldShowTag = (tag: Tag) => {
     const vote = tagVotes[tag.id];
     
-    // Для неавторизованных пользователей
     if (!user) {
-      // Показываем все теги кроме тех, что имеют голоса ниже порога
       if (vote && vote.votes <= HIDDEN_TAG_THRESHOLD && vote.votes !== PROPOSED_TAG_VOTE_VALUE) {
         return false;
       }
-      // Скрываем предложенные теги для неавторизованных
       if (vote?.votes === PROPOSED_TAG_VOTE_VALUE) {
         return false;
       }
       return true;
     }
     
-    // Для авторизованных пользователей - исходная логика
-    // For proposed tags, always show to the proposer
     if (vote?.votes === PROPOSED_TAG_VOTE_VALUE) {
       return vote.upVoters?.includes(user.id);
     }
     
-    // If tag is in selectedTags, always show it to the current user
     if (selectedTags.some(t => t.id === tag.id)) {
       return true;
     }
     
-    // Hide tags below threshold
     if (vote && vote.votes <= HIDDEN_TAG_THRESHOLD) {
       return false;
     }
@@ -524,18 +624,14 @@ useEffect(() => {
   };
 
   const popoverOpen = Boolean(anchorEl);
-
-  // Отладка для отслеживания структуры groupedTags
-  useEffect(() => {
-    console.log('Grouped tags:', groupedTags);
-  }, [groupedTags]);
+  const customPopoverOpen = Boolean(customAnchorEl);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
       {sortedCategories.map((category) => {
         const visibleTags = groupedTags[category].filter(tag => shouldShowTag(tag));
         
-        if (visibleTags.length === 0) return null;
+        if (visibleTags.length === 0 && !user) return null;
         
         return (
           <TagCategoryComponent
@@ -559,6 +655,18 @@ useEffect(() => {
         onClose={handleClosePopover}
         onTagSelect={handleTagSelect}
         isUpdating={isUpdating}
+      />
+      
+      <CustomTagPopover
+        open={customPopoverOpen}
+        anchorEl={customAnchorEl}
+        onClose={handleCloseCustomPopover}
+        onTagCreate={handleCustomTagCreate}
+        availableTags={Object.values(allAvailableTags)} 
+        isCreating={Object.values(isUpdating).some(v => v)}
+        gameId={gameId}
+        tagVotes={tagVotes}
+        userId={user?.id}
       />
     </Box>
   );

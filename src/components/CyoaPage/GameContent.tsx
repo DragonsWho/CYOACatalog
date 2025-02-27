@@ -1,10 +1,25 @@
-// src/components/CyoaPage/GameContent.tsx
-// v2.9
-// Улучшена совместимость с мобильными устройствами
+//src/components/CyoaPage/GameContent.tsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Button, CircularProgress } from '@mui/material';
+import { Box, Button, CircularProgress, useMediaQuery, useTheme } from '@mui/material';
 import { Game } from '../../pocketbase/pocketbase';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
+
+// Определим интерфейсы для кроссбраузерной поддержки fullscreen
+interface FullscreenElement extends HTMLElement {
+  webkitRequestFullscreen?: () => Promise<void>;
+  mozRequestFullScreen?: () => Promise<void>;
+  msRequestFullscreen?: () => Promise<void>;
+}
+
+interface FullscreenDocument extends Document {
+  webkitExitFullscreen?: () => Promise<void>;
+  mozCancelFullScreen?: () => Promise<void>;
+  msExitFullscreen?: () => Promise<void>;
+}
 
 interface ImageSizes {
   [key: number]: {
@@ -18,7 +33,14 @@ export default function GameContent({ game }: { game: Game }) {
   const [imageSizes, setImageSizes] = useState<ImageSizes>({});
   const [loadingImages, setLoadingImages] = useState(game.cyoa_pages.length || 0);
   const [isIframeLoading, setIsIframeLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Используем Material UI хук для определения размера экрана
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md')); // 'md' соответствует ширине экрана >= 960px
 
   // Логирование для отладки
   useEffect(() => {
@@ -26,6 +48,36 @@ export default function GameContent({ game }: { game: Game }) {
       console.log('Iframe URL:', game.iframe_url);
     }
   }, [game]);
+
+  // Эффект для отслеживания изменений fullscreen режима
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+      // Если выходим из полноэкранного режима, также сбрасываем expanded состояние
+      if (!document.fullscreenElement) {
+        setIsExpanded(false);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Эффект для обработки нажатия Escape для выхода из expanded режима
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isExpanded && !isFullscreen) {
+        setIsExpanded(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscapeKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isExpanded, isFullscreen]);
 
   function handleImageLoad(id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) {
     setLoadingImages((prev) => prev - 1);
@@ -47,12 +99,37 @@ export default function GameContent({ game }: { game: Game }) {
     if (!iframeRef.current) return;
 
     if (!document.fullscreenElement) {
-      iframeRef.current.requestFullscreen().catch((err) => {
-        console.error(`Ошибка при переходе в полноэкранный режим: ${err.message}`);
-      });
+      const element = iframeRef.current as unknown as FullscreenElement;
+      
+      if (element.requestFullscreen) {
+        element.requestFullscreen().catch((err) => {
+          console.error(`Error entering fullscreen mode: ${err.message}`);
+        });
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      } else if (element.mozRequestFullScreen) {
+        element.mozRequestFullScreen();
+      } else if (element.msRequestFullscreen) {
+        element.msRequestFullscreen();
+      }
     } else {
-      document.exitFullscreen();
+      const doc = document as unknown as FullscreenDocument;
+      
+      if (doc.exitFullscreen) {
+        doc.exitFullscreen();
+      } else if (doc.webkitExitFullscreen) {
+        doc.webkitExitFullscreen();
+      } else if (doc.mozCancelFullScreen) {
+        doc.mozCancelFullScreen();
+      } else if (doc.msExitFullscreen) {
+        doc.msExitFullscreen();
+      }
     }
+  };
+
+  // Функция для переключения расширенного режима
+  const toggleExpand = () => {
+    setIsExpanded(!isExpanded);
   };
 
   // Обработка ошибок загрузки iframe
@@ -62,7 +139,21 @@ export default function GameContent({ game }: { game: Game }) {
   };
 
   return (
-    <Box sx={{ backgroundColor: '#121212', position: 'relative' }}>
+    <Box 
+      sx={{ 
+        backgroundColor: '#121212', 
+        position: 'relative',
+        ...(isExpanded && {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1300, // Значение выше, чем у большинства элементов
+          backgroundColor: '#000'
+        })
+      }}
+    >
       {game.img_or_link === 'img' && game.cyoa_pages.length ? (
         <Box
           sx={{
@@ -107,15 +198,33 @@ export default function GameContent({ game }: { game: Game }) {
         </Box>
       ) : game.img_or_link === 'link' && game.iframe_url ? (
         <Box
+          ref={iframeContainerRef}
           sx={{
             position: 'relative',
             width: '100%',
-            height: { xs: '50vh', sm: '500px' }, // Адаптивная высота для мобильных
-            minHeight: '300px', // Минимальная высота
+            height: isExpanded 
+              ? '100vh' 
+              : { xs: '50vh', sm: '500px' }, // Адаптивная высота для мобильных
+            minHeight: isExpanded ? '100vh' : '300px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            transition: 'all 0.3s ease'
           }}
         >
           {isIframeLoading && (
-            <CircularProgress sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+            <Box sx={{ 
+              position: 'absolute', 
+              width: '100%', 
+              height: '100%', 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center',
+              backgroundColor: '#121212',
+              zIndex: 5
+            }}>
+              <CircularProgress />
+            </Box>
           )}
           <iframe
             ref={iframeRef}
@@ -124,7 +233,7 @@ export default function GameContent({ game }: { game: Game }) {
               width: '100%',
               height: '100%',
               border: 'none',
-              display: isIframeLoading ? 'none' : 'block',
+              zIndex: 1
             }}
             title="Interactive CYOA"
             allowFullScreen
@@ -134,22 +243,73 @@ export default function GameContent({ game }: { game: Game }) {
             }}
             onError={handleIframeError} // Обработка ошибок
           />
-          <Button
-            onClick={toggleFullscreen}
-            sx={{
-              position: 'absolute',
-              bottom: '10px',
-              right: '10px',
-              zIndex: 10,
-              backgroundColor: '#e8484e',
-              color: 'white',
-              '&:hover': {
-                backgroundColor: '#d73b41',
-              },
-            }}
-          >
-            {document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen'}
-          </Button>
+          {/* Кнопки управления отображаются только когда iframe загружен */}
+          {!isIframeLoading && (
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: '10px',
+                right: '10px',
+                zIndex: 10,
+                display: 'flex',
+                gap: '8px'
+              }}
+            >
+              {/* Кнопка Expand для десктопных устройств */}
+              {isDesktop && (
+                <Button
+                  onClick={toggleExpand}
+                  sx={{
+                    backgroundColor: '#4a4a4a',
+                    color: 'white',
+                    minWidth: '40px',
+                    '&:hover': {
+                      backgroundColor: '#636363',
+                    },
+                  }}
+                  title={isExpanded ? "Collapse" : "Expand"}
+                >
+                  {isExpanded ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
+                </Button>
+              )}
+              
+              {/* Кнопка Fullscreen */}
+              <Button
+                onClick={toggleFullscreen}
+                sx={{
+                  backgroundColor: '#e8484e',
+                  color: 'white',
+                  minWidth: '40px',
+                  '&:hover': {
+                    backgroundColor: '#d73b41',
+                  },
+                }}
+                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              >
+                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              </Button>
+            </Box>
+          )}
+          
+          {/* Кнопка "Закрыть" в режиме expanded */}
+          {isExpanded && !isIframeLoading && (
+            <Button
+              onClick={toggleExpand}
+              sx={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                zIndex: 20,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                },
+              }}
+            >
+              Закрыть
+            </Button>
+          )}
         </Box>
       ) : (
         <div>No game content available</div>

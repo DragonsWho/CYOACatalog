@@ -42,8 +42,7 @@ export default function GameContent({ game }: { game: Game }) {
   
   // Используем Material UI хук для определения размера экрана
   const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up('md')); // 'md' соответствует ширине экрана >= 960px
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md')); // 'md' соответствует ширине экрана >= 960px 
 
   // Логирование для отладки
   useEffect(() => {
@@ -236,8 +235,8 @@ export default function GameContent({ game }: { game: Game }) {
             </Box>
           ))}
           
-          {/* Плавающие элементы управления для изображений */}
-          {loadingImages === 0 && (
+          {/* Плавающие элементы управления для изображений только для десктопных устройств */}
+          {loadingImages === 0 && isDesktop && (
             <Box
               sx={{
                 position: 'fixed',
@@ -250,7 +249,7 @@ export default function GameContent({ game }: { game: Game }) {
               }}
             >
               <ButtonGroup 
-                orientation={isMobile ? "vertical" : "horizontal"}
+                orientation="horizontal"
                 variant="contained" 
                 size="small" 
                 sx={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '4px' }}
@@ -392,7 +391,25 @@ export default function GameContent({ game }: { game: Game }) {
             </Box>
           )}
           
-           
+          {/* Кнопка "Закрыть" в режиме expanded */}
+          {isExpanded && !isIframeLoading && (
+            <Button
+              onClick={toggleExpand}
+              sx={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                zIndex: 20,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                },
+              }}
+            >
+              Закрыть
+            </Button>
+          )}
         </Box>
       ) : (
         <div>No game content available</div>

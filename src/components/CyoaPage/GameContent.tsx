@@ -391,25 +391,6 @@ export default function GameContent({ game }: { game: Game }) {
             </Box>
           )}
           
-          {/* Кнопка "Закрыть" в режиме expanded */}
-          {isExpanded && !isIframeLoading && (
-            <Button
-              onClick={toggleExpand}
-              sx={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                zIndex: 20,
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: 'rgba(0,0,0,0.7)',
-                },
-              }}
-            >
-              Закрыть
-            </Button>
-          )}
         </Box>
       ) : (
         <div>No game content available</div>

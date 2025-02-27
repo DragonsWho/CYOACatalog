@@ -19,6 +19,7 @@ export default function GameAdditionalInfo({
   const [isUpvoted, setIsUpvoted] = useState(false);
   const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvotes?.length || 0);
   const [isLoading, setIsLoading] = useState(false);
+  const [showLoader, setShowLoader] = useState(false);
   const { user } = useContext(AuthContext);
   const userID = user?.id;
 
@@ -38,6 +39,8 @@ export default function GameAdditionalInfo({
     setIsUpvoted(newIsUpvoted);
     setLocalUpvoteCount((prevCount) => (newIsUpvoted ? prevCount + 1 : prevCount - 1));
 
+    const loaderTimeout = setTimeout(() => setShowLoader(true), 200);
+
     const res = await fetch('/api/custom/upvotes/' + gameId, {
       method: 'POST',
       headers: {
@@ -51,6 +54,8 @@ export default function GameAdditionalInfo({
     setLocalUpvoteCount(count);
 
     if (onUpvoteChange) onUpvoteChange();
+    clearTimeout(loaderTimeout);
+    setShowLoader(false);
     setIsLoading(false);
   }, [gameId, isUpvoted, onUpvoteChange, userID]);
 
@@ -82,20 +87,21 @@ export default function GameAdditionalInfo({
                 justifyContent: 'center',
               }}
             >
-              {isLoading ? (
-                <CircularProgress size={20} color="inherit" />
-              ) : (
-                <Box 
-                  sx={{ 
-                    position: 'relative', 
-                    width: 72, 
-                    height: 72,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
+              <Box 
+                sx={{ 
+                  position: 'relative', 
+                  width: 72, 
+                  height: 72,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {showLoader ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
                   <DotLottieReact
+                    key={isUpvoted ? 'upvoted' : 'not-upvoted'} // Добавляем key для перемонтирования
                     src="/like.lottie"
                     loop={false}
                     autoplay={isUpvoted}
@@ -105,8 +111,8 @@ export default function GameAdditionalInfo({
                       color: heartColor,
                     }}
                   />
-                </Box>
-              )}
+                )}
+              </Box>
             </IconButton>
           </span>
         </Tooltip>

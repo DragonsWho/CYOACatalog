@@ -1,6 +1,4 @@
 // src/components/CyoaPage/GameAdditionalInfo.tsx
-// v1.9
-// Converted to TypeScript
 
 import { useState, useEffect, useCallback, useContext } from 'react';
 import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material';
@@ -10,17 +8,14 @@ import { AuthContext, pb } from '../../pocketbase/pocketbase';
 
 const LOGIN_TOOLTIP = 'Login to upvote';
 
+// Обновленный интерфейс пропсов - убираем обязательные параметры expanded и onExpand
 export default function GameAdditionalInfo({
   gameId,
   upvotes: initialUpvotes,
-  expanded,
-  onExpand,
   onUpvoteChange,
 }: {
   gameId: string;
   upvotes: string[];
-  expanded: boolean;
-  onExpand: () => void;
   onUpvoteChange?: () => void;
 }) {
   const theme = useTheme();
@@ -63,8 +58,6 @@ export default function GameAdditionalInfo({
     setIsLoading(false);
   }, [gameId, isUpvoted, onUpvoteChange, userID]);
 
-  const expandButtonColor = '#4caf50';
-
   return (
     <Box sx={{ mt: 2 }}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -101,19 +94,6 @@ export default function GameAdditionalInfo({
             {localUpvoteCount}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          size="small"
-          onClick={onExpand}
-          sx={{
-            backgroundColor: expandButtonColor,
-            '&:hover': {
-              backgroundColor: '#45a049',
-            },
-          }}
-        >
-          {expanded ? 'Fit Images' : 'Full Size Image'}
-        </Button>
       </Box>
     </Box>
   );

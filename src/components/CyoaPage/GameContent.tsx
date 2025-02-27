@@ -1,12 +1,13 @@
-//src/components/CyoaPage/GameContent.tsx
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Button, CircularProgress, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Button, CircularProgress, useMediaQuery, useTheme, ButtonGroup, Tooltip } from '@mui/material';
 import { Game } from '../../pocketbase/pocketbase';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
+import FitScreenIcon from '@mui/icons-material/FitScreen';
+import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
+import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 
 // Определим интерфейсы для кроссбраузерной поддержки fullscreen
 interface FullscreenElement extends HTMLElement {
@@ -28,6 +29,13 @@ interface ImageSizes {
   };
 }
 
+// Перечисление для режимов отображения изображений
+enum ImageViewMode {
+  FIT_CONTAINER = 'fit-container',
+  FIT_SCREEN = 'fit-screen',
+  ORIGINAL_SIZE = 'original-size'
+}
+
 export default function GameContent({ game }: { game: Game }) {
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({});
   const [imageSizes, setImageSizes] = useState<ImageSizes>({});
@@ -35,12 +43,15 @@ export default function GameContent({ game }: { game: Game }) {
   const [isIframeLoading, setIsIframeLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [viewMode, setViewMode] = useState<ImageViewMode>(ImageViewMode.FIT_CONTAINER);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
+  const contentContainerRef = useRef<HTMLDivElement>(null);
   
   // Используем Material UI хук для определения размера экрана
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md')); // 'md' соответствует ширине экрана >= 960px
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Логирование для отладки
   useEffect(() => {
@@ -53,10 +64,6 @@ export default function GameContent({ game }: { game: Game }) {
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
-      // Если выходим из полноэкранного режима, также сбрасываем expanded состояние
-      if (!document.fullscreenElement) {
-        setIsExpanded(false);
-      }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -65,19 +72,23 @@ export default function GameContent({ game }: { game: Game }) {
     };
   }, []);
 
-  // Эффект для обработки нажатия Escape для выхода из expanded режима
+  // Эффект для обработки overflow при смене режима просмотра
   useEffect(() => {
-    const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isExpanded && !isFullscreen) {
-        setIsExpanded(false);
+    const body = document.body;
+    const contentContainer = contentContainerRef.current;
+    
+    if (viewMode === ImageViewMode.FIT_CONTAINER) {
+      // Стандартный режим - возвращаем обычные стили
+      if (contentContainer) {
+        contentContainer.style.overflow = 'hidden';
       }
-    };
-
-    document.addEventListener('keydown', handleEscapeKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscapeKey);
-    };
-  }, [isExpanded, isFullscreen]);
+    } else {
+      // Для других режимов разрешаем полную видимость контента
+      if (contentContainer) {
+        contentContainer.style.overflow = 'visible';
+      }
+    }
+  }, [viewMode]);
 
   function handleImageLoad(id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) {
     setLoadingImages((prev) => prev - 1);
@@ -127,9 +138,19 @@ export default function GameContent({ game }: { game: Game }) {
     }
   };
 
-  // Функция для переключения расширенного режима
+  // Функция для переключения расширенного режима (только для iframe)
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
+  };
+
+  // Изменение режима просмотра изображений
+  const changeViewMode = (mode: ImageViewMode) => {
+    // Если мы уже в этом режиме, возвращаемся к базовому
+    if (viewMode === mode && mode !== ImageViewMode.FIT_CONTAINER) {
+      setViewMode(ImageViewMode.FIT_CONTAINER);
+    } else {
+      setViewMode(mode);
+    }
   };
 
   // Обработка ошибок загрузки iframe
@@ -139,19 +160,13 @@ export default function GameContent({ game }: { game: Game }) {
   };
 
   return (
-    <Box 
+    <Box
+      ref={contentContainerRef}
       sx={{ 
         backgroundColor: '#121212', 
         position: 'relative',
-        ...(isExpanded && {
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1300, // Значение выше, чем у большинства элементов
-          backgroundColor: '#000'
-        })
+        width: '100%',
+        overflow: viewMode !== ImageViewMode.FIT_CONTAINER ? 'visible' : 'hidden',
       }}
     >
       {game.img_or_link === 'img' && game.cyoa_pages.length ? (
@@ -162,6 +177,10 @@ export default function GameContent({ game }: { game: Game }) {
             alignItems: 'center',
             gap: '1rem',
             transition: 'all 0.3s ease',
+            width: '100%',
+            position: 'relative',
+            // Ключевой момент - разрешаем overflow в зависимости от режима просмотра
+            overflow: viewMode !== ImageViewMode.FIT_CONTAINER ? 'visible' : 'hidden',
           }}
         >
           {loadingImages > 0 && <CircularProgress />}
@@ -174,17 +193,30 @@ export default function GameContent({ game }: { game: Game }) {
                 justifyContent: 'center',
                 alignItems: 'center',
                 backgroundColor: '#121212',
-                transition: 'all 0.3s ease',
+                position: 'relative',
+                // Важно: для режимов FIT_SCREEN и ORIGINAL_SIZE позволяем изображению выходить за пределы
+                ...(viewMode === ImageViewMode.FIT_SCREEN && {
+                  maxWidth: 'none', // Убираем ограничение maxWidth
+                  overflow: 'visible',
+                }),
+                ...(viewMode === ImageViewMode.ORIGINAL_SIZE && {
+                  maxWidth: 'none',
+                  overflow: 'visible',
+                }),
               }}
             >
               {!imageErrors[index] && (
                 <img
                   src={`/api/files/games/${game.id}/${image}`}
                   alt={`Game content ${index + 1}`}
+                  className={
+                    viewMode === ImageViewMode.FIT_SCREEN 
+                      ? 'full-width-image' 
+                      : viewMode === ImageViewMode.ORIGINAL_SIZE 
+                        ? 'original-size-image' 
+                        : 'normal-image'
+                  }
                   style={{
-                    maxWidth: '100%',
-                    width: imageSizes[index]?.width > window.innerWidth ? '100%' : 'auto',
-                    height: 'auto',
                     display: loadingImages > 0 ? 'none' : 'block',
                     transition: 'all 0.3s ease',
                   }}
@@ -195,6 +227,67 @@ export default function GameContent({ game }: { game: Game }) {
               {imageErrors[index] && <div style={{ color: 'red' }}>Failed to load image {index + 1}</div>}
             </Box>
           ))}
+          
+          {/* Плавающие элементы управления для изображений */}
+          {loadingImages === 0 && (
+            <Box
+              sx={{
+                position: 'fixed',
+                bottom: '20px',
+                right: '20px',
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+              }}
+            >
+              <ButtonGroup 
+                orientation={isMobile ? "vertical" : "horizontal"}
+                variant="contained" 
+                size="small" 
+                sx={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '4px' }}
+              >
+                <Tooltip title="Fit to Container" placement="left">
+                  <Button
+                    onClick={() => changeViewMode(ImageViewMode.FIT_CONTAINER)}
+                    sx={{
+                      backgroundColor: viewMode === ImageViewMode.FIT_CONTAINER ? '#4a4a4a' : 'transparent',
+                      color: 'white',
+                      '&:hover': { backgroundColor: '#636363' },
+                    }}
+                  >
+                    <FitScreenIcon />
+                  </Button>
+                </Tooltip>
+                
+                <Tooltip title="Fit to Screen Width" placement="left">
+                  <Button
+                    onClick={() => changeViewMode(ImageViewMode.FIT_SCREEN)}
+                    sx={{
+                      backgroundColor: viewMode === ImageViewMode.FIT_SCREEN ? '#4a4a4a' : 'transparent',
+                      color: 'white',
+                      '&:hover': { backgroundColor: '#636363' },
+                    }}
+                  >
+                    <AspectRatioIcon />
+                  </Button>
+                </Tooltip>
+                
+                <Tooltip title="Original Size" placement="left">
+                  <Button
+                    onClick={() => changeViewMode(ImageViewMode.ORIGINAL_SIZE)}
+                    sx={{
+                      backgroundColor: viewMode === ImageViewMode.ORIGINAL_SIZE ? '#4a4a4a' : 'transparent',
+                      color: 'white',
+                      '&:hover': { backgroundColor: '#636363' },
+                    }}
+                  >
+                    <ZoomOutMapIcon />
+                  </Button>
+                </Tooltip>
+              </ButtonGroup>
+            </Box>
+          )}
         </Box>
       ) : game.img_or_link === 'link' && game.iframe_url ? (
         <Box

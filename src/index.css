@@ -58,8 +58,7 @@ input:-webkit-autofill:active {
     position: relative !important;
     z-index: 1 !important;
 }
-
-Контейнер для увеличенных изображений 
+ 
 .image-container-expanded {
     position: relative !important;
     overflow: visible !important;

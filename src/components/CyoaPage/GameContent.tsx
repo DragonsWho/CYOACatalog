@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Box, Button, CircularProgress, useMediaQuery, useTheme, ButtonGroup, Tooltip } from '@mui/material';
 import { Game } from '../../pocketbase/pocketbase';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
@@ -22,13 +22,6 @@ interface FullscreenDocument extends Document {
   msExitFullscreen?: () => Promise<void>;
 }
 
-interface ImageSizes {
-  [key: number]: {
-    width: number;
-    height: number;
-  };
-}
-
 // Перечисление для режимов отображения изображений
 enum ImageViewMode {
   FIT_CONTAINER = 'fit-container',
@@ -38,7 +31,6 @@ enum ImageViewMode {
 
 export default function GameContent({ game }: { game: Game }) {
   const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({});
-  const [imageSizes, setImageSizes] = useState<ImageSizes>({});
   const [loadingImages, setLoadingImages] = useState(game.cyoa_pages.length || 0);
   const [isIframeLoading, setIsIframeLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -74,7 +66,6 @@ export default function GameContent({ game }: { game: Game }) {
 
   // Эффект для обработки overflow при смене режима просмотра
   useEffect(() => {
-    const body = document.body;
     const contentContainer = contentContainerRef.current;
     
     if (viewMode === ImageViewMode.FIT_CONTAINER) {
@@ -90,15 +81,8 @@ export default function GameContent({ game }: { game: Game }) {
     }
   }, [viewMode]);
 
-  function handleImageLoad(id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) {
+  function handleImageLoad() {
     setLoadingImages((prev) => prev - 1);
-    setImageSizes((prev) => ({
-      ...prev,
-      [id]: {
-        width: (event.target as HTMLImageElement).naturalWidth,
-        height: (event.target as HTMLImageElement).naturalHeight,
-      },
-    }));
   }
 
   function handleImageError(id: number) {
@@ -144,8 +128,7 @@ export default function GameContent({ game }: { game: Game }) {
   };
 
   // Изменение режима просмотра изображений
-  const changeViewMode = (mode: ImageViewMode) => {
-    // Если мы уже в этом режиме, возвращаемся к базовому
+  const changeViewMode = (mode: ImageViewMode) => { 
     if (viewMode === mode && mode !== ImageViewMode.FIT_CONTAINER) {
       setViewMode(ImageViewMode.FIT_CONTAINER);
     } else {
@@ -156,7 +139,7 @@ export default function GameContent({ game }: { game: Game }) {
   // Обработка ошибок загрузки iframe
   const handleIframeError = () => {
     console.error('Iframe failed to load:', game.iframe_url);
-    setIsIframeLoading(false); // Показываем, что загрузка завершилась с ошибкой
+    setIsIframeLoading(false);  
   };
 
   return (
@@ -178,8 +161,7 @@ export default function GameContent({ game }: { game: Game }) {
             gap: '1rem',
             transition: 'all 0.3s ease',
             width: '100%',
-            position: 'relative',
-            // Ключевой момент - разрешаем overflow в зависимости от режима просмотра
+            position: 'relative', 
             overflow: viewMode !== ImageViewMode.FIT_CONTAINER ? 'visible' : 'hidden',
           }}
         >
@@ -193,10 +175,9 @@ export default function GameContent({ game }: { game: Game }) {
                 justifyContent: 'center',
                 alignItems: 'center',
                 backgroundColor: '#121212',
-                position: 'relative',
-                // Важно: для режимов FIT_SCREEN и ORIGINAL_SIZE позволяем изображению выходить за пределы
+                position: 'relative', 
                 ...(viewMode === ImageViewMode.FIT_SCREEN && {
-                  maxWidth: 'none', // Убираем ограничение maxWidth
+                  maxWidth: 'none',  
                   overflow: 'visible',
                 }),
                 ...(viewMode === ImageViewMode.ORIGINAL_SIZE && {
@@ -220,7 +201,7 @@ export default function GameContent({ game }: { game: Game }) {
                     display: loadingImages > 0 ? 'none' : 'block',
                     transition: 'all 0.3s ease',
                   }}
-                  onLoad={(event) => handleImageLoad(index, event)}
+                  onLoad={handleImageLoad}
                   onError={() => handleImageError(index)}
                 />
               )}

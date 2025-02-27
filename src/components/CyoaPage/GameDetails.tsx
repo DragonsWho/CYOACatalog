@@ -1,6 +1,4 @@
 // src/components/CyoaPage/GameDetails.tsx
-// v4.7
-// убрал SxProps 
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
@@ -27,7 +25,6 @@ interface CustomTheme extends Theme {
 export default function GameDetails() {
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [expanded, setExpanded] = useState<boolean>(false);
   const { id } = useParams<{ id: string }>();
   const theme = useTheme<CustomTheme>();
   const sanitizedDescription = useMemo(() => (game ? DOMPurify.sanitize(game.description) : ''), [game]);
@@ -46,8 +43,6 @@ export default function GameDetails() {
       }
     })();
   }, [id]);
-
-  
 
   if (loading) return <CircularProgress />;
   if (!game) return <Typography>Game not found</Typography>;
@@ -107,7 +102,7 @@ export default function GameDetails() {
               <Box>
                 <TagDisplay
                   tags={game.expand.tags}
-                  gameId={id as string} // Добавляем gameId
+                  gameId={id as string}
                 />
               </Box>
             )}
@@ -115,8 +110,6 @@ export default function GameDetails() {
             <GameAdditionalInfo
               gameId={id as string}
               upvotes={game.upvotes}
-              expanded={expanded}
-              onExpand={() => setExpanded(!expanded)}
             />
           </Grid2>
         </Grid2>

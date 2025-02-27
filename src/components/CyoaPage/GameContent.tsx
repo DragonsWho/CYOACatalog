@@ -254,7 +254,7 @@ export default function GameContent({ game }: { game: Game }) {
                 size="small" 
                 sx={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '4px' }}
               >
-                <Tooltip title="Fit to Container" placement="left">
+                <Tooltip title="Fit to Container" placement="top">
                   <Button
                     onClick={() => changeViewMode(ImageViewMode.FIT_CONTAINER)}
                     sx={{
@@ -267,7 +267,7 @@ export default function GameContent({ game }: { game: Game }) {
                   </Button>
                 </Tooltip>
                 
-                <Tooltip title="Fit to Screen Width" placement="left">
+                <Tooltip title="Fit to Screen Width" placement="top">
                   <Button
                     onClick={() => changeViewMode(ImageViewMode.FIT_SCREEN)}
                     sx={{
@@ -280,7 +280,7 @@ export default function GameContent({ game }: { game: Game }) {
                   </Button>
                 </Tooltip>
                 
-                <Tooltip title="Original Size" placement="left">
+                <Tooltip title="Original Size" placement="top">
                   <Button
                     onClick={() => changeViewMode(ImageViewMode.ORIGINAL_SIZE)}
                     sx={{

@@ -1,14 +1,11 @@
-// src/components/CyoaPage/GameAdditionalInfo.tsx
-
 import { useState, useEffect, useCallback, useContext } from 'react';
-import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material';
-import FavoriteIcon from '@mui/icons-material/Favorite';
+import { Box, Typography, CircularProgress, Tooltip, IconButton } from '@mui/material';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { useTheme } from '@mui/material/styles';
 import { AuthContext, pb } from '../../pocketbase/pocketbase';
 
 const LOGIN_TOOLTIP = 'Login to upvote';
 
-// Обновленный интерфейс пропсов - убираем обязательные параметры expanded и onExpand
 export default function GameAdditionalInfo({
   gameId,
   upvotes: initialUpvotes,
@@ -37,7 +34,6 @@ export default function GameAdditionalInfo({
 
     setIsLoading(true);
 
-    // Optimistic UI update
     const newIsUpvoted = !isUpvoted;
     setIsUpvoted(newIsUpvoted);
     setLocalUpvoteCount((prevCount) => (newIsUpvoted ? prevCount + 1 : prevCount - 1));
@@ -58,42 +54,73 @@ export default function GameAdditionalInfo({
     setIsLoading(false);
   }, [gameId, isUpvoted, onUpvoteChange, userID]);
 
+  const heartColor = theme.palette.secondary.main;
+
   return (
     <Box sx={{ mt: 2 }}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         Additional game information will be displayed here. Probably.
       </Typography>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Tooltip title={userID ? '' : LOGIN_TOOLTIP} arrow>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: 40 }}>
+        <Tooltip title={userID ? (isUpvoted ? 'Remove upvote' : 'Upvote') : LOGIN_TOOLTIP} arrow>
           <span>
-            <Button
-              variant="contained"
-              size="small"
-              sx={{
-                backgroundColor: isUpvoted ? theme.palette.secondary.main : theme.palette.primary.main,
-                '&:hover': {
-                  backgroundColor: isUpvoted ? theme.palette.secondary.dark : theme.palette.primary.dark,
-                },
-                '&.Mui-disabled': {
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  backgroundColor: 'rgba(0, 0, 0, 0.12)',
-                },
-                minWidth: '80px',
-              }}
+            <IconButton 
               onClick={handleUpvote}
               disabled={isLoading || !userID}
+              size="small"
+              sx={{
+                padding: 0,
+                width: 36,
+                height: 36,
+                opacity: !userID ? 0.6 : 1,
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                },
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              {isLoading ? <CircularProgress size={24} color="inherit" /> : isUpvoted ? 'UNVOTE' : 'UPVOTE'}
-            </Button>
+              {isLoading ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <Box 
+                  sx={{ 
+                    position: 'relative', 
+                    width: 72, 
+                    height: 72,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <DotLottieReact
+                    src="/like.lottie"
+                    loop={false}
+                    autoplay={isUpvoted}
+                    style={{
+                      width: '72px',
+                      height: '72px',
+                      color: heartColor,
+                    }}
+                  />
+                </Box>
+              )}
+            </IconButton>
           </span>
         </Tooltip>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
-          <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
-            {localUpvoteCount}
-          </Typography>
-        </Box>
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            color: 'white', 
+            fontWeight: 'bold',
+            minWidth: 10, 
+            textAlign: 'left'
+          }}
+        >
+          {localUpvoteCount}
+        </Typography>
       </Box>
     </Box>
   );

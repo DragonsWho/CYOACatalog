@@ -56,6 +56,10 @@ export default function GameContent({ game }: { game: Game }) {
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
+      // Если выходим из полноэкранного режима, также сбрасываем expanded состояние
+      if (!document.fullscreenElement) {
+        setIsExpanded(false);
+      }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -63,6 +67,20 @@ export default function GameContent({ game }: { game: Game }) {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, []);
+
+  // Эффект для обработки нажатия Escape для выхода из expanded режима
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isExpanded && !isFullscreen) {
+        setIsExpanded(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscapeKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isExpanded, isFullscreen]);
 
   // Эффект для обработки overflow при смене режима просмотра
   useEffect(() => {
@@ -150,6 +168,15 @@ export default function GameContent({ game }: { game: Game }) {
         position: 'relative',
         width: '100%',
         overflow: viewMode !== ImageViewMode.FIT_CONTAINER ? 'visible' : 'hidden',
+        ...(isExpanded && {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1300, // Значение выше, чем у большинства элементов
+          backgroundColor: '#000'
+        })
       }}
     >
       {game.img_or_link === 'img' && game.cyoa_pages.length ? (
@@ -365,25 +392,7 @@ export default function GameContent({ game }: { game: Game }) {
             </Box>
           )}
           
-          {/* Кнопка "Закрыть" в режиме expanded */}
-          {isExpanded && !isIframeLoading && (
-            <Button
-              onClick={toggleExpand}
-              sx={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                zIndex: 20,
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: 'rgba(0,0,0,0.7)',
-                },
-              }}
-            >
-              Закрыть
-            </Button>
-          )}
+           
         </Box>
       ) : (
         <div>No game content available</div>

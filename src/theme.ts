@@ -1,6 +1,6 @@
 // src/theme.ts
 // v1.8
-// Changes: Added variants for Chip component states
+// Changes: Added variants for Chip component states and CSS generated noise background
 
 import { createTheme, ThemeOptions } from '@mui/material/styles';
 
@@ -19,6 +19,30 @@ declare module '@mui/material/styles' {
   }
 }
 
+// Create SVG noise filter with specified parameters
+const generateNoiseFilter = () => {
+  // Parameters:
+  // - Background: #151515
+  // - Noise Color: #474747
+  // - Noise Opacity: 13%
+  // - Noise Density: 52%
+  
+  return `
+    data:image/svg+xml,
+    <svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'>
+      <filter id='noise' x='0' y='0'>
+        <feTurbulence 
+          type='turbulence' 
+          baseFrequency='0.322' 
+          numOctaves='3' 
+          stitchTiles='stitch'/>
+        <feBlend mode='darken'/>
+      </filter>
+      <rect width='100%' height='100%' filter='url(%23noise)' opacity='0.07'/>
+    </svg>
+  `.replace(/\n\s+/g, '');
+};
+
 const themeOptions: ThemeOptions = {
   palette: {
     mode: 'dark',
@@ -29,7 +53,7 @@ const themeOptions: ThemeOptions = {
       main: '#ff4081',
     },
     background: {
-      default: '#121212',
+      default: '#151515', // Base background color
       paper: '#0b0b0b',
     },
     text: {
@@ -42,6 +66,29 @@ const themeOptions: ThemeOptions = {
     },
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundColor: '#101010',
+          backgroundImage: `url("${generateNoiseFilter()}")`,
+          backgroundRepeat: 'repeat',
+          backgroundSize: '300px 300px',
+          backgroundPosition: '0 0',
+          position: 'relative',
+          '&::after': {
+            content: '""',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+            backgroundColor: 'rgba(5, 5, 5, 0.25)',
+            zIndex: -1,
+          },
+        },
+      },
+    },
     MuiTextField: {
       styleOverrides: {
         root: {

@@ -1,10 +1,6 @@
-// src/components/CyoaPage/GameAdditionalInfo.tsx
-// v1.9
-// Converted to TypeScript
-
 import { useState, useEffect, useCallback, useContext } from 'react';
-import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material';
-import FavoriteIcon from '@mui/icons-material/Favorite';
+import { Box, Typography, CircularProgress, Tooltip, IconButton } from '@mui/material';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { useTheme } from '@mui/material/styles';
 import { AuthContext, pb } from '../../pocketbase/pocketbase';
 
@@ -13,20 +9,17 @@ const LOGIN_TOOLTIP = 'Login to upvote';
 export default function GameAdditionalInfo({
   gameId,
   upvotes: initialUpvotes,
-  expanded,
-  onExpand,
   onUpvoteChange,
 }: {
   gameId: string;
   upvotes: string[];
-  expanded: boolean;
-  onExpand: () => void;
   onUpvoteChange?: () => void;
 }) {
   const theme = useTheme();
   const [isUpvoted, setIsUpvoted] = useState(false);
   const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvotes?.length || 0);
   const [isLoading, setIsLoading] = useState(false);
+  const [showLoader, setShowLoader] = useState(false);
   const { user } = useContext(AuthContext);
   const userID = user?.id;
 
@@ -42,10 +35,11 @@ export default function GameAdditionalInfo({
 
     setIsLoading(true);
 
-    // Optimistic UI update
     const newIsUpvoted = !isUpvoted;
     setIsUpvoted(newIsUpvoted);
     setLocalUpvoteCount((prevCount) => (newIsUpvoted ? prevCount + 1 : prevCount - 1));
+
+    const loaderTimeout = setTimeout(() => setShowLoader(true), 200);
 
     const res = await fetch('/api/custom/upvotes/' + gameId, {
       method: 'POST',
@@ -60,10 +54,12 @@ export default function GameAdditionalInfo({
     setLocalUpvoteCount(count);
 
     if (onUpvoteChange) onUpvoteChange();
+    clearTimeout(loaderTimeout);
+    setShowLoader(false);
     setIsLoading(false);
   }, [gameId, isUpvoted, onUpvoteChange, userID]);
 
-  const expandButtonColor = '#4caf50';
+  const heartColor = theme.palette.secondary.main;
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -71,49 +67,66 @@ export default function GameAdditionalInfo({
         Additional game information will be displayed here. Probably.
       </Typography>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Tooltip title={userID ? '' : LOGIN_TOOLTIP} arrow>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: 40 }}>
+        <Tooltip title={userID ? (isUpvoted ? 'Remove upvote' : 'Upvote') : LOGIN_TOOLTIP} arrow>
           <span>
-            <Button
-              variant="contained"
-              size="small"
-              sx={{
-                backgroundColor: isUpvoted ? theme.palette.secondary.main : theme.palette.primary.main,
-                '&:hover': {
-                  backgroundColor: isUpvoted ? theme.palette.secondary.dark : theme.palette.primary.dark,
-                },
-                '&.Mui-disabled': {
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  backgroundColor: 'rgba(0, 0, 0, 0.12)',
-                },
-                minWidth: '80px',
-              }}
+            <IconButton 
               onClick={handleUpvote}
               disabled={isLoading || !userID}
+              size="small"
+              sx={{
+                padding: 0,
+                width: 36,
+                height: 36,
+                opacity: !userID ? 0.6 : 1,
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                },
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              {isLoading ? <CircularProgress size={24} color="inherit" /> : isUpvoted ? 'UNVOTE' : 'UPVOTE'}
-            </Button>
+              <Box 
+                sx={{ 
+                  position: 'relative', 
+                  width: 72, 
+                  height: 72,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {showLoader ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <DotLottieReact
+                    key={isUpvoted ? 'upvoted' : 'not-upvoted'} // Добавляем key для перемонтирования
+                    src="/like.lottie"
+                    loop={false}
+                    autoplay={isUpvoted}
+                    style={{
+                      width: '72px',
+                      height: '72px',
+                      color: heartColor,
+                    }}
+                  />
+                )}
+              </Box>
+            </IconButton>
           </span>
         </Tooltip>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
-          <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
-            {localUpvoteCount}
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          size="small"
-          onClick={onExpand}
-          sx={{
-            backgroundColor: expandButtonColor,
-            '&:hover': {
-              backgroundColor: '#45a049',
-            },
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            color: 'white', 
+            fontWeight: 'bold',
+            minWidth: 10, 
+            textAlign: 'left'
           }}
         >
-          {expanded ? 'Fit Images' : 'Full Size Image'}
-        </Button>
+          {localUpvoteCount}
+        </Typography>
       </Box>
     </Box>
   );

@@ -1,9 +1,10 @@
 // src/components/Add/TagSelector.tsx
 // Version 1.9.6
 // Changes: Added null check for onLoad function and improved error handling
+// Added filter to exclude "Custom" category
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
+import { Box, Chip, Typography, CircularProgress, Tooltip } from '@mui/material';
 import { tagCategoriesCollection, TagCategory } from '../../pocketbase/pocketbase';
 
 const CATEGORY_ORDER = [
@@ -16,7 +17,6 @@ const CATEGORY_ORDER = [
   'Genre',
   'Setting',
   'Tone',
-  'Extra',
   'Narrative Structure',
   'Power Level',
   'Visual Style',
@@ -100,7 +100,10 @@ export default function TagSelector({
   }, [onLoad]);
 
   const sortedCategories = useMemo(() => {
-    return tagCategories.sort((a, b) => {
+    // Фильтруем категории, исключая "Custom"
+    const filteredCategories = tagCategories.filter(category => category.name !== 'Custom');
+    
+    return filteredCategories.sort((a, b) => {
       const indexA = CATEGORY_ORDER.indexOf(a.name);
       const indexB = CATEGORY_ORDER.indexOf(b.name);
       if (indexA === -1 && indexB === -1) return 0;
@@ -118,9 +121,7 @@ export default function TagSelector({
     else if (categoryTags.length < category.max_tags) onTagsChange([...selectedTags, tagID]);
   }
 
-  function handleAddTag(categoryID: string, newTagName: string) {
-    console.log(`Add new tag "${newTagName}" to category ${categoryID}`);
-  }
+ 
 
   function renderTagGroups(category: TagCategory, groupConfig: number[][] | undefined) {
     if (!groupConfig || groupConfig.length === 0) groupConfig = [[category.tags.length]]; // Default to all tags in one row
@@ -180,9 +181,7 @@ export default function TagSelector({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
-      {sortedCategories.map((category) => {
-        const canAddMore =
-          selectedTags.filter((id) => category.tags.some((tag) => tag === id)).length < category.max_tags;
+      {sortedCategories.map((category) => { 
 
         return (
           <Box key={category.id}>
@@ -201,25 +200,7 @@ export default function TagSelector({
               </Typography>
             </DelayedTooltip>
             {renderTagGroups(category, TAG_GROUPS[category.name])}
-            {category.allow_new_tags && canAddMore && (
-              <TextField
-                size="small"
-                placeholder="Add a tag..."
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddTag(category.id, (e.target as HTMLInputElement).value);
-                    (e.target as HTMLInputElement).value = '';
-                  }
-                }}
-                sx={{
-                  mt: GAP,
-                  '& .MuiInputBase-root': {
-                    height: CHIP_HEIGHT,
-                    fontSize: CHIP_FONT_SIZE,
-                  },
-                }}
-              />
-            )}
+             
           </Box>
         );
       })}

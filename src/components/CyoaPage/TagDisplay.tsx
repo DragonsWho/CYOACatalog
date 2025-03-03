@@ -15,6 +15,7 @@ const CATEGORY_ORDER = [
   'Player Sexual Role',
   'Playtime',
   'Status',
+  'Gameplay',
   'Genre',
   'Setting',
   'Tone',

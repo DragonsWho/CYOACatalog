@@ -1,9 +1,9 @@
 // src/components/CyoaPage/AddTagPopover.tsx
-// v1.2
-// Компонент для добавления новых тегов с обновленной логикой предложения тегов и ограничением ширины
+// v1.3
+// Компонент для добавления новых тегов с обновленной логикой предложения тегов, ограничением ширины и всплывающими подсказками
 
 import React from 'react';
-import { Box, Chip, Typography, Popover } from '@mui/material';
+import { Box, Chip, Typography, Popover, Tooltip } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Tag } from '../../pocketbase/pocketbase';
 
@@ -34,6 +34,44 @@ const AddTagPopover: React.FC<AddTagPopoverProps> = ({
   isUpdating,
 }) => {
   const theme = useTheme();
+
+  // Функция для рендеринга тега с всплывающей подсказкой
+  const renderTagWithTooltip = (tag: Tag) => (
+    <Tooltip 
+      key={tag.id} 
+      title={tag.description || 'No description available'} 
+      arrow 
+      placement="top"
+      enterDelay={500}
+      leaveDelay={200}
+    >
+      <Chip
+        label={tag.name}
+        size="small"
+        onClick={() => onTagSelect(tag)}
+        disabled={isUpdating[tag.id]}
+        sx={{
+          height: CHIP_HEIGHT,
+          borderRadius: CHIP_BORDER_RADIUS,
+          backgroundColor: theme.palette.grey[700], // Lightened background
+          color: theme.palette.grey[100], // Much lighter text for contrast
+          cursor: 'pointer',
+          opacity: isUpdating[tag.id] ? 0.7 : 1,
+          '&:hover': {
+            backgroundColor: theme.palette.grey[600], // Lighter hover state
+            color: 'white', // White text on hover
+          },
+          '& .MuiChip-label': {
+            fontSize: CHIP_FONT_SIZE,
+            padding: CHIP_PADDING,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          },
+        }}
+      />
+    </Tooltip>
+  );
 
   return (
     <Popover
@@ -69,45 +107,15 @@ const AddTagPopover: React.FC<AddTagPopoverProps> = ({
         width: '100%'
       }}>
         {availableTags.length > 0 ? (
-          availableTags.map((tag) => (
-            <Chip
-              key={tag.id}
-              label={tag.name}
-              size="small"
-              onClick={() => onTagSelect(tag)}
-              disabled={isUpdating[tag.id]}
-              sx={{
-                height: CHIP_HEIGHT,
-                borderRadius: CHIP_BORDER_RADIUS,
-                backgroundColor: theme.palette.grey[700], // Lightened background
-                color: theme.palette.grey[100], // Much lighter text for contrast
-                cursor: 'pointer',
-                opacity: isUpdating[tag.id] ? 0.7 : 1,
-                '&:hover': {
-                  backgroundColor: theme.palette.grey[600], // Lighter hover state
-                  color: 'white', // White text on hover
-                },
-                '& .MuiChip-label': {
-                  fontSize: CHIP_FONT_SIZE,
-                  padding: CHIP_PADDING,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                },
-              }}
-            />
-          ))
+          availableTags.map((tag) => renderTagWithTooltip(tag))
         ) : (
           <Typography variant="body2" sx={{ color: theme.palette.grey[300], fontStyle: 'italic', width: '100%' }}>
-            Нет доступных тегов
+            No available tags
           </Typography>
         )}
       </Box>
     </Popover>
   );
 };
-
-// Removing unused constants
-// These constants are already defined in TagDisplay.tsx
 
 export default AddTagPopover;

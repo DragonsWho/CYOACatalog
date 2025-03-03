@@ -1,6 +1,6 @@
 // src/components/Add/CustomTagSelector.tsx
 import { useState, useEffect, KeyboardEvent, ChangeEvent } from 'react';
-import { TextField, Chip, Typography, Box, Button } from '@mui/material';
+import { TextField, Chip, Typography, Box, Button, Tooltip } from '@mui/material';
 import { tagsCollection, tagCategoriesCollection, Tag } from '../../pocketbase/pocketbase';
 
 // Configurable maximum Levenshtein distance
@@ -200,17 +200,27 @@ export default function CustomTagSelector({ value, onChange, availableTags, onTa
     inputValue.trim() !== '' &&
     !availableTags.some((tag) => tag.name.toLowerCase() === inputValue.trim().toLowerCase());
 
+  // Функция для рендеринга тега с всплывающей подсказкой
+  const renderTagWithTooltip = (tag: Tag, onClick?: () => void, isDeletable: boolean = false) => (
+    <Tooltip 
+      key={tag.id} 
+      title={tag.description || 'No description available'} 
+      arrow 
+      placement="top"
+    >
+      <Chip
+        label={tag.name}
+        onClick={onClick}
+        onDelete={isDeletable ? () => handleTagDelete(tag) : undefined}
+        style={{ margin: '0 5px 5px 0', cursor: onClick ? 'pointer' : 'default' }}
+      />
+    </Tooltip>
+  );
+
   return (
     <Box>
       <Box mb={2}>
-        {value.map((tag) => (
-          <Chip
-            key={tag.id}
-            label={tag.name}
-            onDelete={() => handleTagDelete(tag)}
-            style={{ margin: '0 5px 5px 0' }}
-          />
-        ))}
+        {value.map((tag) => renderTagWithTooltip(tag, undefined, true))}
       </Box>
       <TextField
         fullWidth
@@ -230,27 +240,17 @@ export default function CustomTagSelector({ value, onChange, availableTags, onTa
       {autocompleteSuggestions.length > 0 && (
         <Box mt={1}>
           <Typography variant="subtitle2">Suggestions:</Typography>
-          {autocompleteSuggestions.map((suggestion) => (
-            <Chip
-              key={suggestion.id}
-              label={suggestion.name}
-              onClick={() => handleSuggestionClick(suggestion)}
-              style={{ margin: '0 5px 5px 0', cursor: 'pointer' }}
-            />
-          ))}
+          {autocompleteSuggestions.map((suggestion) => 
+            renderTagWithTooltip(suggestion, () => handleSuggestionClick(suggestion))
+          )}
         </Box>
       )}
       {similarTags.length > 0 && (
         <Box mt={1}>
           <Typography variant="subtitle2">Did you mean:</Typography>
-          {similarTags.map((suggestion) => (
-            <Chip
-              key={suggestion.id}
-              label={suggestion.name}
-              onClick={() => handleSuggestionClick(suggestion)}
-              style={{ margin: '0 5px 5px 0', cursor: 'pointer' }}
-            />
-          ))}
+          {similarTags.map((suggestion) => 
+            renderTagWithTooltip(suggestion, () => handleSuggestionClick(suggestion))
+          )}
         </Box>
       )}
     </Box>

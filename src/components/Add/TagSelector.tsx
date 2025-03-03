@@ -14,6 +14,7 @@ const CATEGORY_ORDER = [
   'Player Sexual Role',
   'Playtime',
   'Status',
+  'Gameplay',
   'Genre',
   'Setting',
   'Tone',
@@ -24,14 +25,17 @@ const CATEGORY_ORDER = [
   'Kinks',
 ];
 
-const TAG_GROUPS: { [key: string]: number[][] } = {
-  Rating: [[4]],
-  Playtime: [[4]],
-  Interactivity: [[4]],
-  Status: [[3]],
-  'Player Sexual Role': [[6]],
-  Tone: [[7]],
-  Kinks: [[7], [6], [5], [3], [4], [5], [5], [4], [6], [7], [3], [6], [6], [5], [5], [6], [99]],
+const TAG_GROUPS: { [key: string]: number[][] } = { 
+  Kinks: [[6], 
+  [5], 
+  [3], 
+  [5], 
+  [4], 
+  [5], 
+  [5], 
+  [5], 
+  [5], 
+  [5], [8], [99]],
 };
 const TOOLTIP_DELAY = 1000; // 1 second delay for tooltips
 const CHIP_HEIGHT = '24px';

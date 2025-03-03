@@ -8,7 +8,8 @@ import {
   Popover, 
   Chip,
   CircularProgress,
-  Divider
+  Divider,
+  Tooltip
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Tag, GameTagVote } from '../../pocketbase/pocketbase';
@@ -93,6 +94,44 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
   const [localIsCreating, setLocalIsCreating] = useState<boolean>(false);
   const [proposedTags, setProposedTags] = useState<Tag[]>([]);
  
+  // Функция для рендеринга тега с всплывающей подсказкой
+  const renderTagWithTooltip = (
+    tag: Tag, 
+    onClick: () => void, 
+    disabled: boolean = false, 
+    extraLabel: string = '',
+    customStyle: React.CSSProperties = {}
+  ) => (
+    <Tooltip 
+      key={tag.id} 
+      title={tag.description || 'No description available'} 
+      arrow 
+      placement="top"
+      enterDelay={500}
+      leaveDelay={200}
+    >
+      <div> {/* Wrapper div needed because disabled Chip can't receive events */}
+        <Chip
+          label={extraLabel ? `${tag.name} ${extraLabel}` : tag.name}
+          size="small"
+          onClick={onClick}
+          disabled={disabled}
+          sx={{
+            backgroundColor: customStyle.backgroundColor || theme.palette.grey[700],
+            color: theme.palette.grey[100],
+            cursor: disabled ? 'default' : 'pointer',
+            '&:hover': {
+              backgroundColor: disabled 
+                ? (customStyle.backgroundColor || theme.palette.grey[700])
+                : theme.palette.grey[600],
+              color: 'white',
+            },
+            ...customStyle
+          }}
+        />
+      </div>
+    </Tooltip>
+  );
 
   // Находим все предложенные кастомные теги, которые еще не прошли порог активации
   useEffect(() => {
@@ -285,24 +324,13 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
               Suggestions:
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-              {suggestions.map((suggestion) => (
-                <Chip
-                  key={suggestion.id}
-                  label={suggestion.name}
-                  size="small"
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  disabled={isCreating || localIsCreating}
-                  sx={{
-                    backgroundColor: theme.palette.grey[700],
-                    color: theme.palette.grey[100],
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: theme.palette.grey[600],
-                      color: 'white',
-                    },
-                  }}
-                />
-              ))}
+              {suggestions.map((suggestion) => 
+                renderTagWithTooltip(
+                  suggestion, 
+                  () => handleSuggestionClick(suggestion), 
+                  isCreating || localIsCreating
+                )
+              )}
             </Box>
           </Box>
         )}
@@ -315,27 +343,19 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
               Proposed Custom Tags:
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-              {proposedTags.map((tag: any) => (
-                <Chip
-                  key={tag.id}
-                  label={`${tag.name} (${tag.voteCount}/${ACTIVATION_THRESHOLD})`}
-                  size="small"
-                  onClick={() => handleProposedTagClick(tag)}
-                  disabled={isCreating || localIsCreating || tag.userVoted}
-                  sx={{
+              {proposedTags.map((tag: any) => 
+                renderTagWithTooltip(
+                  tag,
+                  () => handleProposedTagClick(tag),
+                  isCreating || localIsCreating || tag.userVoted,
+                  `(${tag.voteCount}/${ACTIVATION_THRESHOLD})`,
+                  {
                     backgroundColor: tag.userVoted 
                       ? theme.palette.primary.dark 
-                      : theme.palette.grey[700],
-                    color: theme.palette.grey[100],
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: tag.userVoted 
-                        ? theme.palette.primary.dark 
-                        : theme.palette.grey[600],
-                    },
-                  }}
-                />
-              ))}
+                      : theme.palette.grey[700]
+                  }
+                )
+              )}
             </Box>
             <Typography variant="caption" sx={{ color: theme.palette.grey[400], mt: 0.5, display: 'block' }}>
               Tags need {ACTIVATION_THRESHOLD} votes to become visible to all users

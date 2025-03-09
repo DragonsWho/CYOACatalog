@@ -28,7 +28,7 @@ import {
   gamesCollection,
   tagCategoriesCollection,
   TagCategory,
-} from '../../pocketbase/pocketbase';
+} from '../../pocketbase/pocketbase'; 
 
 import { encode as webpencode } from '@jsquash/webp';
 

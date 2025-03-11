@@ -1,0 +1,711 @@
+// === Project Directory Structure ===
+//  GameAdditionalInfo.tsx
+//  GameContent.tsx
+//  GameDetails.tsx
+//  SimpleComments.tsx
+//  TagDisplay.tsx
+// === End of Directory Structure ===
+
+
+// === File: CyoaPage/TagDisplay.tsx ===
+
+// src/components/CyoaPage/TagDisplay.tsx
+// v2.2
+// Converted to TypeScript
+
+import React from 'react';
+import { Box, Chip, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { Tag } from '../../pocketbase/pocketbase';
+
+const CATEGORY_ORDER = [
+  'Rating',
+  'Interactivity',
+  'POV',
+  'Player Sexual Role',
+  'Playtime',
+  'Status',
+  'Genre',
+  'Setting',
+  'Tone',
+  'Extra',
+  'Narrative Structure',
+  'Power Level',
+  'Visual Style',
+  'Language',
+  'Kinks',
+];
+
+const CHIP_HEIGHT = '24px';
+const CHIP_FONT_SIZE = '0.8125rem';
+const CHIP_PADDING = '0 8px';
+const CHIP_BORDER_RADIUS = '4px';
+const GAP = 0.75; // Gap between chips
+const CATEGORY_FONT_WEIGHT = '500';
+const SECTION_GAP = 0.5; // Gap between sections
+
+export default function TagDisplay({
+  tags,
+  chipProps = {},
+}: {
+  tags: Tag[];
+  chipProps?: { size?: 'small' | 'medium'; sx?: React.CSSProperties };
+}) {
+  const theme = useTheme();
+
+  if (!tags || tags.length === 0) {
+    return null;
+  }
+
+  // Group tags by their category
+  const groupedTags = tags.reduce<Record<string, Tag[]>>((acc, tag) => {
+    const categoryName = tag.expand?.tag_categories_via_tags?.[0].name ?? 'Uncategorized';
+    if (!acc[categoryName]) acc[categoryName] = [];
+    acc[categoryName].push(tag);
+    return acc;
+  }, {});
+
+  // Sort categories based on CATEGORY_ORDER
+  const sortedCategories = Object.keys(groupedTags).sort((a, b) => {
+    const indexA = CATEGORY_ORDER.indexOf(a);
+    const indexB = CATEGORY_ORDER.indexOf(b);
+    if (indexA === -1 && indexB === -1) return 0;
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
+      {sortedCategories.map((category) => (
+        <Box key={category} sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: GAP }}>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontWeight: CATEGORY_FONT_WEIGHT,
+              display: 'inline-flex',
+              alignItems: 'center',
+              mr: 1,
+              minWidth: 'max-content',
+              color: theme.palette.text.primary,
+            }}
+          >
+            {category}:
+          </Typography>
+          {groupedTags[category].map((tag) => (
+            <Chip
+              key={tag.id}
+              label={tag.name}
+              size="small"
+              sx={{
+                height: CHIP_HEIGHT,
+                borderRadius: CHIP_BORDER_RADIUS,
+                '& .MuiChip-label': {
+                  fontSize: CHIP_FONT_SIZE,
+                  padding: CHIP_PADDING,
+                },
+                ...chipProps.sx,
+              }}
+              {...chipProps}
+            />
+          ))}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+
+// === File: CyoaPage/GameDetails.tsx ===
+
+// src/components/CyoaPage/GameDetails.tsx
+// v4.6
+// Используем SxProps для корректной типизации &:hover
+
+import { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme, SxProps } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import TagDisplay from './TagDisplay';
+import GameContent from './GameContent';
+import SimpleComments from './SimpleComments';
+import GameAdditionalInfo from './GameAdditionalInfo';
+import { Game, gamesCollection } from '../../pocketbase/pocketbase';
+import DOMPurify from 'dompurify';
+
+interface CustomTheme extends Theme {
+  custom?: {
+    borderRadius?: string;
+    boxShadow?: string;
+    comments?: {
+      backgroundColor?: string;
+      borderRadius?: string;
+    };
+  };
+}
+
+export default function GameDetails() {
+  const [game, setGame] = useState<Game | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [expanded, setExpanded] = useState<boolean>(false);
+  const { id } = useParams<{ id: string }>();
+  const theme = useTheme<CustomTheme>();
+  const sanitizedDescription = useMemo(() => (game ? DOMPurify.sanitize(game.description) : ''), [game]);
+
+  useEffect(() => {
+    (async () => {
+      const game = await gamesCollection.getOne(id as string, {
+        expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
+      });
+      setGame(game);
+      setLoading(false);
+    })();
+  }, [id]);
+
+  // Явная типизация для sx в chipProps
+  const chipSx: SxProps<Theme> = {
+    backgroundColor: theme.palette.grey[800],
+    color: theme.palette.text.primary,
+    '&:hover': {
+      backgroundColor: theme.palette.grey[700],
+    },
+  };
+
+  if (loading) return <CircularProgress />;
+  if (!game) return <Typography>Game not found</Typography>;
+
+  return (
+    <Container maxWidth="lg" disableGutters>
+      <Paper
+        elevation={3}
+        sx={{
+          p: 2,
+          mb: 0,
+          bgcolor: theme.palette.background.paper,
+          color: theme.palette.common.white,
+        }}
+      >
+        <Box
+          sx={{
+            mb: 1,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-end',
+          }}
+        >
+          <Typography variant="h4" component="h1" sx={{ mr: 1, color: theme.palette.text.primary }}>
+            {game.title || 'Untitled Game'}
+          </Typography>
+          {game.expand?.authors_via_games?.length && game.expand.authors_via_games?.length > 0 && (
+            <Typography variant="subtitle1" sx={{ mb: '0.05em', color: theme.palette.text.primary }}>
+              by {game.expand.authors_via_games.map((author) => author.name).join(', ')}
+            </Typography>
+          )}
+        </Box>
+
+        <Grid2 container spacing={3}>
+          <Grid2 size={{ xs: 12, md: 6 }}>
+            {game.image && (
+              <Box
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <img
+                  src={`/api/files/games/${game.id}/${game.image}`}
+                  alt={game.title}
+                  style={{ maxWidth: '60%', height: 'auto', objectFit: 'contain' }}
+                />
+              </Box>
+            )}
+          </Grid2>
+
+          <Grid2 size={{ xs: 12, md: 6 }}>
+            {game.expand?.tags?.length && game.expand.tags?.length > 0 && (
+              <Box>
+                <TagDisplay
+                  tags={game.expand.tags}
+                  chipProps={{
+                    size: 'small',
+                    sx: chipSx, // Используем типизированный объект
+                  }}
+                />
+              </Box>
+            )}
+
+            <GameAdditionalInfo
+              gameId={id as string}
+              upvotes={game.upvotes}
+              expanded={expanded}
+              onExpand={() => setExpanded(!expanded)}
+            />
+          </Grid2>
+        </Grid2>
+
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="h6" gutterBottom textAlign="center" sx={{ color: theme.palette.text.primary }}>
+            Description
+          </Typography>
+          <div
+            style={{ paddingLeft: 12, paddingRight: 12, color: theme.palette.text.primary }}
+            dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
+          />
+        </Box>
+      </Paper>
+
+      <Box sx={{ mb: 3, mt: 3 }}>
+        <GameContent game={game} />
+      </Box>
+
+      <Box sx={{}}>
+        <SimpleComments game={game} />
+      </Box>
+    </Container>
+  );
+}
+
+
+// === File: CyoaPage/SimpleComments.tsx ===
+
+// src/components/CyoaPage/SimpleComments.tsx
+// v3.36
+// Fixed TypeScript errors and improved type safety
+
+import { useContext, useMemo } from 'react';
+import { Box, Typography, useTheme, Theme } from '@mui/material';
+import { CommentSection } from 'react-comments-section';
+import 'react-comments-section/dist/index.css';
+import { AuthContext, commentsCollection, Game, pb } from '../../pocketbase/pocketbase';
+
+interface FormattedComment {
+  userId: string;
+  comId: string;
+  fullName: string;
+  avatarUrl: string;
+  text: string;
+  replies: FormattedComment[];
+  parentId: string | null;
+}
+
+interface CustomTheme extends Theme {
+  custom?: {
+    comments?: {
+      backgroundColor?: string;
+      borderRadius?: string;
+      color?: string;
+    };
+  };
+}
+
+export default function SimpleComments({ game }: { game: Game }) {
+  const { user } = useContext(AuthContext);
+  const theme = useTheme<CustomTheme>();
+
+  const comments = useMemo(() => {
+    const comments = game.expand?.comments;
+    if (!comments) return [];
+
+    const commentMap = new Map<string, FormattedComment>();
+    for (const comment of comments) {
+      commentMap.set(comment.id, {
+        userId: comment.author,
+        comId: comment.id,
+        fullName: comment.expand?.author?.name || comment.expand?.author?.username || 'Anonymous',
+        avatarUrl:
+          comment.expand?.author?.avatar ||
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.expand?.author?.name || comment.expand?.author?.username || 'Anonymous')}&background=1a1a1a&color=fc3447`,
+        text: comment.content,
+        replies: [],
+        parentId: null,
+      });
+    }
+    for (const comment of comments) {
+      for (const childID of comment.children) {
+        const child = commentMap.get(childID);
+        if (child) {
+          commentMap.get(comment.id)?.replies.push(child);
+          child.parentId = comment.id;
+        }
+      }
+    }
+    const newComments = comments
+      .map((comment) => commentMap.get(comment.id))
+      .filter((x) => x !== undefined)
+      .filter((x) => x.parentId === null);
+    const flattenedComments: FormattedComment[] = [];
+    for (const comment of newComments) {
+      const replies = comment.replies;
+      comment.replies = [];
+      function recurse(c: FormattedComment) {
+        comment.replies.push(c);
+        for (const reply of c.replies) recurse(reply);
+      }
+      for (const reply of replies) recurse(reply);
+      flattenedComments.push(comment);
+    }
+    return flattenedComments;
+  }, [game.expand?.comments]);
+
+  async function handleSubmitComment(data: { text: string; parentId?: string }) {
+    if (!user) return;
+    await fetch('/api/custom/comments', {
+      method: 'POST',
+      body: JSON.stringify({ game_id: game.id, parent_id: data.parentId, content: data.text }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${pb.authStore.token}`,
+      },
+    });
+  }
+
+  async function handleEditComment(data: { comId: string; text: string }) {
+    await commentsCollection.update(data.comId, { content: data.text });
+  }
+
+  async function handleDeleteComment(data: { comIdToDelete: string }) {
+    if (!user) return;
+    const comment = game.expand?.comments?.find((x) => x.id === data.comIdToDelete);
+    if (user.id !== comment?.author)
+      throw new Error(`You can only delete your own comments, ${user.id} is not ${comment?.author}`);
+    await commentsCollection.delete(data.comIdToDelete);
+  }
+
+  const inputStyle = {
+    color: '#dcdcdc',
+  };
+
+  return (
+    <Box
+      sx={{
+        mt: 4,
+        p: 2,
+        backgroundColor: theme.custom?.comments?.backgroundColor,
+        borderRadius: theme.custom?.comments?.borderRadius,
+      }}
+    >
+      {user ? (
+        <CommentSection
+          currentUser={{
+            currentUserId: user.id,
+            currentUserImg:
+              user.avatar ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.username)}&background=1a1a1a&color=fc3447`,
+            currentUserFullName: user.name || user.username,
+            currentUserProfile: '',
+          }}
+          commentData={comments}
+          onSubmitAction={(data: { text: string; parentId?: string }) => handleSubmitComment(data)}
+          onReplyAction={(data: { text: string; repliedToCommentId: string }) =>
+            handleSubmitComment({ text: data.text, parentId: data.repliedToCommentId })
+          }
+          onEditAction={handleEditComment}
+          onDeleteAction={handleDeleteComment}
+          hrStyle={{ border: 'none' }}
+          removeEmoji
+          submitBtnStyle={{ border: '1px solid gray', backgroundColor: 'gray', color: 'black' }}
+          cancelBtnStyle={{ border: '1px solid gray', backgroundColor: 'gray', color: 'black' }}
+          titleStyle={{ color: 'gray' }}
+          replyInputStyle={{ color: theme.palette.text.primary }}
+          formStyle={{ backgroundColor: '#1e1e1e' }}
+          inputStyle={inputStyle}
+          // TODO: add actual login and signup links
+          logIn={{ loginLink: '#', signupLink: '#' }}
+        />
+      ) : (
+        <Typography sx={{ color: theme.custom?.comments?.color }}>Please log in to post comments.</Typography>
+      )}
+    </Box>
+  );
+}
+
+
+// === File: CyoaPage/GameAdditionalInfo.tsx ===
+
+// src/components/CyoaPage/GameAdditionalInfo.tsx
+// v1.9
+// Converted to TypeScript
+
+import { useState, useEffect, useCallback, useContext } from 'react';
+import { Box, Typography, Button, CircularProgress, Tooltip } from '@mui/material';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import { useTheme } from '@mui/material/styles';
+import { AuthContext, pb } from '../../pocketbase/pocketbase';
+
+const LOGIN_TOOLTIP = 'Login to upvote';
+
+export default function GameAdditionalInfo({
+  gameId,
+  upvotes: initialUpvotes,
+  expanded,
+  onExpand,
+  onUpvoteChange,
+}: {
+  gameId: string;
+  upvotes: string[];
+  expanded: boolean;
+  onExpand: () => void;
+  onUpvoteChange?: () => void;
+}) {
+  const theme = useTheme();
+  const [isUpvoted, setIsUpvoted] = useState(false);
+  const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvotes?.length || 0);
+  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useContext(AuthContext);
+  const userID = user?.id;
+
+  useEffect(() => {
+    if (userID && initialUpvotes) {
+      setIsUpvoted(initialUpvotes.includes(userID));
+      setLocalUpvoteCount(initialUpvotes.length);
+    }
+  }, [userID, initialUpvotes]);
+
+  const handleUpvote = useCallback(async () => {
+    if (!userID) return;
+
+    setIsLoading(true);
+
+    // Optimistic UI update
+    const newIsUpvoted = !isUpvoted;
+    setIsUpvoted(newIsUpvoted);
+    setLocalUpvoteCount((prevCount) => (newIsUpvoted ? prevCount + 1 : prevCount - 1));
+
+    const res = await fetch('/api/custom/upvotes/' + gameId, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + pb.authStore.token,
+      },
+    });
+    const resJSON = await res.json();
+    const { count }: { count: number } = resJSON;
+
+    setLocalUpvoteCount(count);
+
+    if (onUpvoteChange) onUpvoteChange();
+    setIsLoading(false);
+  }, [gameId, isUpvoted, onUpvoteChange, userID]);
+
+  const expandButtonColor = '#4caf50';
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        Additional game information will be displayed here. Probably.
+      </Typography>
+
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Tooltip title={userID ? '' : LOGIN_TOOLTIP} arrow>
+          <span>
+            <Button
+              variant="contained"
+              size="small"
+              sx={{
+                backgroundColor: isUpvoted ? theme.palette.secondary.main : theme.palette.primary.main,
+                '&:hover': {
+                  backgroundColor: isUpvoted ? theme.palette.secondary.dark : theme.palette.primary.dark,
+                },
+                '&.Mui-disabled': {
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.12)',
+                },
+                minWidth: '80px',
+              }}
+              onClick={handleUpvote}
+              disabled={isLoading || !userID}
+            >
+              {isLoading ? <CircularProgress size={24} color="inherit" /> : isUpvoted ? 'UNVOTE' : 'UPVOTE'}
+            </Button>
+          </span>
+        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: '1rem', mr: 0.5 }} />
+          <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
+            {localUpvoteCount}
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={onExpand}
+          sx={{
+            backgroundColor: expandButtonColor,
+            '&:hover': {
+              backgroundColor: '#45a049',
+            },
+          }}
+        >
+          {expanded ? 'Fit Images' : 'Full Size Image'}
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
+
+// === File: CyoaPage/GameContent.tsx ===
+
+// src/components/CyoaPage/GameContent.tsx
+// v2.9
+// Улучшена совместимость с мобильными устройствами
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Box, Button, CircularProgress } from '@mui/material';
+import { Game } from '../../pocketbase/pocketbase';
+
+interface ImageSizes {
+  [key: number]: {
+    width: number;
+    height: number;
+  };
+}
+
+export default function GameContent({ game }: { game: Game }) {
+  const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({});
+  const [imageSizes, setImageSizes] = useState<ImageSizes>({});
+  const [loadingImages, setLoadingImages] = useState(game.cyoa_pages.length || 0);
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Логирование для отладки
+  useEffect(() => {
+    if (game.img_or_link === 'link' && game.iframe_url) {
+      console.log('Iframe URL:', game.iframe_url);
+    }
+  }, [game]);
+
+  function handleImageLoad(id: number, event: React.SyntheticEvent<HTMLImageElement, Event>) {
+    setLoadingImages((prev) => prev - 1);
+    setImageSizes((prev) => ({
+      ...prev,
+      [id]: {
+        width: (event.target as HTMLImageElement).naturalWidth,
+        height: (event.target as HTMLImageElement).naturalHeight,
+      },
+    }));
+  }
+
+  function handleImageError(id: number) {
+    setImageErrors((prev) => ({ ...prev, [id]: true }));
+    setLoadingImages((prev) => prev - 1);
+  }
+
+  const toggleFullscreen = () => {
+    if (!iframeRef.current) return;
+
+    if (!document.fullscreenElement) {
+      iframeRef.current.requestFullscreen().catch((err) => {
+        console.error(`Ошибка при переходе в полноэкранный режим: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  // Обработка ошибок загрузки iframe
+  const handleIframeError = () => {
+    console.error('Iframe failed to load:', game.iframe_url);
+    setIsIframeLoading(false); // Показываем, что загрузка завершилась с ошибкой
+  };
+
+  return (
+    <Box sx={{ backgroundColor: '#121212', position: 'relative' }}>
+      {game.img_or_link === 'img' && game.cyoa_pages.length ? (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '1rem',
+            transition: 'all 0.3s ease',
+          }}
+        >
+          {loadingImages > 0 && <CircularProgress />}
+          {game.cyoa_pages.map((image, index) => (
+            <Box
+              key={index}
+              sx={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: '#121212',
+                transition: 'all 0.3s ease',
+              }}
+            >
+              {!imageErrors[index] && (
+                <img
+                  src={`/api/files/games/${game.id}/${image}`}
+                  alt={`Game content ${index + 1}`}
+                  style={{
+                    maxWidth: '100%',
+                    width: imageSizes[index]?.width > window.innerWidth ? '100%' : 'auto',
+                    height: 'auto',
+                    display: loadingImages > 0 ? 'none' : 'block',
+                    transition: 'all 0.3s ease',
+                  }}
+                  onLoad={(event) => handleImageLoad(index, event)}
+                  onError={() => handleImageError(index)}
+                />
+              )}
+              {imageErrors[index] && <div style={{ color: 'red' }}>Failed to load image {index + 1}</div>}
+            </Box>
+          ))}
+        </Box>
+      ) : game.img_or_link === 'link' && game.iframe_url ? (
+        <Box
+          sx={{
+            position: 'relative',
+            width: '100%',
+            height: { xs: '50vh', sm: '500px' }, // Адаптивная высота для мобильных
+            minHeight: '300px', // Минимальная высота
+          }}
+        >
+          {isIframeLoading && (
+            <CircularProgress sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+          )}
+          <iframe
+            ref={iframeRef}
+            src={game.iframe_url}
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              display: isIframeLoading ? 'none' : 'block',
+            }}
+            title="Interactive CYOA"
+            allowFullScreen
+            onLoad={() => {
+              console.log('Iframe loaded successfully');
+              setIsIframeLoading(false);
+            }}
+            onError={handleIframeError} // Обработка ошибок
+          />
+          <Button
+            onClick={toggleFullscreen}
+            sx={{
+              position: 'absolute',
+              bottom: '10px',
+              right: '10px',
+              zIndex: 10,
+              backgroundColor: '#e8484e',
+              color: 'white',
+              '&:hover': {
+                backgroundColor: '#d73b41',
+              },
+            }}
+          >
+            {document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen'}
+          </Button>
+        </Box>
+      ) : (
+        <div>No game content available</div>
+      )}
+    </Box>
+  );
+}
+

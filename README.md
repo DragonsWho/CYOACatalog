@@ -3,6 +3,7 @@
 [bun](https://bun.sh/)
 
 [go](https://golang.org/)
+sudo apt install golang-go
 
 node.js
 
@@ -14,9 +15,13 @@ typescript
 
 `make build` to build the project
 
-`make dev` to start development server
 
 `make run` to run the build
+
+add the testing file data.db to the pb_data folder  (the username is admin@gmail.com and password is adminadmin)
+
+`make dev` to start development server
+
 
 # For windows
 
@@ -26,7 +31,7 @@ typescript
 
 `bun run build` to build the project
 
-`bun preview` to serve the build
+`bun preview` to serve the build 
 
 # React + TypeScript + Vite
 

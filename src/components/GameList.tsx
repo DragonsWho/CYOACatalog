@@ -1,6 +1,6 @@
 // src/components/GameList.tsx
-// v2.8
-// Converted to TypeScript and reduced space between header and "Recent Uploads" title
+// v2.9
+// Added explicit variant prop for GameCard
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Typography, Box, Grid2, useTheme } from '@mui/material';
@@ -75,7 +75,7 @@ export default function GameList() {
             key={game.id}
             ref={games.length === index + 1 ? lastGameElementRef : null}
           >
-            <GameCard game={game} />
+            <GameCard game={game} variant="standard" /> {/* Явно указываем стандартный вид */}
           </Grid2>
         ))}
       </Grid2>

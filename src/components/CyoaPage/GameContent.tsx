@@ -9,14 +9,7 @@ import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import { Game, logFrontendError } from '../../pocketbase/pocketbase';
 
-// Интерфейс для Fullscreen API с учетом всех префиксов
-interface FullscreenElement {
-  requestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
-  webkitRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
-  mozRequestFullScreen?: (options?: FullscreenOptions) => Promise<void>;
-  msRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
-}
-
+// Интерфейс для Fullscreen API в Document
 interface FullscreenDocument extends Document {
   fullscreenElement: Element | null;
   webkitFullscreenElement?: Element | null;
@@ -28,32 +21,11 @@ interface FullscreenDocument extends Document {
   mozFullScreenEnabled?: boolean;
   msFullscreenEnabled?: boolean;
 
-  exitFullscreen: () => Promise<void>;
-  webkitExitFullscreen?: () => Promise<void>;
-  mozCancelFullScreen?: () => Promise<void>;
-  msExitFullscreen?: () => Promise<void>;
+  exitFullscreen(): Promise<void>;
+  webkitExitFullscreen?(): Promise<void>;
+  mozCancelFullScreen?(): Promise<void>;
+  msExitFullscreen?(): Promise<void>;
 }
-
-// Интерфейс для screen.orientation
-interface ScreenOrientationExtended extends ScreenOrientation {
-  lock: (orientation: OrientationLockType) => Promise<void>;
-  unlock: () => void;
-}
-
-interface ExtendedScreen extends Screen {
-  orientation: ScreenOrientationExtended;
-}
-
-// Типы ориентации экрана
-type OrientationLockType =
-  | 'any'
-  | 'natural'
-  | 'landscape'
-  | 'portrait'
-  | 'portrait-primary'
-  | 'portrait-secondary'
-  | 'landscape-primary'
-  | 'landscape-secondary';
 
 // Перечисление для режимов отображения изображений
 enum ImageViewMode {
@@ -98,6 +70,9 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     );
   };
 
+  // Задержка для надежности
+  const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
   // Обработка изменения полноэкранного режима
   useEffect(() => {
     const handleFullscreenChange = (): void => {
@@ -138,12 +113,12 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       }
     };
 
-    const events = [
-      ['fullscreenchange', handleFullscreenChange] as const,
-      ['webkitfullscreenchange', handleFullscreenChange] as const,
-      ['mozfullscreenchange', handleFullscreenChange] as const,
-      ['MSFullscreenChange', handleFullscreenChange] as const,
-      ['orientationchange', handleOrientationChange] as const,
+    const events: readonly [string, () => void][] = [
+      ['fullscreenchange', handleFullscreenChange],
+      ['webkitfullscreenchange', handleFullscreenChange],
+      ['mozfullscreenchange', handleFullscreenChange],
+      ['MSFullscreenChange', handleFullscreenChange],
+      ['orientationchange', handleOrientationChange],
     ];
 
     events.forEach(([event, handler]) => {
@@ -188,7 +163,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     }
   }, [viewMode]);
 
-  // Проверка поддержки fullscreen API
+  // Проверка поддержки Fullscreen API
   const isFullscreenSupported = (elem: HTMLElement | null): boolean => {
     const doc = document as FullscreenDocument;
     const isApiSupported = !!(
@@ -197,18 +172,14 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       doc.mozFullScreenEnabled ||
       doc.msFullscreenEnabled
     );
-    const isElementValid =
+    const isElementValid = !!(
       elem &&
       ('requestFullscreen' in elem ||
         'webkitRequestFullscreen' in elem ||
         'mozRequestFullScreen' in elem ||
-        'msRequestFullscreen' in elem);
-    return isApiSupported && !!isElementValid;
-  };
-
-  // Проверка поддержки блокировки ориентации
-  const isOrientationLockSupported = (): boolean => {
-    return 'orientation' in screen && 'lock' in (screen as ExtendedScreen).orientation;
+        'msRequestFullscreen' in elem)
+    );
+    return isApiSupported && isElementValid;
   };
 
   // Обработчики загрузки и ошибок изображений
@@ -221,66 +192,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     setLoadingImages((prev) => prev - 1);
   };
 
-  // Функция для входа в полноэкранный режим с таймаутом
-  const requestFullscreenWithTimeout = async (elem: FullscreenElement): Promise<void> => {
-    const methods = [
-      elem.requestFullscreen,
-      elem.webkitRequestFullscreen,
-      elem.mozRequestFullScreen,
-      elem.msRequestFullscreen,
-    ].filter((method): method is (options?: FullscreenOptions) => Promise<void> => typeof method === 'function');
-
-    if (!methods.length) {
-      throw new Error('No fullscreen method available on this element');
-    }
-
-    let lastError: Error | null = null;
-    for (const method of methods) {
-      try {
-        const fullscreenPromise = method();
-        const timeoutPromise = new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error('Fullscreen request timed out')), 3000)
-        );
-        return await Promise.race([fullscreenPromise, timeoutPromise]);
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Unknown fullscreen error');
-        console.warn(`Fullscreen method failed: ${lastError.message}`);
-      }
-    }
-    throw lastError || new Error('All fullscreen methods failed');
-  };
-
-  // Выход из полноэкранного режима с таймаутом
-  const exitFullscreenWithTimeout = async (): Promise<void> => {
-    const doc = document as FullscreenDocument;
-    const methods = [
-      doc.exitFullscreen,
-      doc.webkitExitFullscreen,
-      doc.mozCancelFullScreen,
-      doc.msExitFullscreen,
-    ].filter((method): method is () => Promise<void> => typeof method === 'function');
-
-    if (!methods.length) {
-      throw new Error('No exit fullscreen method available');
-    }
-
-    let lastError: Error | null = null;
-    for (const method of methods) {
-      try {
-        const exitPromise = method();
-        const timeoutPromise = new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error('Exit fullscreen request timed out')), 3000)
-        );
-        return await Promise.race([exitPromise, timeoutPromise]);
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Unknown exit error');
-        console.warn(`Exit fullscreen method failed: ${lastError.message}`);
-      }
-    }
-    throw lastError || new Error('All exit fullscreen methods failed');
-  };
-
-  // Функция для автоматической отправки отчета об ошибке
+  // Функция для отправки отчета об ошибке
   const reportFullscreenIssue = async (error: string): Promise<void> => {
     const details = {
       isFullscreen,
@@ -290,12 +202,13 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       iframeUrl: game.iframe_url || 'N/A',
       userAgent: navigator.userAgent,
       platform: navigator.platform,
-      screenOrientation: (screen as ExtendedScreen).orientation?.type || 'unknown',
+      screenOrientation: screen.orientation?.type || 'unknown',
       timestamp: new Date().toISOString(),
+      iframeRefExists: !!iframeRef.current,
+      iframeContainerRefExists: !!iframeContainerRef.current,
     };
     await logFrontendError(`Fullscreen error: ${error}`, details);
-
-    setFullscreenError('Fullscreen error: Function failed');
+    setFullscreenError(`Fullscreen error: ${error}`);
     setTimeout(() => setFullscreenError(null), 5000);
   };
 
@@ -307,8 +220,11 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         throw new Error('No valid target element for fullscreen (both container and iframe are null)');
       }
 
+      // Задержка в 1 секунду для надежности
+      await delay(1000);
+
       const doc = document as FullscreenDocument;
-      const elem = targetElement as FullscreenElement;
+      const elem = targetElement; // Оставляем как HTMLElement | null
       const isCurrentlyFullscreen = !!(
         doc.fullscreenElement ||
         doc.webkitFullscreenElement ||
@@ -317,28 +233,34 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       );
 
       if (!isCurrentlyFullscreen) {
-        if (isIOS() && !elem.webkitRequestFullscreen) {
-          console.log('iOS detected, Webkit fullscreen not supported, forcing expanded mode');
-          toggleExpand();
-          return;
-        }
-
         if (!isFullscreenSupported(targetElement)) {
           throw new Error('Fullscreen API not supported for this element or device');
         }
 
-        if (isAndroidWebView()) {
-          console.warn('Android WebView detected, may have fullscreen limitations');
-        }
-
-        console.log('Entering fullscreen mode with element:', targetElement);
-        await requestFullscreenWithTimeout(elem);
-
-        if (isOrientationLockSupported()) {
-          try {
-            await (screen as ExtendedScreen).orientation.lock('landscape');
-          } catch (e) {
-            console.warn('Screen orientation lock failed:', e);
+        if (isIOS()) {
+          if (!('webkitRequestFullscreen' in elem)) {
+            console.log('iOS detected, Webkit fullscreen not supported, forcing expanded mode');
+            toggleExpand();
+            return;
+          }
+          console.log('Entering fullscreen mode on iOS with element:', targetElement);
+          await (elem as any).webkitRequestFullscreen();
+        } else if (isAndroidWebView()) {
+          console.log('Android WebView detected, fullscreen API unreliable, switching to expanded mode');
+          toggleExpand();
+          return;
+        } else {
+          console.log('Entering fullscreen mode with element:', targetElement);
+          if ('requestFullscreen' in elem) {
+            await elem.requestFullscreen();
+          } else if ('mozRequestFullScreen' in elem) {
+            await (elem as any).mozRequestFullScreen();
+          } else if ('webkitRequestFullscreen' in elem) {
+            await (elem as any).webkitRequestFullscreen();
+          } else if ('msRequestFullscreen' in elem) {
+            await (elem as any).msRequestFullscreen();
+          } else {
+            throw new Error('No fullscreen method available on this element');
           }
         }
 
@@ -357,14 +279,16 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         }, 500);
       } else {
         console.log('Exiting fullscreen mode');
-        await exitFullscreenWithTimeout();
-
-        if (isOrientationLockSupported()) {
-          try {
-            (screen as ExtendedScreen).orientation.unlock();
-          } catch (e) {
-            console.warn('Screen orientation unlock failed:', e);
-          }
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        } else {
+          throw new Error('No exit fullscreen method available');
         }
 
         setTimeout(() => {
@@ -615,7 +539,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
             aria-label="Interactive CYOA"
             loading="lazy"
             onLoad={() => {
-              console.log('Iframe loaded successfully');
+              console.log('Iframe loaded successfully, ref:', iframeRef.current);
               setIsIframeLoading(false);
             }}
             onError={handleIframeError}

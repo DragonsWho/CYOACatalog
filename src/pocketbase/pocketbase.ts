@@ -1,5 +1,3 @@
-//src/pocketbase/pocketbase.ts
-
 import PocketBase, { RecordService } from 'pocketbase';
 import { createContext } from 'react';
 
@@ -38,8 +36,8 @@ export type GameTagVote = RecordModel & {
   gameId: string;
   tagId: string;
   votes: number;
-  upVoters: string[]; 
-  downVoters: string[];  
+  upVoters: string[];
+  downVoters: string[];
 };
 
 export const gameTagVotesCollection = pb.collection('game_tag_votes') as RecordService<GameTagVote>;
@@ -108,6 +106,31 @@ export type Author = RecordModel & {
 };
 
 export const authorsCollection = pb.collection('authors') as RecordService<Author>;
+
+// Новая модель для логов
+export type FrontendLog = RecordModel & {
+  message: string;
+  userAgent: string;
+  timestamp: string;
+  details: Record<string, any>;
+};
+
+export const frontendLogsCollection = pb.collection('frontend_logs') as RecordService<FrontendLog>;
+
+// Функция для отправки логов в коллекцию frontend_logs
+export async function logFrontendError(message: string, details: Record<string, any> = {}): Promise<void> {
+  try {
+    await frontendLogsCollection.create({
+      message,
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+      details,
+    });
+    console.log('Frontend log sent successfully');
+  } catch (error) {
+    console.error('Failed to send frontend log:', error);
+  }
+}
 
 type Provider = 'discord';
 

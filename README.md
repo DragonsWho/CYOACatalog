@@ -97,3 +97,14 @@ TODO
 In voting for custom tags should still remove tags with 0 votes. Realize it on the server. It is better to transfer all the logic to the server.....
 
 Make a script that would parse index.html and extract data that would draw the page itself, rather than using iframe. This will allow to add css, get rid of the ugly scroll bar in iframe
+
+
+
+
+
+
+
+
+
+
+

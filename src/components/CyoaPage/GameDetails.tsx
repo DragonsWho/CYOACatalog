@@ -1,6 +1,4 @@
 // src/components/CyoaPage/GameDetails.tsx
-// v4.1
-// Fixed TypeScript errors and improved type safety
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
@@ -27,18 +25,22 @@ interface CustomTheme extends Theme {
 export default function GameDetails() {
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [expanded, setExpanded] = useState<boolean>(false);
   const { id } = useParams<{ id: string }>();
   const theme = useTheme<CustomTheme>();
   const sanitizedDescription = useMemo(() => (game ? DOMPurify.sanitize(game.description) : ''), [game]);
 
   useEffect(() => {
     (async () => {
-      const game = await gamesCollection.getOne(id as string, {
-        expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
-      });
-      setGame(game);
-      setLoading(false);
+      try {
+        const game = await gamesCollection.getOne(id as string, {
+          expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
+        });
+        setGame(game);
+        setLoading(false);
+      } catch (error) {
+        console.error('Ошибка при загрузке игры:', error);
+        setLoading(false);
+      }
     })();
   }, [id]);
 
@@ -75,7 +77,6 @@ export default function GameDetails() {
         </Box>
 
         <Grid2 container spacing={3}>
-          {/* Left Column - Image */}
           <Grid2 size={{ xs: 12, md: 6 }}>
             {game.image && (
               <Box
@@ -96,23 +97,12 @@ export default function GameDetails() {
             )}
           </Grid2>
 
-          {/* Right Column - Game Info */}
           <Grid2 size={{ xs: 12, md: 6 }}>
-            {game.expand?.tags?.length && game.expand.tags?.length > 0 && (
+          {game.expand?.tags?.length && game.expand.tags?.length > 0 && (
               <Box>
                 <TagDisplay
                   tags={game.expand.tags}
-                  chipProps={{
-                    size: 'small',
-                    sx: {
-                      // @ts-expect-error custom theme property
-                      bgcolor: theme.palette.grey[800],
-                      color: theme.palette.text.primary,
-                      '&:hover': {
-                        bgcolor: theme.palette.grey[700],
-                      },
-                    },
-                  }}
+                  gameId={id as string}
                 />
               </Box>
             )}
@@ -120,8 +110,6 @@ export default function GameDetails() {
             <GameAdditionalInfo
               gameId={id as string}
               upvotes={game.upvotes}
-              expanded={expanded}
-              onExpand={() => setExpanded(!expanded)}
             />
           </Grid2>
         </Grid2>
@@ -137,17 +125,8 @@ export default function GameDetails() {
         </Box>
       </Paper>
 
-      <Box
-        sx={{
-          mb: 3,
-          mt: 3,
-          borderRadius: theme.custom?.borderRadius,
-          boxShadow: theme.custom?.boxShadow,
-          overflow: expanded ? 'visible' : 'hidden',
-          transition: 'all 0.3s ease',
-        }}
-      >
-        <GameContent game={game} expanded={expanded} onExpand={() => setExpanded(!expanded)} />
+      <Box sx={{ mb: 3, mt: 3 }}>
+        <GameContent game={game} />
       </Box>
 
       <Box sx={{}}>

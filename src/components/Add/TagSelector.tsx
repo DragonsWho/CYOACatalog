@@ -1,6 +1,7 @@
 // src/components/Add/TagSelector.tsx
 // Version 1.9.6
 // Changes: Added null check for onLoad function and improved error handling
+// Added filter to exclude "Custom" category
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
@@ -13,10 +14,10 @@ const CATEGORY_ORDER = [
   'Player Sexual Role',
   'Playtime',
   'Status',
+  'Gameplay',
   'Genre',
   'Setting',
   'Tone',
-  'Extra',
   'Narrative Structure',
   'Power Level',
   'Visual Style',
@@ -24,14 +25,17 @@ const CATEGORY_ORDER = [
   'Kinks',
 ];
 
-const TAG_GROUPS: { [key: string]: number[][] } = {
-  Rating: [[4]],
-  Playtime: [[4]],
-  Interactivity: [[4]],
-  Status: [[3]],
-  'Player Sexual Role': [[6]],
-  Tone: [[7]],
-  Kinks: [[7], [6], [5], [3], [4], [5], [5], [4], [6], [7], [3], [6], [6], [5], [5], [6], [99]],
+const TAG_GROUPS: { [key: string]: number[][] } = { 
+  Kinks: [[6], 
+  [5], 
+  [3], 
+  [5], 
+  [4], 
+  [5], 
+  [5], 
+  [5], 
+  [5], 
+  [5], [8], [99]],
 };
 const TOOLTIP_DELAY = 1000; // 1 second delay for tooltips
 const CHIP_HEIGHT = '24px';
@@ -101,7 +105,10 @@ const TagSelector = memo(function TagSelector({
   }, [onLoad]);
 
   const sortedCategories = useMemo(() => {
-    return tagCategories.sort((a, b) => {
+    // Фильтруем категории, исключая "Custom"
+    const filteredCategories = tagCategories.filter(category => category.name !== 'Custom');
+    
+    return filteredCategories.sort((a, b) => {
       const indexA = CATEGORY_ORDER.indexOf(a.name);
       const indexB = CATEGORY_ORDER.indexOf(b.name);
       if (indexA === -1 && indexB === -1) return 0;
@@ -119,9 +126,7 @@ const TagSelector = memo(function TagSelector({
     else if (categoryTags.length < category.max_tags) onTagsChange([...selectedTags, tagID]);
   }
 
-  function handleAddTag(categoryID: string, newTagName: string) {
-    console.log(`Add new tag "${newTagName}" to category ${categoryID}`);
-  }
+ 
 
   function renderTagGroups(category: TagCategory, groupConfig: number[][] | undefined) {
     if (!groupConfig || groupConfig.length === 0) groupConfig = [[category.tags.length]]; // Default to all tags in one row
@@ -181,9 +186,7 @@ const TagSelector = memo(function TagSelector({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: SECTION_GAP }}>
-      {sortedCategories.map((category) => {
-        const canAddMore =
-          selectedTags.filter((id) => category.tags.some((tag) => tag === id)).length < category.max_tags;
+      {sortedCategories.map((category) => { 
 
         return (
           <Box key={category.id}>
@@ -202,25 +205,7 @@ const TagSelector = memo(function TagSelector({
               </Typography>
             </DelayedTooltip>
             {renderTagGroups(category, TAG_GROUPS[category.name])}
-            {category.allow_new_tags && canAddMore && (
-              <TextField
-                size="small"
-                placeholder="Add a tag..."
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddTag(category.id, (e.target as HTMLInputElement).value);
-                    (e.target as HTMLInputElement).value = '';
-                  }
-                }}
-                sx={{
-                  mt: GAP,
-                  '& .MuiInputBase-root': {
-                    height: CHIP_HEIGHT,
-                    fontSize: CHIP_FONT_SIZE,
-                  },
-                }}
-              />
-            )}
+             
           </Box>
         );
       })}

@@ -1,3 +1,5 @@
+//src/pocketbase/pocketbase.ts
+
 import PocketBase, { RecordService } from 'pocketbase';
 import { createContext } from 'react';
 
@@ -31,6 +33,16 @@ export type Tag = RecordModel & {
     tag_categories_via_tags?: [TagCategory];
   };
 };
+
+export type GameTagVote = RecordModel & {
+  gameId: string;
+  tagId: string;
+  votes: number;
+  upVoters: string[]; 
+  downVoters: string[];  
+};
+
+export const gameTagVotesCollection = pb.collection('game_tag_votes') as RecordService<GameTagVote>;
 
 export const tagsCollection = pb.collection('tags') as RecordService<Tag>;
 

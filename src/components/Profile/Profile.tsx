@@ -5,14 +5,15 @@ import { styled } from '@mui/material/styles';
 import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import StarIcon from '@mui/icons-material/Star';
-import LikedGamesSection from './LikedGamesSection'; // Импортируем новый компонент
+import LikedGamesSection from './LikedGamesSection';
+import { pb } from '../../pocketbase/pocketbase'; // Импортируем PocketBase
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
   margin: theme.spacing(3, 0),
   backgroundColor: '#2e2e2e',
   color: '#e0e0e0',
-  borderRadius: 8, // Закругление углов
+  borderRadius: 8,
 }));
 
 interface ListItemData {
@@ -21,6 +22,9 @@ interface ListItemData {
 }
 
 export default function Profile() {
+  // Получаем имя пользователя из авторизации PocketBase
+  const username = pb.authStore.model?.username || 'Guest';
+
   const listItems: ListItemData[] = [
     {
       icon: <PersonIcon />,
@@ -32,13 +36,21 @@ export default function Profile() {
 
   return (
     <Container maxWidth="md">
-      {/* Статичное приветствие выше заголовка */}
-      <Typography variant="h6" sx={{ mt: 4, color: '#e0e0e0', textAlign: 'center' }}>
-        Welcome, 12345678!
+      {/* Объединенный заголовок с приветствием, увеличенного размера */}
+      <Typography 
+        variant="h4" 
+        component="h1" 
+        gutterBottom 
+        sx={{ 
+          mt: 4,
+          color: '#e0e0e0', 
+          textAlign: 'center',
+          fontSize: { xs: '2rem', sm: '2.5rem' } // Адаптивный размер как у h4
+        }}
+      >
+        Welcome, {username}!
       </Typography>
-      <Typography variant="h4" component="h1" gutterBottom sx={{ color: '#e0e0e0', textAlign: 'center' }}>
-        User Profile
-      </Typography>
+      
       {/* Верхний блок с "Coming Soon" */}
       <StyledPaper elevation={3}>
         <Box sx={{ mt: 2 }}>

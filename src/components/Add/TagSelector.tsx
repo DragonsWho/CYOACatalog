@@ -4,7 +4,7 @@
 // Added filter to exclude "Custom" category
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
-import { Box, Chip, TextField, Typography, CircularProgress, Tooltip } from '@mui/material';
+import { Box, Chip, Typography, CircularProgress, Tooltip } from '@mui/material';
 import { tagCategoriesCollection, TagCategory } from '../../pocketbase/pocketbase';
 
 const CATEGORY_ORDER = [

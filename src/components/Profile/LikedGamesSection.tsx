@@ -7,6 +7,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import GameCard from '../GameCard';
 import { AuthContext, gamesCollection, Game } from '../../pocketbase/pocketbase';
 
+// Option 1: Remove unused theme parameter if you don't need theme-based styling
 const StyledSection = styled(Box)(({ theme }) => ({
   backgroundColor: '#2e2e2e',
   padding: theme.spacing(2),
@@ -16,15 +17,26 @@ const StyledSection = styled(Box)(({ theme }) => ({
   cursor: 'pointer',
 }));
 
-const HeaderBox = styled(Box)(({ theme }) => ({
+// Option 1: Remove theme if not needed
+const HeaderBox = styled(Box)(() => ({
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
 }));
 
+// Option 2: If you want to keep theme for future use, use it in the styles
+/*
+const HeaderBox = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: theme.spacing(1), // Example usage of theme
+}));
+*/
+
 export default function LikedGamesSection() {
   const { user } = useContext(AuthContext);
-  const [likedGames, setLikedGames] = useState<Game[]>([]);
+  const [likedGames, setLikedGames] = useState<Game[]>([]); // Added type for better TypeScript support
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -60,21 +72,21 @@ export default function LikedGamesSection() {
   };
 
   return (
-    <StyledSection>
-      <HeaderBox onClick={handleHeaderClick}>
+    <StyledSection onClick={handleHeaderClick}>
+      <HeaderBox>
         <Typography variant="h6">Liked Games</Typography>
-        <IconButton onClick={handleIconClick} size="small" sx={{ color: '#e0e0e0' }}>
+        <IconButton onClick={handleIconClick} size="small">
           {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
         </IconButton>
       </HeaderBox>
-      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+      <Collapse in={isExpanded}>
         {loading ? (
           <Typography>Loading your liked games...</Typography>
         ) : likedGames.length > 0 ? (
-          <Grid2 container spacing={2} justifyContent="center" sx={{ mt: 1 }}>
+          <Grid2 container spacing={2}>
             {likedGames.map((game) => (
-              <Grid2 size={{ xs: 12, sm: 6, md: 3, lg: 3 }} key={game.id}>
-                <GameCard game={game} variant="simplified" />
+              <Grid2 key={game.id}>
+                <GameCard game={game} />
               </Grid2>
             ))}
           </Grid2>

@@ -11,8 +11,7 @@ import DOMPurify from 'dompurify';
 import { useMemo } from 'react';
 
 // Design variables
-const CARD_ASPECT_RATIO = '133.33%'; // 3:4 aspect ratio
-const TITLE_FONT_SIZE = '1.5rem';
+const CARD_ASPECT_RATIO = '133.33%'; // 3:4 aspect ratio 
 const DESCRIPTION_TOP = '60%'; // Базовая позиция для описания
 const TAG_SECTION_HEIGHT = '80px';
 const TAG_DISPLAY_LIMIT = 12;
@@ -21,8 +20,7 @@ const OVERLAY_OPACITY = 0.5;
 // Spacing variables
 const CARD_PADDING = 16;
 const TITLE_MARGIN_BOTTOM = 8;
-const TAGS_MARGIN_TOP = 8;
-const TAGS_MARGIN_BOTTOM = 8;
+const TAGS_MARGIN_TOP = 8; 
 const BOTTOM_INFO_MARGIN_TOP = 8;
 const BOTTOM_INFO_MARGIN_BOTTOM = 0;
 

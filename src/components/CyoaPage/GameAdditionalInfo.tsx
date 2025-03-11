@@ -1,3 +1,5 @@
+// src/components/CyoaPage/GameAdditionalInfo.tsx
+
 import { useState, useEffect, useCallback, useContext } from 'react';
 import { Box, Typography, CircularProgress, Tooltip, IconButton } from '@mui/material';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';

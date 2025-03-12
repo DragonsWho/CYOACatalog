@@ -87,6 +87,11 @@ HTML-страницы будут кэшироваться (например, н�
 наладить тестирование 
 https://www.lambdatest.com/
 TestingBot
+
+https://testingbot.com/members/manual/device/new?t=manual174176155258637089
+
+
+
 https://blisk.io/
 https://saucelabs.com/pricing
 

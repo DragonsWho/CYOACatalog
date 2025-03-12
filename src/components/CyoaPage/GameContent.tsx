@@ -7,6 +7,7 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
+import OpenInBrowserIcon from '@mui/icons-material/OpenInBrowser'; // Добавляем иконку для immersive mode
 import { Game, logFrontendError } from '../../pocketbase/pocketbase';
 
 // Интерфейс для Fullscreen API в Document
@@ -46,6 +47,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ImageViewMode>(ImageViewMode.FIT_CONTAINER);
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
+  const [isImmersiveMode, setIsImmersiveMode] = useState<boolean>(false); // Новое состояние для immersive mode
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
@@ -144,15 +146,20 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
   // Обработка клавиши Escape
   useEffect(() => {
     const handleEscapeKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape' && isExpanded && !isFullscreen) {
-        setIsExpanded(false);
-        document.body.style.overflow = '';
+      if (event.key === 'Escape') {
+        if (isImmersiveMode) {
+          toggleImmersiveMode();
+          event.preventDefault();
+        } else if (isExpanded && !isFullscreen) {
+          setIsExpanded(false);
+          document.body.style.overflow = '';
+        }
       }
     };
 
     document.addEventListener('keydown', handleEscapeKey);
     return () => document.removeEventListener('keydown', handleEscapeKey);
-  }, [isExpanded, isFullscreen]);
+  }, [isExpanded, isFullscreen, isImmersiveMode]);
 
   // Обновление стилей контейнера в зависимости от viewMode
   useEffect(() => {
@@ -319,6 +326,65 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     document.body.style.overflow = isExpanded ? '' : 'hidden';
   };
 
+  // Переключение immersive mode
+  const toggleImmersiveMode = (): void => {
+    setIsImmersiveMode((prev) => !prev);
+    
+    if (!isImmersiveMode) {
+      // Скрываем все элементы интерфейса
+      document.body.style.overflow = 'hidden';
+      
+      // Если есть header и footer, скрываем их
+      const header = document.querySelector('header');
+      const footer = document.querySelector('footer');
+      const mainContent = document.querySelector('main');
+      
+      if (header) (header as HTMLElement).style.display = 'none';
+      if (footer) (footer as HTMLElement).style.display = 'none';
+      
+      // Изменяем стили основного контейнера
+      if (mainContent) {
+        (mainContent as HTMLElement).style.padding = '0';
+        (mainContent as HTMLElement).style.margin = '0';
+        (mainContent as HTMLElement).style.height = '100vh';
+        (mainContent as HTMLElement).style.width = '100vw';
+        (mainContent as HTMLElement).style.maxWidth = '100vw';
+      }
+      
+      // Скрываем все элементы кроме iframe и контрола выхода
+      document.querySelectorAll('body > *:not(#root)').forEach((el) => {
+        (el as HTMLElement).style.display = 'none';
+      });
+      
+      // После небольшой задержки прокручиваем в начало
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+      }, 50);
+    } else {
+      // Восстанавливаем интерфейс
+      document.body.style.overflow = '';
+      
+      const header = document.querySelector('header');
+      const footer = document.querySelector('footer');
+      const mainContent = document.querySelector('main');
+      
+      if (header) (header as HTMLElement).style.display = '';
+      if (footer) (footer as HTMLElement).style.display = '';
+      
+      if (mainContent) {
+        (mainContent as HTMLElement).style.padding = '';
+        (mainContent as HTMLElement).style.margin = '';
+        (mainContent as HTMLElement).style.height = '';
+        (mainContent as HTMLElement).style.width = '';
+        (mainContent as HTMLElement).style.maxWidth = '';
+      }
+      
+      document.querySelectorAll('body > *:not(#root)').forEach((el) => {
+        (el as HTMLElement).style.display = '';
+      });
+    }
+  };
+
   // Смена режима отображения изображений
   const changeViewMode = (mode: ImageViewMode): void => {
     setViewMode((prev) =>
@@ -350,6 +416,19 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           height: '100vh',
           backgroundColor: '#000',
           overflowY: 'auto',
+        }),
+        ...(isImmersiveMode && {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: '#000',
+          padding: 0,
+          margin: 0,
         }),
       }}
     >
@@ -500,8 +579,8 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           sx={{
             position: 'relative',
             width: '100%',
-            height: isExpanded ? '100vh' : { xs: '50vh', sm: '500px' },
-            minHeight: isExpanded ? '100vh' : '300px',
+            height: isExpanded || isImmersiveMode ? '100vh' : { xs: '50vh', sm: '500px' },
+            minHeight: isExpanded || isImmersiveMode ? '100vh' : '300px',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -555,6 +634,21 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
                 gap: '8px',
               }}
             >
+              {/* Immersive Mode Button */}
+              <Tooltip title="Experimental" placement="top">
+                <Button
+                  onClick={toggleImmersiveMode}
+                  sx={{
+                    backgroundColor: '#1976d2', // Синий цвет как было запрошено
+                    color: 'white',
+                    minWidth: '40px',
+                    '&:hover': { backgroundColor: '#1565c0' },
+                  }}
+                >
+                  {isImmersiveMode ? <CloseFullscreenIcon /> : <OpenInBrowserIcon />}
+                </Button>
+              </Tooltip>
+
               {isDesktop && (
                 <Button
                   onClick={toggleExpand}
@@ -581,6 +675,30 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
                 title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
               >
                 {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              </Button>
+            </Box>
+          )}
+          
+          {/* Exit Immersive Mode Button (visible only in immersive mode) */}
+          {isImmersiveMode && (
+            <Box
+              sx={{
+                position: 'fixed',
+                top: '10px',
+                right: '10px',
+                zIndex: 9999,
+              }}
+            >
+              <Button
+                onClick={toggleImmersiveMode}
+                sx={{
+                  backgroundColor: 'rgba(25, 118, 210, 0.8)',
+                  color: 'white',
+                  minWidth: '40px',
+                  '&:hover': { backgroundColor: 'rgba(21, 101, 192, 0.9)' },
+                }}
+              >
+                <CloseFullscreenIcon />
               </Button>
             </Box>
           )}

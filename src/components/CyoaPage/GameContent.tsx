@@ -27,8 +27,6 @@ interface FullscreenDocument extends Document {
   msExitFullscreen?(): Promise<void>;
 }
 
- 
-
 // Перечисление для режимов отображения изображений
 enum ImageViewMode {
   FIT_CONTAINER = 'fit-container',
@@ -68,8 +66,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       (/wv/.test(navigator.userAgent) || /Version\/[0-9.]+/.test(navigator.userAgent))
     );
   };
-
-  const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
   // Сброс стилей iframe-контейнера
   const resetIframeStyles = (): void => {
@@ -223,21 +219,83 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
   };
 
   const reportFullscreenIssue = async (error: string): Promise<void> => {
+    // Проверяем поддержку полноэкранного режима в текущем браузере
+    const doc = document as FullscreenDocument;
+    const docElement = document.documentElement;
+    
+    const fullscreenMethods = {
+      requestFullscreen: 'requestFullscreen' in docElement,
+      webkitRequestFullscreen: 'webkitRequestFullscreen' in docElement,
+      mozRequestFullScreen: 'mozRequestFullScreen' in docElement,
+      msRequestFullscreen: 'msRequestFullscreen' in docElement,
+    };
+    
+    const fullscreenExitMethods = {
+      exitFullscreen: !!doc.exitFullscreen,
+      webkitExitFullscreen: !!doc.webkitExitFullscreen,
+      mozCancelFullScreen: !!doc.mozCancelFullScreen,
+      msExitFullscreen: !!doc.msExitFullscreen,
+    };
+
     const details: Record<string, unknown> = {
+      error: error,
+      // Исправлено: убираем проверку instanceof Error
+      errorStack: typeof error === 'object' && error !== null && 'stack' in error ? 
+                  (error as { stack: string }).stack : 'No stack available',
+      
+      // Текущее состояние
       isFullscreen,
       isImmersiveMode,
       viewMode,
       fullscreenSupported: isFullscreenSupported(iframeContainerRef.current),
-      iframeUrl: game.iframe_url || 'N/A',
+      
+      // Информация о браузере и устройстве
       userAgent: navigator.userAgent,
       platform: navigator.platform,
+      vendor: navigator.vendor,
+      appVersion: navigator.appVersion,
+      isIOS: isIOS(),
+      isAndroidWebView: isAndroidWebView(),
+      
+      // Информация об экране
       screenOrientation: screen.orientation?.type || 'unknown',
-      windowHeight: window.innerHeight,
+      screenWidth: screen.width,
       screenHeight: screen.height,
-      timestamp: new Date().toISOString(),
+      screenPixelRatio: window.devicePixelRatio,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
+      
+      // Элементы DOM
       iframeRefExists: !!iframeRef.current,
       iframeContainerRefExists: !!iframeContainerRef.current,
+      iframeUrl: game.iframe_url || 'N/A',
+      iframeCurrentWidth: iframeRef.current?.clientWidth,
+      iframeCurrentHeight: iframeRef.current?.clientHeight,
+      
+      // API поддержка
+      fullscreenAPISupport: {
+        documentFullscreenEnabled: doc.fullscreenEnabled,
+        webkitFullscreenEnabled: doc.webkitFullscreenEnabled,
+        mozFullScreenEnabled: doc.mozFullScreenEnabled,
+        msFullscreenEnabled: doc.msFullscreenEnabled,
+      },
+      
+      // Доступные методы
+      fullscreenMethodsAvailable: fullscreenMethods,
+      fullscreenExitMethodsAvailable: fullscreenExitMethods,
+      
+      // Текущее состояние fullscreen API
+      currentFullscreenElement: {
+        standard: !!doc.fullscreenElement,
+        webkit: !!doc.webkitFullscreenElement,
+        moz: !!doc.mozFullScreenElement,
+        ms: !!doc.msFullscreenElement,
+      },
+      
+      // Таймштамп
+      timestamp: new Date().toISOString(),
     };
+    
     await logFrontendError(`Fullscreen error: ${error}`, details);
   };
 
@@ -247,8 +305,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       if (!targetElement) {
         throw new Error('No valid target element for fullscreen');
       }
-   
-  
+
       const doc = document as FullscreenDocument;
       const isCurrentlyFullscreen = !!(
         doc.fullscreenElement ||
@@ -256,12 +313,12 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         doc.mozFullScreenElement ||
         doc.msFullscreenElement
       );
-  
+
       if (!isCurrentlyFullscreen) {
         if (!isFullscreenSupported(targetElement)) {
           throw new Error('Fullscreen API not supported');
         }
-  
+
         // Принудительно указываем все опциональные методы через as
         const elemWithFullscreen = targetElement as unknown as {
           requestFullscreen(): Promise<void>;
@@ -269,7 +326,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           mozRequestFullScreen?(): Promise<void>;
           msRequestFullscreen?(): Promise<void>;
         };
-  
+
         if (isIOS() && elemWithFullscreen.webkitRequestFullscreen) {
           await elemWithFullscreen.webkitRequestFullscreen();
         } else if (isAndroidWebView()) {
@@ -286,7 +343,8 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         } else {
           throw new Error('No fullscreen method available');
         }
-  
+
+        // Изменен обработчик проверки активации полноэкранного режима
         setTimeout(() => {
           const docCheck = document as FullscreenDocument;
           if (
@@ -297,9 +355,11 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
               docCheck.msFullscreenElement
             )
           ) {
-            throw new Error('Fullscreen activation check failed');
+            // Вместо throw, который не будет перехвачен, вызываем напрямую
+            reportFullscreenIssue('Fullscreen activation check failed after timeout');
+            toggleImmersiveMode(); // Активируем запасной вариант
           }
-        }, 500);
+        }, 300); // Уменьшено время ожидания
       } else {
         if (doc.exitFullscreen) {
           await doc.exitFullscreen();
@@ -312,7 +372,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         } else {
           throw new Error('No exit fullscreen method available');
         }
-  
+
         resetIframeStyles();
       }
     } catch (error) {

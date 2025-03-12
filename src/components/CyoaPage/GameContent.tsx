@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Box, Button, CircularProgress, useMediaQuery, useTheme, ButtonGroup, Tooltip } from '@mui/material';
+import { Box, Button, CircularProgress, ButtonGroup, Tooltip } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
@@ -7,7 +7,6 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
-import OpenInBrowserIcon from '@mui/icons-material/OpenInBrowser'; // Добавляем иконку для immersive mode
 import { Game, logFrontendError } from '../../pocketbase/pocketbase';
 
 // Интерфейс для Fullscreen API в Document
@@ -28,6 +27,8 @@ interface FullscreenDocument extends Document {
   msExitFullscreen?(): Promise<void>;
 }
 
+ 
+
 // Перечисление для режимов отображения изображений
 enum ImageViewMode {
   FIT_CONTAINER = 'fit-container',
@@ -40,23 +41,19 @@ interface GameContentProps {
 }
 
 export default function GameContent({ game }: GameContentProps): JSX.Element {
-  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
+  const [imageErrors] = useState<Record<number, boolean>>({});
   const [loadingImages, setLoadingImages] = useState<number>(game.cyoa_pages.length || 0);
   const [isIframeLoading, setIsIframeLoading] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [isImmersiveMode, setIsImmersiveMode] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ImageViewMode>(ImageViewMode.FIT_CONTAINER);
-  const [fullscreenError, setFullscreenError] = useState<string | null>(null);
-  const [isImmersiveMode, setIsImmersiveMode] = useState<boolean>(false); // Новое состояние для immersive mode
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const contentContainerRef = useRef<HTMLDivElement>(null);
+  const scrollPositionRef = useRef<number>(0);
+  const initialIframeStyles = useRef<{ height: string; width: string } | null>(null);
 
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
-
-  // Вспомогательные функции для определения платформы
   const isIOS = (): boolean => {
     return (
       ['iPad Simulator', 'iPhone Simulator', 'iPod Simulator', 'iPad', 'iPhone', 'iPod'].includes(
@@ -72,10 +69,52 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     );
   };
 
-  // Задержка для надежности
   const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-  // Обработка изменения полноэкранного режима
+  // Сброс стилей iframe-контейнера
+  const resetIframeStyles = (): void => {
+    const iframeContainer = iframeContainerRef.current;
+    if (iframeContainer) {
+      iframeContainer.style.height = initialIframeStyles.current?.height || '500px';
+      iframeContainer.style.width = initialIframeStyles.current?.width || '100%';
+      iframeContainer.style.position = 'relative';
+      iframeContainer.style.paddingBottom = '0';
+    }
+  };
+
+  // Сохранение исходных стилей при монтировании
+  useEffect(() => {
+    const iframeContainer = iframeContainerRef.current;
+    if (iframeContainer && !initialIframeStyles.current) {
+      initialIframeStyles.current = {
+        height: iframeContainer.style.height || '500px',
+        width: iframeContainer.style.width || '100%',
+      };
+    }
+  }, []);
+
+  // Обновление высоты iframe в immersive-режиме
+  useEffect(() => {
+    const updateIframeHeight = (): void => {
+      const iframeContainer = iframeContainerRef.current;
+      if (iframeContainer && isImmersiveMode) {
+        iframeContainer.style.height = `${window.innerHeight}px`;
+      }
+    };
+
+    if (isImmersiveMode) {
+      updateIframeHeight();
+      window.addEventListener('resize', updateIframeHeight);
+    } else {
+      resetIframeStyles();
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateIframeHeight);
+    };
+  }, [isImmersiveMode]);
+
+  // Обработка событий fullscreen и ориентации
   useEffect(() => {
     const handleFullscreenChange = (): void => {
       const doc = document as FullscreenDocument;
@@ -85,14 +124,12 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         doc.mozFullScreenElement ||
         doc.msFullscreenElement
       );
-      console.log('Fullscreen state changed:', isInFullscreen);
       setIsFullscreen(isInFullscreen);
 
       if (!isInFullscreen) {
-        console.log('Exited fullscreen, resetting expanded state');
-        setIsExpanded(false);
-        setFullscreenError(null);
+        setIsImmersiveMode(false);
         document.body.style.overflow = '';
+        resetIframeStyles();
       }
     };
 
@@ -106,11 +143,11 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           doc.msFullscreenElement
         );
 
-        if (!isStillFullscreen && isFullscreen) {
-          console.log('Fullscreen was exited due to orientation change');
+        if (!isStillFullscreen) {
           setIsFullscreen(false);
-          setIsExpanded(false);
+          setIsImmersiveMode(false);
           document.body.style.overflow = '';
+          resetIframeStyles();
         }
       }
     };
@@ -139,29 +176,23 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           document.removeEventListener(event, handler);
         }
       });
-      setFullscreenError(null);
     };
   }, [isFullscreen]);
 
-  // Обработка клавиши Escape
+  // Обработка Escape для выхода из immersive-режима
   useEffect(() => {
     const handleEscapeKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        if (isImmersiveMode) {
-          toggleImmersiveMode();
-          event.preventDefault();
-        } else if (isExpanded && !isFullscreen) {
-          setIsExpanded(false);
-          document.body.style.overflow = '';
-        }
+      if (event.key === 'Escape' && isImmersiveMode) {
+        toggleImmersiveMode();
+        event.preventDefault();
       }
     };
 
     document.addEventListener('keydown', handleEscapeKey);
     return () => document.removeEventListener('keydown', handleEscapeKey);
-  }, [isExpanded, isFullscreen, isImmersiveMode]);
+  }, [isImmersiveMode]);
 
-  // Обновление стилей контейнера в зависимости от viewMode
+  // Управление overflow в зависимости от viewMode
   useEffect(() => {
     const contentContainer = contentContainerRef.current;
     if (contentContainer) {
@@ -170,7 +201,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     }
   }, [viewMode]);
 
-  // Проверка поддержки Fullscreen API
   const isFullscreenSupported = (elem: HTMLElement | null): boolean => {
     const doc = document as FullscreenDocument;
     const isApiSupported = !!(
@@ -179,113 +209,98 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       doc.mozFullScreenEnabled ||
       doc.msFullscreenEnabled
     );
-    const isElementValid = !!(
-      elem &&
-      ('requestFullscreen' in elem ||
-        'webkitRequestFullscreen' in elem ||
-        'mozRequestFullScreen' in elem ||
-        'msRequestFullscreen' in elem)
+    const isElementValid = !!elem && (
+      'requestFullscreen' in elem ||
+      'webkitRequestFullscreen' in elem ||
+      'mozRequestFullScreen' in elem ||
+      'msRequestFullscreen' in elem
     );
     return isApiSupported && isElementValid;
   };
 
-  // Обработчики загрузки и ошибок изображений
   const handleImageLoad = (): void => {
     setLoadingImages((prev) => prev - 1);
   };
 
-  const handleImageError = (id: number): void => {
-    setImageErrors((prev) => ({ ...prev, [id]: true }));
-    setLoadingImages((prev) => prev - 1);
-  };
-
-  // Функция для отправки отчета об ошибке
   const reportFullscreenIssue = async (error: string): Promise<void> => {
-    const details = {
+    const details: Record<string, unknown> = {
       isFullscreen,
-      isExpanded,
+      isImmersiveMode,
       viewMode,
       fullscreenSupported: isFullscreenSupported(iframeContainerRef.current),
       iframeUrl: game.iframe_url || 'N/A',
       userAgent: navigator.userAgent,
       platform: navigator.platform,
       screenOrientation: screen.orientation?.type || 'unknown',
+      windowHeight: window.innerHeight,
+      screenHeight: screen.height,
       timestamp: new Date().toISOString(),
       iframeRefExists: !!iframeRef.current,
       iframeContainerRefExists: !!iframeContainerRef.current,
     };
     await logFrontendError(`Fullscreen error: ${error}`, details);
-    setFullscreenError(`Fullscreen error: ${error}`);
-    setTimeout(() => setFullscreenError(null), 5000);
   };
 
-  // Переключение полноэкранного режима
   const toggleFullscreen = async (): Promise<void> => {
     try {
       const targetElement = iframeContainerRef.current ?? iframeRef.current;
       if (!targetElement) {
-        throw new Error('No valid target element for fullscreen (both container and iframe are null)');
+        throw new Error('No valid target element for fullscreen');
       }
-
-      // Задержка в 1 секунду для надежности
-      await delay(1000);
-
+   
+  
       const doc = document as FullscreenDocument;
-      const elem = targetElement; // Оставляем как HTMLElement | null
       const isCurrentlyFullscreen = !!(
         doc.fullscreenElement ||
         doc.webkitFullscreenElement ||
         doc.mozFullScreenElement ||
         doc.msFullscreenElement
       );
-
+  
       if (!isCurrentlyFullscreen) {
         if (!isFullscreenSupported(targetElement)) {
-          throw new Error('Fullscreen API not supported for this element or device');
+          throw new Error('Fullscreen API not supported');
         }
-
-        if (isIOS()) {
-          if (!('webkitRequestFullscreen' in elem)) {
-            console.log('iOS detected, Webkit fullscreen not supported, forcing expanded mode');
-            toggleExpand();
-            return;
-          }
-          console.log('Entering fullscreen mode on iOS with element:', targetElement);
-          await (elem as any).webkitRequestFullscreen();
+  
+        // Принудительно указываем все опциональные методы через as
+        const elemWithFullscreen = targetElement as unknown as {
+          requestFullscreen(): Promise<void>;
+          webkitRequestFullscreen?(): Promise<void>;
+          mozRequestFullScreen?(): Promise<void>;
+          msRequestFullscreen?(): Promise<void>;
+        };
+  
+        if (isIOS() && elemWithFullscreen.webkitRequestFullscreen) {
+          await elemWithFullscreen.webkitRequestFullscreen();
         } else if (isAndroidWebView()) {
-          console.log('Android WebView detected, fullscreen API unreliable, switching to expanded mode');
-          toggleExpand();
+          toggleImmersiveMode();
           return;
+        } else if ('requestFullscreen' in targetElement) {
+          await elemWithFullscreen.requestFullscreen();
+        } else if (elemWithFullscreen.mozRequestFullScreen) {
+          await elemWithFullscreen.mozRequestFullScreen();
+        } else if (elemWithFullscreen.webkitRequestFullscreen) {
+          await elemWithFullscreen.webkitRequestFullscreen();
+        } else if (elemWithFullscreen.msRequestFullscreen) {
+          await elemWithFullscreen.msRequestFullscreen();
         } else {
-          console.log('Entering fullscreen mode with element:', targetElement);
-          if ('requestFullscreen' in elem) {
-            await elem.requestFullscreen();
-          } else if ('mozRequestFullScreen' in elem) {
-            await (elem as any).mozRequestFullScreen();
-          } else if ('webkitRequestFullscreen' in elem) {
-            await (elem as any).webkitRequestFullscreen();
-          } else if ('msRequestFullscreen' in elem) {
-            await (elem as any).msRequestFullscreen();
-          } else {
-            throw new Error('No fullscreen method available on this element');
-          }
+          throw new Error('No fullscreen method available');
         }
-
+  
         setTimeout(() => {
           const docCheck = document as FullscreenDocument;
-          const isStillFullscreen = !!(
-            docCheck.fullscreenElement ||
-            docCheck.webkitFullscreenElement ||
-            docCheck.mozFullScreenElement ||
-            docCheck.msFullscreenElement
-          );
-          if (!isStillFullscreen) {
-            console.warn('Fullscreen failed to activate');
+          if (
+            !(
+              docCheck.fullscreenElement ||
+              docCheck.webkitFullscreenElement ||
+              docCheck.mozFullScreenElement ||
+              docCheck.msFullscreenElement
+            )
+          ) {
             throw new Error('Fullscreen activation check failed');
           }
         }, 500);
       } else {
-        console.log('Exiting fullscreen mode');
         if (doc.exitFullscreen) {
           await doc.exitFullscreen();
         } else if (doc.mozCancelFullScreen) {
@@ -297,104 +312,82 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         } else {
           throw new Error('No exit fullscreen method available');
         }
-
-        setTimeout(() => {
-          const docCheck = document as FullscreenDocument;
-          const isStillFullscreen = !!(
-            docCheck.fullscreenElement ||
-            docCheck.webkitFullscreenElement ||
-            docCheck.mozFullScreenElement ||
-            docCheck.msFullscreenElement
-          );
-          if (isStillFullscreen) {
-            console.warn('Failed to exit fullscreen');
-            throw new Error('Fullscreen exit check failed');
-          }
-        }, 500);
+  
+        resetIframeStyles();
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Fullscreen toggle failed:', error);
       await reportFullscreenIssue(errorMessage);
-      toggleExpand();
+      toggleImmersiveMode();
     }
   };
 
-  // Переключение расширенного режима
-  const toggleExpand = (): void => {
-    setIsExpanded((prev) => !prev);
-    document.body.style.overflow = isExpanded ? '' : 'hidden';
-  };
-
-  // Переключение immersive mode
   const toggleImmersiveMode = (): void => {
-    setIsImmersiveMode((prev) => !prev);
-    
     if (!isImmersiveMode) {
-      // Скрываем все элементы интерфейса
+      scrollPositionRef.current = window.scrollY;
+    }
+
+    setIsImmersiveMode((prev) => !prev);
+
+    if (!isImmersiveMode) {
       document.body.style.overflow = 'hidden';
-      
-      // Если есть header и footer, скрываем их
       const header = document.querySelector('header');
       const footer = document.querySelector('footer');
       const mainContent = document.querySelector('main');
-      
+
       if (header) (header as HTMLElement).style.display = 'none';
       if (footer) (footer as HTMLElement).style.display = 'none';
-      
-      // Изменяем стили основного контейнера
       if (mainContent) {
-        (mainContent as HTMLElement).style.padding = '0';
-        (mainContent as HTMLElement).style.margin = '0';
-        (mainContent as HTMLElement).style.height = '100vh';
-        (mainContent as HTMLElement).style.width = '100vw';
-        (mainContent as HTMLElement).style.maxWidth = '100vw';
+        const main = mainContent as HTMLElement;
+        main.style.padding = '0';
+        main.style.margin = '0';
+        main.style.height = '100vh';
+        main.style.width = '100vw';
+        main.style.maxWidth = '100vw';
       }
-      
-      // Скрываем все элементы кроме iframe и контрола выхода
+
       document.querySelectorAll('body > *:not(#root)').forEach((el) => {
         (el as HTMLElement).style.display = 'none';
       });
-      
-      // После небольшой задержки прокручиваем в начало
-      setTimeout(() => {
-        window.scrollTo(0, 0);
-      }, 50);
+
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
     } else {
-      // Восстанавливаем интерфейс
       document.body.style.overflow = '';
-      
       const header = document.querySelector('header');
       const footer = document.querySelector('footer');
       const mainContent = document.querySelector('main');
-      
+
       if (header) (header as HTMLElement).style.display = '';
       if (footer) (footer as HTMLElement).style.display = '';
-      
       if (mainContent) {
-        (mainContent as HTMLElement).style.padding = '';
-        (mainContent as HTMLElement).style.margin = '';
-        (mainContent as HTMLElement).style.height = '';
-        (mainContent as HTMLElement).style.width = '';
-        (mainContent as HTMLElement).style.maxWidth = '';
+        const main = mainContent as HTMLElement;
+        main.style.padding = '';
+        main.style.margin = '';
+        main.style.height = '';
+        main.style.width = '';
+        main.style.maxWidth = '';
       }
-      
+
       document.querySelectorAll('body > *:not(#root)').forEach((el) => {
         (el as HTMLElement).style.display = '';
+      });
+
+      resetIframeStyles();
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollPositionRef.current);
       });
     }
   };
 
-  // Смена режима отображения изображений
   const changeViewMode = (mode: ImageViewMode): void => {
     setViewMode((prev) =>
       mode === prev && mode !== ImageViewMode.FIT_CONTAINER ? ImageViewMode.FIT_CONTAINER : mode
     );
   };
 
-  // Обработка ошибок iframe
   const handleIframeError = (): void => {
-    console.error('Iframe failed to load:', game.iframe_url);
     setIsIframeLoading(false);
   };
 
@@ -405,18 +398,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         backgroundColor: '#121212',
         position: 'relative',
         width: '100%',
-        ...(isExpanded && {
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 1300,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: '#000',
-          overflowY: 'auto',
-        }),
+        height: isImmersiveMode ? '100vh' : 'auto',
         ...(isImmersiveMode && {
           position: 'fixed',
           top: 0,
@@ -425,33 +407,13 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           bottom: 0,
           zIndex: 9999,
           width: '100vw',
-          height: '100vh',
           backgroundColor: '#000',
           padding: 0,
           margin: 0,
+          overflow: 'hidden',
         }),
       }}
     >
-      {fullscreenError && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '10px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: 'rgba(200, 0, 0, 0.8)',
-            color: 'white',
-            padding: '8px 16px',
-            borderRadius: '4px',
-            zIndex: 2000,
-            maxWidth: '90%',
-            textAlign: 'center',
-          }}
-        >
-          {fullscreenError}
-        </Box>
-      )}
-
       {game.img_or_link === 'img' && game.cyoa_pages.length > 0 ? (
         <Box
           sx={{
@@ -501,11 +463,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
                     transition: 'all 0.3s ease',
                   }}
                   onLoad={handleImageLoad}
-                  onError={() => handleImageError(index)}
                 />
-              )}
-              {imageErrors[index] && (
-                <div style={{ color: 'red' }}>Failed to load image {index + 1}</div>
               )}
             </Box>
           ))}
@@ -579,12 +537,13 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           sx={{
             position: 'relative',
             width: '100%',
-            height: isExpanded || isImmersiveMode ? '100vh' : { xs: '50vh', sm: '500px' },
-            minHeight: isExpanded || isImmersiveMode ? '100vh' : '300px',
+            height: isImmersiveMode ? '100%' : { xs: '50vh', sm: '500px' },
+            minHeight: isImmersiveMode ? '100%' : '300px',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
             transition: 'all 0.3s ease',
+            paddingBottom: isImmersiveMode ? 'env(safe-area-inset-bottom)' : 0,
           }}
         >
           {isIframeLoading && (
@@ -617,52 +576,32 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
             allowFullScreen
             aria-label="Interactive CYOA"
             loading="lazy"
-            onLoad={() => {
-              console.log('Iframe loaded successfully, ref:', iframeRef.current);
-              setIsIframeLoading(false);
-            }}
+            onLoad={() => setIsIframeLoading(false)}
             onError={handleIframeError}
           />
           {!isIframeLoading && (
             <Box
               sx={{
                 position: 'absolute',
-                bottom: '10px',
+                bottom: isImmersiveMode ? 'calc(10px + env(safe-area-inset-bottom))' : '10px',
                 right: '10px',
                 zIndex: 10,
                 display: 'flex',
                 gap: '8px',
               }}
             >
-              {/* Immersive Mode Button */}
-              <Tooltip title="Experimental" placement="top">
-                <Button
-                  onClick={toggleImmersiveMode}
-                  sx={{
-                    backgroundColor: '#1976d2', // Синий цвет как было запрошено
-                    color: 'white',
-                    minWidth: '40px',
-                    '&:hover': { backgroundColor: '#1565c0' },
-                  }}
-                >
-                  {isImmersiveMode ? <CloseFullscreenIcon /> : <OpenInBrowserIcon />}
-                </Button>
-              </Tooltip>
-
-              {isDesktop && (
-                <Button
-                  onClick={toggleExpand}
-                  sx={{
-                    backgroundColor: '#4a4a4a',
-                    color: 'white',
-                    minWidth: '40px',
-                    '&:hover': { backgroundColor: '#636363' },
-                  }}
-                  title={isExpanded ? 'Collapse' : 'Expand'}
-                >
-                  {isExpanded ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
-                </Button>
-              )}
+              <Button
+                onClick={toggleImmersiveMode}
+                sx={{
+                  backgroundColor: '#4a4a4a',
+                  color: 'white',
+                  minWidth: '40px',
+                  '&:hover': { backgroundColor: '#636363' },
+                }}
+                title={isImmersiveMode ? 'Collapse' : 'Expand'}
+              >
+                {isImmersiveMode ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
+              </Button>
 
               <Button
                 onClick={toggleFullscreen}
@@ -675,30 +614,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
                 title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
               >
                 {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
-              </Button>
-            </Box>
-          )}
-          
-          {/* Exit Immersive Mode Button (visible only in immersive mode) */}
-          {isImmersiveMode && (
-            <Box
-              sx={{
-                position: 'fixed',
-                top: '10px',
-                right: '10px',
-                zIndex: 9999,
-              }}
-            >
-              <Button
-                onClick={toggleImmersiveMode}
-                sx={{
-                  backgroundColor: 'rgba(25, 118, 210, 0.8)',
-                  color: 'white',
-                  minWidth: '40px',
-                  '&:hover': { backgroundColor: 'rgba(21, 101, 192, 0.9)' },
-                }}
-              >
-                <CloseFullscreenIcon />
               </Button>
             </Box>
           )}

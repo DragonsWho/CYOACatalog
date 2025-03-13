@@ -1,13 +1,15 @@
 // src/components/Search/SearchPage.tsx
 // v3.0
 // Combined GameList and SearchPage functionality
+// Оптимизирован запрос, добавлено обновление тегов раз в 24 часа
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Typography, CircularProgress, Grid2, useTheme } from '@mui/material';
-import { Game, gamesCollection } from '../../pocketbase/pocketbase';
+import { Game, gamesCollection, tagsCollection, Tag } from '../../pocketbase/pocketbase';
 import GameCard from '../GameCard';
 
 const ITEMS_PER_PAGE = 25;
+const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000; // 24 часа в миллисекундах
 
 export default function SearchPage({
   selectedTags,
@@ -21,6 +23,7 @@ export default function SearchPage({
   const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [tagMap, setTagMap] = useState<Map<string, Tag>>(new Map()); // Кэш тегов
 
   const observer = useRef<IntersectionObserver | null>(null);
   const lastGameElementRef = useCallback(
@@ -36,6 +39,29 @@ export default function SearchPage({
     },
     [loading, hasMore],
   );
+
+  // Загрузка тегов с TTL (обновление раз в 24 часа)
+  useEffect(() => {
+    (async () => {
+      const cachedTags = localStorage.getItem('tagMap');
+      const lastUpdated = localStorage.getItem('tagMapLastUpdated');
+      const now = Date.now();
+
+      if (cachedTags && lastUpdated && now - parseInt(lastUpdated) < ONE_DAY_IN_MS) {
+        setTagMap(new Map(JSON.parse(cachedTags)));
+      } else {
+        console.log('Fetching tags...');
+        const fetchedTags = await tagsCollection.getFullList({
+          expand: 'tag_categories_via_tags',
+          fields: 'id,name,expand.tag_categories_via_tags.name',
+        });
+        const newTagMap = new Map(fetchedTags.map((tag) => [tag.id, tag]));
+        setTagMap(newTagMap);
+        localStorage.setItem('tagMap', JSON.stringify([...newTagMap]));
+        localStorage.setItem('tagMapLastUpdated', now.toString());
+      }
+    })();
+  }, []);
 
   const fetchGames = useCallback(async () => {
     if (!hasMore) return;
@@ -56,52 +82,38 @@ export default function SearchPage({
 
       const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
 
-      // console.log("Filter string:", filterString);
-
       const fetchedGames = await gamesCollection.getList(page, ITEMS_PER_PAGE, {
         sort: '-created',
-        expand: 'tags.tag_categories_via_tags,authors_via_games',
+        expand: 'authors_via_games',
         filter: filterString,
+        fields: 'id,title,description,image,upvotes,comments,tags,expand.authors_via_games.name',
       });
 
-      // console.log("Fetched games:", fetchedGames.items.length);
-
-      // Client-side filtering
-      const filteredGames = Array.isArray(fetchedGames.items)
-        ? fetchedGames.items.filter((game) => {
-            const gameTags = game.expand?.tags?.map((tag) => tag.name?.toLowerCase()).filter(Boolean) || [];
-            const gameAuthors =
-              game.expand?.authors_via_games?.map((author) => author.name?.toLowerCase()).filter(Boolean) || [];
-
-            const tagsMatch =
-              selectedTags.length === 0 ||
-              selectedTags.every(
-                (tag) => tag && gameTags.some((gameTag) => gameTag && gameTag.includes(tag.toLowerCase())),
-              );
-            const authorsMatch =
-              selectedAuthors.length === 0 ||
-              selectedAuthors.some(
-                (author) =>
-                  author && gameAuthors.some((gameAuthor) => gameAuthor && gameAuthor.includes(author.toLowerCase())),
-              );
-
-            return tagsMatch && authorsMatch;
-          })
-        : [];
-
-      // console.log("Filtered games:", filteredGames.length);
+      // Обогащение игр тегами из tagMap с фильтрацией undefined
+      const enrichedGames = fetchedGames.items.map((game) => {
+        const enrichedTags = game.tags
+          .map((tagId) => tagMap.get(tagId))
+          .filter((tag): tag is Tag => tag !== undefined); // Утверждаем, что tag не undefined
+        return {
+          ...game,
+          expand: {
+            ...game.expand,
+            tags: enrichedTags,
+          },
+        };
+      });
 
       setGames((prevGames) => {
-        const newGames = [...prevGames, ...filteredGames];
+        const newGames = [...prevGames, ...enrichedGames];
         return Array.from(new Map(newGames.map((game) => [game.id, game])).values());
       });
-      setHasMore(filteredGames.length > 0 && fetchedGames.totalPages > page);
+      setHasMore(fetchedGames.items.length > 0 && fetchedGames.totalPages > page);
     } catch (error) {
       console.error('Error fetching games:', error);
     } finally {
       setLoading(false);
     }
-  }, [page, hasMore, selectedTags, selectedAuthors]);
+  }, [page, hasMore, selectedTags, selectedAuthors, tagMap]);
 
   useEffect(() => {
     setGames([]);

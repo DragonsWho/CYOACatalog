@@ -29,8 +29,8 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const fetchedTags = await tagsCollection.getFullList({ sort: 'name' });
-      const fetchedAuthors = await authorsCollection.getFullList({ sort: 'name' });
+      const fetchedTags = await tagsCollection.getFullList({ sort: 'name', fields: 'name' });
+      const fetchedAuthors = await authorsCollection.getFullList({ sort: 'name', fields: 'name' });
       setTags(fetchedTags.map((tag) => tag.name));
       setAuthors(fetchedAuthors.map((author) => author.name));
     })();

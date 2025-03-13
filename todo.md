@@ -29,6 +29,49 @@
 
 
 
+
+
+
+
+
+
+
+
+### Проблема
+25 внутренних запросов в PocketBase при `expand=authors_via_games` в `SearchPage.tsx` для каждой из 25 игр увеличивают нагрузку на сервер, так как ищут авторов через JSON-поле `games` в коллекции `authors`.
+
+- **Файл:** `src/components/Search/SearchPage.tsx`, функция `fetchGames`.
+- **Поле в базе:** `games` (JSON-массив ID игр) в коллекции `authors`.
+- **Суть:** PocketBase делает по одному запросу на игру для поиска связанных авторов, что неэффективно при большом числе авторов.
+
+### Исправление
+1. **Добавить поле `authors` в `Game`:**
+   - В коллекции `games` создать поле `authors` (массив ID авторов).
+   - Обновить запрос: убрать `expand=authors_via_games`, добавить `authors` в `fields`.
+   - Кэшировать авторов на клиенте (как теги).
+2. **Миграция:**
+   - Добавить `authors` в схему `games` в PocketBase.
+   - Перенести данные из `authors.games` в `games.authors`.
+3. **Результат:** Один запрос вместо 25, снижение нагрузки.
+
+### TODO
+"Оптимизировать `expand=authors_via_games` в `SearchPage.tsx`: добавить поле `authors` в `games`, убрать `expand`, кэшировать авторов на клиенте."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Очисти кэш JS-файлов в Cloudflare:
     Зайди в Cloudflare:
     Перейди в "Caching" > "Configuration" > "Purge Cache".

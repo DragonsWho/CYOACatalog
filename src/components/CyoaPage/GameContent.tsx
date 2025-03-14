@@ -36,14 +36,19 @@ interface GameContentProps {
   game: Game;
 }
 
+interface ImageState {
+  url: string;
+  isLoading: boolean;
+  isPreview: boolean;
+}
+
 export default function GameContent({ game }: GameContentProps): JSX.Element {
   const [imageErrors] = useState<Record<number, boolean>>({});
-  const [loadingImages, setLoadingImages] = useState<number>(game.cyoa_pages.length || 0);
   const [isIframeLoading, setIsIframeLoading] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isImmersiveMode, setIsImmersiveMode] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ImageViewMode>(ImageViewMode.FIT_CONTAINER);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [imageStates, setImageStates] = useState<ImageState[]>([]);
 
   const collectionId = game.collectionId || '5kxdvx071c10s2t';
 
@@ -71,61 +76,68 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
   useEffect(() => {
     if (!game.cyoa_pages || game.cyoa_pages.length === 0) return;
 
-    const initialUrls = new Array(game.cyoa_pages.length).fill('');
-    setImageUrls(initialUrls);
+    // Инициализируем состояние для каждого изображения
+    const initialStates = game.cyoa_pages.map(() => ({
+      url: '',
+      isLoading: true,
+      isPreview: false,
+    }));
+    setImageStates(initialStates);
 
-    let loadedCount = 0;
-
-    const loadImageSequentially = async (index: number) => {
+    // Функция для загрузки одного изображения
+    const loadImage = async (index: number) => {
       if (index >= game.cyoa_pages.length) return;
 
+      // Загружаем превью, если есть
       if (game.cyoa_pages_preview?.[index]) {
         const previewUrl = `/api/files/${collectionId}/${game.id}/${game.cyoa_pages_preview[index]}`;
-        
         try {
           await new Promise<void>((resolve, reject) => {
-            const previewImg = new Image();
-            previewImg.onload = () => {
-              setImageUrls(prev => {
-                const newUrls = [...prev];
-                newUrls[index] = previewUrl;
-                return newUrls;
+            const img = new Image();
+            img.onload = () => {
+              setImageStates(prev => {
+                const newStates = [...prev];
+                newStates[index] = { url: previewUrl, isLoading: false, isPreview: true };
+                return newStates;
               });
               resolve();
             };
-            previewImg.onerror = reject;
-            previewImg.src = previewUrl;
+            img.onerror = reject;
+            img.src = previewUrl;
           });
         } catch (error) {
           console.error(`Failed to load preview image ${index}`);
         }
       }
 
+      // Загружаем полное изображение
       const fullUrl = `/api/files/${collectionId}/${game.id}/${game.cyoa_pages[index]}`;
       try {
         await new Promise<void>((resolve, reject) => {
-          const fullImg = new Image();
-          fullImg.onload = () => {
-            setImageUrls(prev => {
-              const newUrls = [...prev];
-              newUrls[index] = fullUrl;
-              return newUrls;
+          const img = new Image();
+          img.onload = () => {
+            setImageStates(prev => {
+              const newStates = [...prev];
+              newStates[index] = { url: fullUrl, isLoading: false, isPreview: false };
+              return newStates;
             });
-            loadedCount++;
-            setLoadingImages(game.cyoa_pages.length - loadedCount);
             resolve();
           };
-          fullImg.onerror = reject;
-          fullImg.src = fullUrl;
+          img.onerror = reject;
+          img.src = fullUrl;
         });
       } catch (error) {
         console.error(`Failed to load full image ${index}`);
+        setImageStates(prev => {
+          const newStates = [...prev];
+          newStates[index] = { ...newStates[index], isLoading: false };
+          return newStates;
+        });
       }
-
-      await loadImageSequentially(index + 1);
     };
 
-    loadImageSequentially(0);
+    // Запускаем загрузку всех изображений параллельно
+    game.cyoa_pages.forEach((_, index) => loadImage(index));
   }, [game.cyoa_pages, game.cyoa_pages_preview, game.id, collectionId]);
 
   const resetIframeStyles = (): void => {
@@ -267,10 +279,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       'msRequestFullscreen' in elem
     );
     return isApiSupported && isElementValid;
-  };
-
-  const handleImageLoad = (): void => {
-    setLoadingImages((prev) => prev - 1);
   };
 
   const reportFullscreenIssue = async (error: string): Promise<void> => {
@@ -541,93 +549,89 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
               }}
             >
               {!imageErrors[index] && (
-                <>
-                  {!imageUrls[index] && <CircularProgress size={24} />}
-                  {imageUrls[index] && (
-                    <img
-                      src={imageUrls[index]}
-                      alt={`Game content ${index + 1}`}
-                      className={
-                        viewMode === ImageViewMode.FIT_SCREEN
-                          ? 'full-width-image'
-                          : viewMode === ImageViewMode.ORIGINAL_SIZE
-                          ? 'original-size-image'
-                          : 'normal-image'
-                      }
-                      style={{
-                        transition: 'all 0.3s ease',
-                        opacity: imageUrls[index].includes('preview') ? 0.8 : 1,
-                      }}
-                      onLoad={handleImageLoad}
-                    />
-                  )}
-                </>
+                imageStates[index]?.isLoading ? (
+                  <CircularProgress size={24} />
+                ) : imageStates[index]?.url ? (
+                  <img
+                    src={imageStates[index].url}
+                    alt={`Game content ${index + 1}`}
+                    className={
+                      viewMode === ImageViewMode.FIT_SCREEN
+                        ? 'full-width-image'
+                        : viewMode === ImageViewMode.ORIGINAL_SIZE
+                        ? 'original-size-image'
+                        : 'normal-image'
+                    }
+                    style={{
+                      transition: 'all 0.3s ease',
+                      opacity: imageStates[index].isPreview ? 0.8 : 1,
+                    }}
+                  />
+                ) : null
               )}
             </Box>
           ))}
 
-          {loadingImages === 0 && (
-            <Box
-              sx={{
-                position: 'fixed',
-                bottom: '20px',
-                right: '20px',
-                zIndex: 1000,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-              }}
+          <Box
+            sx={{
+              position: 'fixed',
+              bottom: '20px',
+              right: '20px',
+              zIndex: 1000,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            <ButtonGroup
+              orientation="horizontal"
+              variant="contained"
+              size="small"
+              sx={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '4px' }}
             >
-              <ButtonGroup
-                orientation="horizontal"
-                variant="contained"
-                size="small"
-                sx={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '4px' }}
-              >
-                <Tooltip title="Fit to Container" placement="top">
-                  <Button
-                    onClick={() => changeViewMode(ImageViewMode.FIT_CONTAINER)}
-                    sx={{
-                      backgroundColor:
-                        viewMode === ImageViewMode.FIT_CONTAINER ? '#4a4a4a' : 'transparent',
-                      color: 'white',
-                      '&:hover': { backgroundColor: '#636363' },
-                    }}
-                  >
-                    <FitScreenIcon />
-                  </Button>
-                </Tooltip>
+              <Tooltip title="Fit to Container" placement="top">
+                <Button
+                  onClick={() => changeViewMode(ImageViewMode.FIT_CONTAINER)}
+                  sx={{
+                    backgroundColor:
+                      viewMode === ImageViewMode.FIT_CONTAINER ? '#4a4a4a' : 'transparent',
+                    color: 'white',
+                    '&:hover': { backgroundColor: '#636363' },
+                  }}
+                >
+                  <FitScreenIcon />
+                </Button>
+              </Tooltip>
 
-                <Tooltip title="Fit to Screen Width" placement="top">
-                  <Button
-                    onClick={() => changeViewMode(ImageViewMode.FIT_SCREEN)}
-                    sx={{
-                      backgroundColor:
-                        viewMode === ImageViewMode.FIT_SCREEN ? '#4a4a4a' : 'transparent',
-                      color: 'white',
-                      '&:hover': { backgroundColor: '#636363' },
-                    }}
-                  >
-                    <AspectRatioIcon />
-                  </Button>
-                </Tooltip>
+              <Tooltip title="Fit to Screen Width" placement="top">
+                <Button
+                  onClick={() => changeViewMode(ImageViewMode.FIT_SCREEN)}
+                  sx={{
+                    backgroundColor:
+                      viewMode === ImageViewMode.FIT_SCREEN ? '#4a4a4a' : 'transparent',
+                    color: 'white',
+                    '&:hover': { backgroundColor: '#636363' },
+                  }}
+                >
+                  <AspectRatioIcon />
+                </Button>
+              </Tooltip>
 
-                <Tooltip title="Original Size" placement="top">
-                  <Button
-                    onClick={() => changeViewMode(ImageViewMode.ORIGINAL_SIZE)}
-                    sx={{
-                      backgroundColor:
-                        viewMode === ImageViewMode.ORIGINAL_SIZE ? '#4a4a4a' : 'transparent',
-                      color: 'white',
-                      '&:hover': { backgroundColor: '#636363' },
-                    }}
-                  >
-                    <ZoomOutMapIcon />
-                  </Button>
-                </Tooltip>
-              </ButtonGroup>
-            </Box>
-          )}
+              <Tooltip title="Original Size" placement="top">
+                <Button
+                  onClick={() => changeViewMode(ImageViewMode.ORIGINAL_SIZE)}
+                  sx={{
+                    backgroundColor:
+                      viewMode === ImageViewMode.ORIGINAL_SIZE ? '#4a4a4a' : 'transparent',
+                    color: 'white',
+                    '&:hover': { backgroundColor: '#636363' },
+                  }}
+                >
+                  <ZoomOutMapIcon />
+                </Button>
+              </Tooltip>
+            </ButtonGroup>
+          </Box>
         </Box>
       ) : game.img_or_link === 'link' && game.iframe_url ? (
         <Box

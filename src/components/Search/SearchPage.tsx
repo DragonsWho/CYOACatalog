@@ -86,7 +86,7 @@ export default function SearchPage({
         sort: '-created',
         expand: 'authors_via_games',
         filter: filterString,
-        fields: 'id,title,description,image,upvotes,comments,tags,expand.authors_via_games.name',
+        fields: 'id,title,description,image,image_avif,upvotes,comments,tags,expand.authors_via_games.name',
       });
 
       // Обогащение игр тегами из tagMap с фильтрацией undefined

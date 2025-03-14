@@ -34,19 +34,20 @@ export default function GameList() {
   useEffect(() => {
     (async () => {
       if (!hasMore || loading || gamePages[page]) return;
-
+  
       setLoading(true);
       const fetchedGames = await gamesCollection.getList(page + 1, ITEMS_PER_PAGE, {
         sort: '-created',
         expand: 'tags.tag_categories_via_tags,authors_via_games',
       });
-
+      console.log('Fetched games raw response:', fetchedGames.items); // Логируем сырые данные
+  
       setGamePages((oldPages) => {
         const newPages = [...oldPages];
         newPages[page] = fetchedGames.items;
         return newPages;
       });
-
+  
       setHasMore(fetchedGames.totalPages > page + 1);
       setLoading(false);
     })();

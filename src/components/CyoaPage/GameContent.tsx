@@ -45,6 +45,11 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isImmersiveMode, setIsImmersiveMode] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ImageViewMode>(ImageViewMode.FIT_CONTAINER);
+  
+  // Создаем мапу для хранения URL каждого изображения (AVIF или WebP)
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  
+  const collectionId = game.collectionId || '5kxdvx071c10s2t';
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
@@ -66,6 +71,68 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       (/wv/.test(navigator.userAgent) || /Version\/[0-9.]+/.test(navigator.userAgent))
     );
   };
+
+  // Предварительная загрузка изображений и управление их URL
+  useEffect(() => {
+    if (!game.cyoa_pages || game.cyoa_pages.length === 0) return;
+    
+    // Инициализируем массив URLs с WebP версиями
+    const initialUrls = game.cyoa_pages.map(page => 
+      `/api/files/${collectionId}/${game.id}/${page}`
+    );
+    
+    // Устанавливаем начальные WebP URLs
+    setImageUrls(initialUrls);
+    
+    // Если есть AVIF версии, пытаемся их загрузить для каждой страницы
+    if (game.cyoa_pages_avif && game.cyoa_pages_avif.length > 0) {
+      // Обрабатываем каждую пару AVIF/WebP отдельно
+      game.cyoa_pages_avif.forEach((avifPage, index) => {
+        // Пропускаем, если нет соответствующей WebP страницы
+        if (index >= game.cyoa_pages.length) return;
+        
+        // URL для AVIF
+        const avifUrl = `/api/files/${collectionId}/${game.id}/${avifPage}`;
+        
+        // Пытаемся загрузить AVIF изображение
+        const avifImg = new Image();
+        avifImg.onload = () => {
+          console.log(`AVIF image ${index} loaded successfully`);
+          
+          // Заменяем URL соответствующего изображения на AVIF
+          setImageUrls(prev => {
+            const newUrls = [...prev];
+            newUrls[index] = avifUrl;
+            return newUrls;
+          });
+          
+          // Затем загружаем WebP для улучшения качества
+          const webpImg = new Image();
+          webpImg.onload = () => {
+            console.log(`WebP image ${index} loaded, replacing AVIF`);
+            
+            // После загрузки WebP, заменяем обратно на WebP для лучшего качества
+            setImageUrls(prev => {
+              const newUrls = [...prev];
+              newUrls[index] = initialUrls[index];
+              return newUrls;
+            });
+          };
+          webpImg.src = initialUrls[index];
+        };
+        
+        avifImg.onerror = () => {
+          console.error(`Failed to load AVIF image ${index}, keeping WebP`);
+          // При ошибке загрузки AVIF оставляем WebP
+        };
+        
+        // Запускаем загрузку AVIF
+        avifImg.src = avifUrl;
+      });
+    }
+  }, [game.cyoa_pages, game.cyoa_pages_avif, game.id, collectionId]);
+
+  // Остальные хуки useEffect остаются без изменений...
 
   // Сброс стилей iframe-контейнера
   const resetIframeStyles = (): void => {
@@ -487,7 +554,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           }}
         >
           {loadingImages > 0 && <CircularProgress />}
-          {game.cyoa_pages.map((image, index) => (
+          {game.cyoa_pages.map((_, index) => (
             <Box
               key={index}
               sx={{
@@ -507,9 +574,9 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
                 }),
               }}
             >
-              {!imageErrors[index] && (
+              {!imageErrors[index] && imageUrls[index] && (
                 <img
-                  src={`/api/files/games/${game.id}/${image}`}
+                  src={imageUrls[index]}
                   alt={`Game content ${index + 1}`}
                   className={
                     viewMode === ImageViewMode.FIT_SCREEN

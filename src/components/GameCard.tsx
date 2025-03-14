@@ -1,14 +1,10 @@
-// src/components/GameCard.tsx
-// v4.0
-// Improved responsiveness: dynamic description height and larger font on wide screens
-
 import { Card, CardContent, Typography, Chip, Box, useTheme } from '@mui/material';
 import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import CommentIcon from '@mui/icons-material/Comment';
 import { Game } from '../pocketbase/pocketbase';
 import DOMPurify from 'dompurify';
-import { useMemo } from 'react';
 
 // Design variables
 const CARD_ASPECT_RATIO = '133.33%'; // 3:4 aspect ratio 
@@ -51,7 +47,6 @@ const CATEGORY_COLORS = {
   Extra: 'rgba(0, 0, 0, 0.4)',
   Kinks: 'rgba(255, 69, 0, 0.4)',
 };
-
 export default function GameCard({
   game,
   variant = 'standard',
@@ -60,7 +55,55 @@ export default function GameCard({
   variant?: 'standard' | 'simplified';
 }) {
   const theme = useTheme();
-  const imageURL = game.image ? `/api/files/games/${game.id}/${game.image}` : '/img/placeholder.jpg';
+  
+  const collectionId = game.collectionId || '5kxdvx071c10s2t';
+  
+  // Формируем URL для WebP изображения
+  const webpURL = game.image 
+    ? `/api/files/${collectionId}/${game.id}/${game.image}` 
+    : 'public/placeholder.jpg';
+    
+  // Формируем URL для AVIF изображения
+  const avifURL = game.image_avif 
+    ? `/api/files/${collectionId}/${game.id}/${game.image_avif}` 
+    : null;
+  
+  // Изначально не устанавливаем изображение
+  const [imageSrc, setImageSrc] = useState<string>('');
+
+  // Загрузка изображений с правильным порядком приоритетов
+  useEffect(() => {
+    // Если есть AVIF, пытаемся его загрузить первым
+    if (avifURL) {
+      console.log("GameCard: Attempting to load AVIF first:", avifURL);
+      
+      const avifImg = new Image();
+      avifImg.onload = () => {
+        console.log("GameCard: AVIF loaded, displaying it");
+        setImageSrc(avifURL); // Устанавливаем AVIF для отображения
+        
+        // Затем загружаем WebP для лучшего качества
+        const webpImg = new Image();
+        webpImg.onload = () => {
+          console.log("GameCard: WebP loaded, replacing AVIF");
+          setImageSrc(webpURL);
+        };
+        webpImg.src = webpURL;
+      };
+      
+      avifImg.onerror = () => {
+        console.error(`GameCard: Failed to load AVIF for game ${game.id}, using WebP`);
+        setImageSrc(webpURL);
+      };
+      
+      avifImg.src = avifURL; // Запускаем загрузку AVIF
+    } else {
+      // Если AVIF нет, сразу используем WebP
+      console.log("GameCard: No AVIF available, using WebP directly");
+      setImageSrc(webpURL);
+    }
+  }, [avifURL, webpURL, game.id]);
+
   const sortedTags = CATEGORY_ORDER.flatMap((categoryName) =>
     game.expand?.tags?.filter((tag) => tag.expand?.tag_categories_via_tags?.[0].name === categoryName) ?? []
   ).slice(0, TAG_DISPLAY_LIMIT);
@@ -88,9 +131,10 @@ export default function GameCard({
             left: 0,
             width: '100%',
             height: '100%',
-            backgroundImage: `url(${imageURL})`,
+            backgroundImage: imageSrc ? `url(${imageSrc})` : 'none',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
+            transition: 'opacity 0.3s ease-in-out', // Плавный переход
             '&::after': {
               content: '""',
               position: 'absolute',
@@ -124,9 +168,9 @@ export default function GameCard({
             sx={{
               fontWeight: 'bold',
               fontSize: {
-                xs: '1.2rem', // Меньше на маленьких экранах
-                sm: '1.5rem', // Базовый размер
-                md: '1.8rem', // Больший размер на широких экранах
+                xs: '1.2rem',
+                sm: '1.5rem',
+                md: '1.8rem',
               },
               // @ts-expect-error custom theme property
               ...theme.custom.cardTitle,
@@ -153,7 +197,6 @@ export default function GameCard({
                     sm: '0.9rem',
                     md: '1rem',
                   },
-                  // Добавляем эффект затухания текста внизу
                   maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
                   WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
                   // @ts-expect-error custom theme property
@@ -227,9 +270,9 @@ export default function GameCard({
               variant="body2"
               sx={{
                 fontSize: {
-                  xs: '0.7rem', // Меньше на маленьких экранах
-                  sm: '0.8rem', // Базовый размер
-                  md: '0.9rem', // Больший размер на широких экранах
+                  xs: '0.7rem',
+                  sm: '0.8rem',
+                  md: '0.9rem',
                 },
                 // @ts-expect-error custom theme property
                 ...theme.custom.cardText,
@@ -251,9 +294,9 @@ export default function GameCard({
                 variant="body2"
                 sx={{
                   fontSize: {
-                    xs: '0.7rem', // Меньше на маленьких экранах
-                    sm: '0.8rem', // Базовый размер
-                    md: '0.9rem', // Больший размер на широких экранах
+                    xs: '0.7rem',
+                    sm: '0.8rem',
+                    md: '0.9rem',
                   },
                   color: 'white',
                   fontWeight: 'bold',
@@ -268,9 +311,9 @@ export default function GameCard({
                 variant="body2"
                 sx={{
                   fontSize: {
-                    xs: '0.7rem', // Меньше на маленьких экранах
-                    sm: '0.8rem', // Базовый размер
-                    md: '0.9rem', // Больший размер на широких экранах
+                    xs: '0.7rem',
+                    sm: '0.8rem',
+                    md: '0.9rem',
                   },
                   color: 'white',
                   fontWeight: 'bold',

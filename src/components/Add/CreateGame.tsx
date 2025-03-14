@@ -1,6 +1,4 @@
 // src/components/Add/CreateGame.tsx
-// Updated version to include CustomTagSelector
-
 import { useState, useEffect, ChangeEvent, FormEvent, useContext } from 'react';
 import {
   TextField,
@@ -18,22 +16,20 @@ import {
 import { useNavigate } from 'react-router-dom';
 import AuthorSelector from './AuthorSelector';
 import TagSelector from './TagSelector';
-import CustomTagSelector from './CustomTagSelector'; // Import our new component
+import CustomTagSelector from './CustomTagSelector';
 import CyoaImageUploader from './CyoaImageUploader';
 import ImageCompressor from './ImageCompressor';
 import {
   AuthContext,
   Author,
-  Tag, // Make sure Tag is exported from pocketbase.ts
+  Tag,
   authorsCollection,
   gamesCollection,
   tagCategoriesCollection,
-  tagsCollection, // Make sure this is exported
+  tagsCollection,
   TagCategory,
-} from '../../pocketbase/pocketbase'; 
-
+} from '../../pocketbase/pocketbase';
 import { encode as webpencode } from '@jsquash/webp';
-
 import DOMPurify from 'dompurify';
 
 export default function CreateGame() {
@@ -166,45 +162,153 @@ export default function CreateGame() {
 
     formData.append('title', title);
     formData.append('description', descriptionData);
-    formData.append('image', new Blob([cardImage], { type: cardImage.type }));
-    
-    // Add all selected tags and custom tags to the formData
+
+    // Обработка cardImage (превью): WebP без масштабирования, AVIF с масштабированием
+    if (cardImage) {
+      let cardImageBitmap;
+      try {
+        cardImageBitmap = await createImageBitmap(cardImage);
+      } catch (e) {
+        console.error('Failed to process cardImage:', e);
+        setError('Failed to process card image. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      // WebP: сохраняем оригинальный размер, качество 75
+      const webpCanvas = new OffscreenCanvas(cardImageBitmap.width, cardImageBitmap.height);
+      const webpCtx = webpCanvas.getContext('2d', { alpha: false });
+      webpCtx!.drawImage(cardImageBitmap, 0, 0, cardImageBitmap.width, cardImageBitmap.height);
+      const webpImageData = webpCtx!.getImageData(0, 0, cardImageBitmap.width, cardImageBitmap.height);
+
+      try {
+        const webpBuffer = await webpencode(webpImageData, { quality: 75 });
+        const webpBlob = new Blob([webpBuffer], { type: 'image/webp' });
+        formData.append('image', webpBlob, 'card_image.webp');
+      } catch (e) {
+        console.error('Failed to encode WebP:', e);
+        setError('WebP encoding failed. Using original file.');
+        formData.append('image', cardImage);
+      }
+
+      // AVIF: масштабируем до 480x640 с сохранением пропорций
+      const targetWidth = 480;
+      const targetHeight = 640;
+      const sourceAspect = cardImageBitmap.width / cardImageBitmap.height;
+      const targetAspect = targetWidth / targetHeight;
+      let scaleWidth = targetWidth;
+      let scaleHeight = targetHeight;
+
+      if (sourceAspect > targetAspect) {
+        // Если исходное изображение шире, ограничиваем шириной
+        scaleHeight = Math.round(targetWidth / sourceAspect);
+      } else {
+        // Если исходное изображение выше, ограничиваем высотой
+        scaleWidth = Math.round(targetHeight * sourceAspect);
+      }
+
+      const avifCanvas = new OffscreenCanvas(scaleWidth, scaleHeight);
+      const avifCtx = avifCanvas.getContext('2d', { alpha: true });
+      if (avifCtx) {
+        avifCtx.imageSmoothingQuality = 'high'; // Приближение к Lanczos3
+        avifCtx.drawImage(
+          cardImageBitmap,
+          0, 0, cardImageBitmap.width, cardImageBitmap.height,
+          0, 0, scaleWidth, scaleHeight
+        );
+        const avifImageData = avifCtx.getImageData(0, 0, scaleWidth, scaleHeight);
+
+        // Преобразование в AVIF (качество 30, speed 4)
+        try {
+          const { encode: avifencode } = await import('@jsquash/avif');
+          const avifBuffer = await avifencode(avifImageData, { quality: 30, speed: 4 });
+          const avifBlob = new Blob([avifBuffer], { type: 'image/avif' });
+          formData.append('image_avif', avifBlob, 'card_image.avif');
+        } catch (e) {
+          console.error('Failed to encode AVIF:', e);
+          // AVIF необязателен, продолжаем без него
+        }
+      } else {
+        console.error('Failed to get 2D context for AVIF scaling');
+      }
+    }
+
+    // Обработка cyoa_pages (WebP lossless + AVIF только для первого изображения с обрезкой)
+    if (imgOrLink === 'img') {
+      for (const [index, imageFile] of cyoaImages.entries()) {
+        let image;
+        try {
+          image = await createImageBitmap(imageFile);
+        } catch (e) {
+          console.error('Failed to process CYOA image:', e);
+          formData.append('cyoa_pages', imageFile);
+          continue;
+        }
+
+        const canvas = new OffscreenCanvas(image.width, image.height);
+        const ctx = canvas.getContext('2d', { alpha: false });
+        ctx!.drawImage(image, 0, 0, image.width, image.height);
+        const imageData = ctx!.getImageData(0, 0, image.width, image.height);
+
+        // WebP: lossless для всех изображений
+        try {
+          const webPBuffer = await webpencode(imageData, { lossless: 1 });
+          const webpBlob = new Blob([webPBuffer], { type: 'image/webp' });
+          formData.append('cyoa_pages', webpBlob);
+        } catch (e) {
+          console.error('Failed to encode WebP for cyoa_pages:', e);
+          formData.append('cyoa_pages', imageFile);
+        }
+
+        // AVIF: только для первого изображения с обрезкой до пропорции 2:3
+        if (index === 0) {
+          const targetAspect = 2 / 3; // Соотношение   (ширина к высоте)
+          let cropWidth = image.width;
+          let cropHeight = Math.min(image.height, Math.round(image.width / targetAspect)); // Обрезаем высоту  
+
+          const cropCanvas = new OffscreenCanvas(cropWidth, cropHeight);
+          const cropCtx = cropCanvas.getContext('2d', { alpha: true });
+          if (cropCtx) {
+            cropCtx.drawImage(
+              image,
+              0, 0, image.width, cropHeight, // Обрезаем по высоте
+              0, 0, cropWidth, cropHeight
+            );
+            const cropImageData = cropCtx.getImageData(0, 0, cropWidth, cropHeight);
+
+            try {
+              const { encode: avifencode } = await import('@jsquash/avif');
+              const avifBuffer = await avifencode(cropImageData, { quality: 25, speed: 6 });
+              const avifBlob = new Blob([avifBuffer], { type: 'image/avif' });
+              formData.append('cyoa_pages_avif', avifBlob);
+            } catch (e) {
+              console.error('Failed to encode AVIF for cyoa_pages:', e);
+              // AVIF необязателен, продолжаем без него
+            }
+          } else {
+            console.error('Failed to get 2D context for AVIF cropping');
+          }
+        }
+      }
+    }
+
     for (const tag of selectedTags) formData.append('tags', tag);
     for (const customTag of customTags) formData.append('tags', customTag.id);
-    
     formData.append('img_or_link', imgOrLink);
     if (imgOrLink === 'link') formData.append('iframe_url', iframeUrl);
-    if (imgOrLink === 'img') {
-      for (const imageFile of cyoaImages) {
-        // convert to imageData for encoder
-
-          let image;
-          // if it isn't an image return the file unchanged
-          try {
-            image = await createImageBitmap(imageFile);
-          } catch (e) {
-            return imageFile;
-          }
-
-          const canvas = new OffscreenCanvas(image.width, image.height);
-          const ctx = canvas.getContext('2d', { alpha: false });
-          ctx!.drawImage(image, 0 ,0, image.width, image.height);
-          const imageData = ctx!.getImageData(0, 0, image.width, image.height);
-
-          const webPBuffer = await webpencode(imageData!, {quality: 75, lossless: 1});
-
-          const b = new Blob([webPBuffer]);
-
-          formData.append('cyoa_pages', new Blob([b], { type: 'image/webp' }));
-        }
-    }
     if (user) formData.append('uploader', user.id);
 
-    const res = await gamesCollection.create(formData);
-    for (const author of authors) await authorsCollection.update(author.id, { 'games+': [res.id] });
-    console.log('Created game:', res.id);
-    navigate('/');
-    setLoading(false);
+    try {
+      const res = await gamesCollection.create(formData);
+      for (const author of authors) await authorsCollection.update(author.id, { 'games+': [res.id] });
+      console.log('Created game:', res.id);
+      navigate('/');
+    } catch (err) {
+      setError('Failed to create game. Please try again.');
+      console.error('Error creating game:', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (initialDataLoading) {
@@ -290,22 +394,18 @@ export default function CreateGame() {
       </Box>
       {imgOrLink === 'img' && (
         <Box sx={{ mt: 2 }}>
-          <CyoaImageUploader onImagesChange={handleCyoaImagesChange} onNeedsSplitChange={handleNeedsSplitChange}/>
+          <CyoaImageUploader onImagesChange={handleCyoaImagesChange} onNeedsSplitChange={handleNeedsSplitChange} />
         </Box>
       )}
-<Button 
-  type="submit" 
-  variant="contained" 
-  color="primary" 
-  sx={{ 
-    mt: 3,
-    ml: 'auto', // добавляем автоматический отступ слева
-    display: 'block' // убеждаемся, что margn работает корректно
-  }} 
-  disabled={loading}
->
-  {loading ? <CircularProgress size={24} /> : 'Create Game'}
-</Button>
+      <Button
+        type="submit"
+        variant="contained"
+        color="primary"
+        sx={{ mt: 3, ml: 'auto', display: 'block' }}
+        disabled={loading}
+      >
+        {loading ? <CircularProgress size={24} /> : 'Create Game'}
+      </Button>
       {error && (
         <Alert severity="error" sx={{ mt: 2 }}>
           {error}

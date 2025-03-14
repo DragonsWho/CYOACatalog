@@ -1,3 +1,4 @@
+// pocketbase.ts
 import PocketBase, { RecordService } from 'pocketbase';
 import { createContext } from 'react';
 
@@ -63,6 +64,8 @@ export type Game = RecordModel & {
   title: string;
   description: string;
   image: string;
+  image_avif: string;
+  cyoa_pages_avif: string[]; 
   tags: string[];
   img_or_link: 'img' | 'link';
   iframe_url: string;

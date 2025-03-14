@@ -54,8 +54,8 @@ export default function GameDetails() {
     const collectionId = game.collectionId || '5kxdvx071c10s2t';
     
     // Формируем URL для AVIF изображения
-    const avifURL = game.image_avif 
-      ? `/api/files/${collectionId}/${game.id}/${game.image_avif}` 
+    const avifURL = game.image_preview 
+      ? `/api/files/${collectionId}/${game.id}/${game.image_preview}` 
       : '';
       
     // Формируем URL для WebP изображения

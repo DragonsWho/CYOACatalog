@@ -85,9 +85,9 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     setImageUrls(initialUrls);
     
     // Если есть AVIF версии, пытаемся их загрузить для каждой страницы
-    if (game.cyoa_pages_avif && game.cyoa_pages_avif.length > 0) {
+    if (game.cyoa_pages_preview && game.cyoa_pages_preview.length > 0) {
       // Обрабатываем каждую пару AVIF/WebP отдельно
-      game.cyoa_pages_avif.forEach((avifPage, index) => {
+      game.cyoa_pages_preview.forEach((avifPage, index) => {
         // Пропускаем, если нет соответствующей WebP страницы
         if (index >= game.cyoa_pages.length) return;
         
@@ -130,7 +130,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         avifImg.src = avifUrl;
       });
     }
-  }, [game.cyoa_pages, game.cyoa_pages_avif, game.id, collectionId]);
+  }, [game.cyoa_pages, game.cyoa_pages_preview, game.id, collectionId]);
 
   // Остальные хуки useEffect остаются без изменений...
 

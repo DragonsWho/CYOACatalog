@@ -64,8 +64,8 @@ export default function GameCard({
     : 'public/placeholder.jpg';
     
   // Формируем URL для AVIF изображения
-  const avifURL = game.image_avif 
-    ? `/api/files/${collectionId}/${game.id}/${game.image_avif}` 
+  const avifURL = game.image_preview 
+    ? `/api/files/${collectionId}/${game.id}/${game.image_preview}` 
     : null;
   
   // Изначально не устанавливаем изображение

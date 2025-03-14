@@ -163,7 +163,7 @@ export default function CreateGame() {
     formData.append('title', title);
     formData.append('description', descriptionData);
 
-    // Обработка cardImage (превью): WebP без масштабирования, AVIF с масштабированием
+    // Обработка cardImage: WebP качества 75 + WebP качества 10 вместо AVIF
     if (cardImage) {
       let cardImageBitmap;
       try {
@@ -175,7 +175,7 @@ export default function CreateGame() {
         return;
       }
 
-      // WebP: сохраняем оригинальный размер, качество 75
+      // WebP: основное изображение, качество 75
       const webpCanvas = new OffscreenCanvas(cardImageBitmap.width, cardImageBitmap.height);
       const webpCtx = webpCanvas.getContext('2d', { alpha: false });
       webpCtx!.drawImage(cardImageBitmap, 0, 0, cardImageBitmap.width, cardImageBitmap.height);
@@ -191,7 +191,7 @@ export default function CreateGame() {
         formData.append('image', cardImage);
       }
 
-      // AVIF: масштабируем до 480x640 с сохранением пропорций
+      // WebP превью: масштабируем до 480x640, качество 10
       const targetWidth = 480;
       const targetHeight = 640;
       const sourceAspect = cardImageBitmap.width / cardImageBitmap.height;
@@ -200,40 +200,36 @@ export default function CreateGame() {
       let scaleHeight = targetHeight;
 
       if (sourceAspect > targetAspect) {
-        // Если исходное изображение шире, ограничиваем шириной
         scaleHeight = Math.round(targetWidth / sourceAspect);
       } else {
-        // Если исходное изображение выше, ограничиваем высотой
         scaleWidth = Math.round(targetHeight * sourceAspect);
       }
 
-      const avifCanvas = new OffscreenCanvas(scaleWidth, scaleHeight);
-      const avifCtx = avifCanvas.getContext('2d', { alpha: true });
-      if (avifCtx) {
-        avifCtx.imageSmoothingQuality = 'high'; // Приближение к Lanczos3
-        avifCtx.drawImage(
+      const previewCanvas = new OffscreenCanvas(scaleWidth, scaleHeight);
+      const previewCtx = previewCanvas.getContext('2d', { alpha: true });
+      if (previewCtx) {
+        previewCtx.imageSmoothingQuality = 'high';
+        previewCtx.drawImage(
           cardImageBitmap,
           0, 0, cardImageBitmap.width, cardImageBitmap.height,
           0, 0, scaleWidth, scaleHeight
         );
-        const avifImageData = avifCtx.getImageData(0, 0, scaleWidth, scaleHeight);
+        const previewImageData = previewCtx.getImageData(0, 0, scaleWidth, scaleHeight);
 
-        // Преобразование в AVIF (качество 30, speed 4)
         try {
-          const { encode: avifencode } = await import('@jsquash/avif');
-          const avifBuffer = await avifencode(avifImageData, { quality: 30, speed: 4 });
-          const avifBlob = new Blob([avifBuffer], { type: 'image/avif' });
-          formData.append('image_avif', avifBlob, 'card_image.avif');
+          const previewBuffer = await webpencode(previewImageData, { quality: 10 });
+          const previewBlob = new Blob([previewBuffer], { type: 'image/webp' });
+          formData.append('image_preview', previewBlob, 'card_image_preview.webp');
         } catch (e) {
-          console.error('Failed to encode AVIF:', e);
-          // AVIF необязателен, продолжаем без него
+          console.error('Failed to encode WebP preview:', e);
+          // Превью необязательно, продолжаем без него
         }
       } else {
-        console.error('Failed to get 2D context for AVIF scaling');
+        console.error('Failed to get 2D context for WebP preview');
       }
     }
 
-    // Обработка cyoa_pages (WebP lossless + AVIF только для первого изображения с обрезкой)
+    // Обработка cyoa_pages: WebP lossless + WebP качества 10 вместо AVIF
     if (imgOrLink === 'img') {
       for (const [index, imageFile] of cyoaImages.entries()) {
         let image;
@@ -260,33 +256,32 @@ export default function CreateGame() {
           formData.append('cyoa_pages', imageFile);
         }
 
-        // AVIF: только для первого изображения с обрезкой до пропорции 2:3
+        // WebP превью: только для первого изображения с обрезкой до пропорции 2:3, качество 10
         if (index === 0) {
-          const targetAspect = 2 / 3; // Соотношение   (ширина к высоте)
+          const targetAspect = 2 / 3;
           let cropWidth = image.width;
-          let cropHeight = Math.min(image.height, Math.round(image.width / targetAspect)); // Обрезаем высоту  
+          let cropHeight = Math.min(image.height, Math.round(image.width / targetAspect));
 
           const cropCanvas = new OffscreenCanvas(cropWidth, cropHeight);
           const cropCtx = cropCanvas.getContext('2d', { alpha: true });
           if (cropCtx) {
             cropCtx.drawImage(
               image,
-              0, 0, image.width, cropHeight, // Обрезаем по высоте
+              0, 0, image.width, cropHeight,
               0, 0, cropWidth, cropHeight
             );
             const cropImageData = cropCtx.getImageData(0, 0, cropWidth, cropHeight);
 
             try {
-              const { encode: avifencode } = await import('@jsquash/avif');
-              const avifBuffer = await avifencode(cropImageData, { quality: 25, speed: 6 });
-              const avifBlob = new Blob([avifBuffer], { type: 'image/avif' });
-              formData.append('cyoa_pages_avif', avifBlob);
+              const previewBuffer = await webpencode(cropImageData, { quality: 10 });
+              const previewBlob = new Blob([previewBuffer], { type: 'image/webp' });
+              formData.append('cyoa_pages_preview', previewBlob);
             } catch (e) {
-              console.error('Failed to encode AVIF for cyoa_pages:', e);
-              // AVIF необязателен, продолжаем без него
+              console.error('Failed to encode WebP preview for cyoa_pages:', e);
+              // Превью необязательно, продолжаем без него
             }
           } else {
-            console.error('Failed to get 2D context for AVIF cropping');
+            console.error('Failed to get 2D context for WebP preview');
           }
         }
       }

@@ -64,8 +64,8 @@ export type Game = RecordModel & {
   title: string;
   description: string;
   image: string;
-  image_avif: string;
-  cyoa_pages_avif: string[]; 
+  image_preview: string;
+  cyoa_pages_preview: string[]; 
   tags: string[];
   img_or_link: 'img' | 'link';
   iframe_url: string;

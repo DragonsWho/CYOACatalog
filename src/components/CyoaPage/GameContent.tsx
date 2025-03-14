@@ -9,7 +9,6 @@ import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import { Game, logFrontendError } from '../../pocketbase/pocketbase';
 
-// Интерфейс для Fullscreen API в Document
 interface FullscreenDocument extends Document {
   fullscreenElement: Element | null;
   webkitFullscreenElement?: Element | null;
@@ -27,7 +26,6 @@ interface FullscreenDocument extends Document {
   msExitFullscreen?(): Promise<void>;
 }
 
-// Перечисление для режимов отображения изображений
 enum ImageViewMode {
   FIT_CONTAINER = 'fit-container',
   FIT_SCREEN = 'fit-screen',
@@ -45,10 +43,8 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isImmersiveMode, setIsImmersiveMode] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ImageViewMode>(ImageViewMode.FIT_CONTAINER);
-  
-  // Создаем мапу для хранения URL каждого изображения (AVIF или WebP)
   const [imageUrls, setImageUrls] = useState<string[]>([]);
-  
+
   const collectionId = game.collectionId || '5kxdvx071c10s2t';
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -72,69 +68,66 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     );
   };
 
-  // Предварительная загрузка изображений и управление их URL
   useEffect(() => {
     if (!game.cyoa_pages || game.cyoa_pages.length === 0) return;
-    
-    // Инициализируем массив URLs с WebP версиями
-    const initialUrls = game.cyoa_pages.map(page => 
-      `/api/files/${collectionId}/${game.id}/${page}`
-    );
-    
-    // Устанавливаем начальные WebP URLs
+
+    const initialUrls = new Array(game.cyoa_pages.length).fill('');
     setImageUrls(initialUrls);
-    
-    // Если есть AVIF версии, пытаемся их загрузить для каждой страницы
-    if (game.cyoa_pages_preview && game.cyoa_pages_preview.length > 0) {
-      // Обрабатываем каждую пару AVIF/WebP отдельно
-      game.cyoa_pages_preview.forEach((avifPage, index) => {
-        // Пропускаем, если нет соответствующей WebP страницы
-        if (index >= game.cyoa_pages.length) return;
+
+    let loadedCount = 0;
+
+    const loadImageSequentially = async (index: number) => {
+      if (index >= game.cyoa_pages.length) return;
+
+      if (game.cyoa_pages_preview?.[index]) {
+        const previewUrl = `/api/files/${collectionId}/${game.id}/${game.cyoa_pages_preview[index]}`;
         
-        // URL для AVIF
-        const avifUrl = `/api/files/${collectionId}/${game.id}/${avifPage}`;
-        
-        // Пытаемся загрузить AVIF изображение
-        const avifImg = new Image();
-        avifImg.onload = () => {
-          console.log(`AVIF image ${index} loaded successfully`);
-          
-          // Заменяем URL соответствующего изображения на AVIF
-          setImageUrls(prev => {
-            const newUrls = [...prev];
-            newUrls[index] = avifUrl;
-            return newUrls;
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const previewImg = new Image();
+            previewImg.onload = () => {
+              setImageUrls(prev => {
+                const newUrls = [...prev];
+                newUrls[index] = previewUrl;
+                return newUrls;
+              });
+              resolve();
+            };
+            previewImg.onerror = reject;
+            previewImg.src = previewUrl;
           });
-          
-          // Затем загружаем WebP для улучшения качества
-          const webpImg = new Image();
-          webpImg.onload = () => {
-            console.log(`WebP image ${index} loaded, replacing AVIF`);
-            
-            // После загрузки WebP, заменяем обратно на WebP для лучшего качества
+        } catch (error) {
+          console.error(`Failed to load preview image ${index}`);
+        }
+      }
+
+      const fullUrl = `/api/files/${collectionId}/${game.id}/${game.cyoa_pages[index]}`;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const fullImg = new Image();
+          fullImg.onload = () => {
             setImageUrls(prev => {
               const newUrls = [...prev];
-              newUrls[index] = initialUrls[index];
+              newUrls[index] = fullUrl;
               return newUrls;
             });
+            loadedCount++;
+            setLoadingImages(game.cyoa_pages.length - loadedCount);
+            resolve();
           };
-          webpImg.src = initialUrls[index];
-        };
-        
-        avifImg.onerror = () => {
-          console.error(`Failed to load AVIF image ${index}, keeping WebP`);
-          // При ошибке загрузки AVIF оставляем WebP
-        };
-        
-        // Запускаем загрузку AVIF
-        avifImg.src = avifUrl;
-      });
-    }
+          fullImg.onerror = reject;
+          fullImg.src = fullUrl;
+        });
+      } catch (error) {
+        console.error(`Failed to load full image ${index}`);
+      }
+
+      await loadImageSequentially(index + 1);
+    };
+
+    loadImageSequentially(0);
   }, [game.cyoa_pages, game.cyoa_pages_preview, game.id, collectionId]);
 
-  // Остальные хуки useEffect остаются без изменений...
-
-  // Сброс стилей iframe-контейнера
   const resetIframeStyles = (): void => {
     const iframeContainer = iframeContainerRef.current;
     if (iframeContainer) {
@@ -145,7 +138,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     }
   };
 
-  // Сохранение исходных стилей при монтировании
   useEffect(() => {
     const iframeContainer = iframeContainerRef.current;
     if (iframeContainer && !initialIframeStyles.current) {
@@ -156,7 +148,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     }
   }, []);
 
-  // Обновление высоты iframe в immersive-режиме
   useEffect(() => {
     const updateIframeHeight = (): void => {
       const iframeContainer = iframeContainerRef.current;
@@ -177,7 +168,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     };
   }, [isImmersiveMode]);
 
-  // Обработка событий fullscreen и ориентации
   useEffect(() => {
     const handleFullscreenChange = (): void => {
       const doc = document as FullscreenDocument;
@@ -242,7 +232,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     };
   }, [isFullscreen]);
 
-  // Обработка Escape для выхода из immersive-режима
   useEffect(() => {
     const handleEscapeKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape' && isImmersiveMode) {
@@ -255,7 +244,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     return () => document.removeEventListener('keydown', handleEscapeKey);
   }, [isImmersiveMode]);
 
-  // Управление overflow в зависимости от viewMode
   useEffect(() => {
     const contentContainer = contentContainerRef.current;
     if (contentContainer) {
@@ -286,7 +274,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
   };
 
   const reportFullscreenIssue = async (error: string): Promise<void> => {
-    // Проверяем поддержку полноэкранного режима в текущем браузере
     const doc = document as FullscreenDocument;
     const docElement = document.documentElement;
     
@@ -306,60 +293,43 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
 
     const details: Record<string, unknown> = {
       error: error,
-      // Исправлено: убираем проверку instanceof Error
       errorStack: typeof error === 'object' && error !== null && 'stack' in error ? 
                   (error as { stack: string }).stack : 'No stack available',
-      
-      // Текущее состояние
       isFullscreen,
       isImmersiveMode,
       viewMode,
       fullscreenSupported: isFullscreenSupported(iframeContainerRef.current),
-      
-      // Информация о браузере и устройстве
       userAgent: navigator.userAgent,
       platform: navigator.platform,
       vendor: navigator.vendor,
       appVersion: navigator.appVersion,
       isIOS: isIOS(),
       isAndroidWebView: isAndroidWebView(),
-      
-      // Информация об экране
       screenOrientation: screen.orientation?.type || 'unknown',
       screenWidth: screen.width,
       screenHeight: screen.height,
       screenPixelRatio: window.devicePixelRatio,
       windowWidth: window.innerWidth,
       windowHeight: window.innerHeight,
-      
-      // Элементы DOM
       iframeRefExists: !!iframeRef.current,
       iframeContainerRefExists: !!iframeContainerRef.current,
       iframeUrl: game.iframe_url || 'N/A',
       iframeCurrentWidth: iframeRef.current?.clientWidth,
       iframeCurrentHeight: iframeRef.current?.clientHeight,
-      
-      // API поддержка
       fullscreenAPISupport: {
         documentFullscreenEnabled: doc.fullscreenEnabled,
         webkitFullscreenEnabled: doc.webkitFullscreenEnabled,
         mozFullScreenEnabled: doc.mozFullScreenEnabled,
         msFullscreenEnabled: doc.msFullscreenEnabled,
       },
-      
-      // Доступные методы
       fullscreenMethodsAvailable: fullscreenMethods,
       fullscreenExitMethodsAvailable: fullscreenExitMethods,
-      
-      // Текущее состояние fullscreen API
       currentFullscreenElement: {
         standard: !!doc.fullscreenElement,
         webkit: !!doc.webkitFullscreenElement,
         moz: !!doc.mozFullScreenElement,
         ms: !!doc.msFullscreenElement,
       },
-      
-      // Таймштамп
       timestamp: new Date().toISOString(),
     };
     
@@ -386,7 +356,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           throw new Error('Fullscreen API not supported');
         }
 
-        // Принудительно указываем все опциональные методы через as
         const elemWithFullscreen = targetElement as unknown as {
           requestFullscreen(): Promise<void>;
           webkitRequestFullscreen?(): Promise<void>;
@@ -411,7 +380,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           throw new Error('No fullscreen method available');
         }
 
-        // Изменен обработчик проверки активации полноэкранного режима
         setTimeout(() => {
           const docCheck = document as FullscreenDocument;
           if (
@@ -422,11 +390,10 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
               docCheck.msFullscreenElement
             )
           ) {
-            // Вместо throw, который не будет перехвачен, вызываем напрямую
             reportFullscreenIssue('Fullscreen activation check failed after timeout');
-            toggleImmersiveMode(); // Активируем запасной вариант
+            toggleImmersiveMode();
           }
-        }, 300); // Уменьшено время ожидания
+        }, 300);
       } else {
         if (doc.exitFullscreen) {
           await doc.exitFullscreen();
@@ -553,7 +520,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
             position: 'relative',
           }}
         >
-          {loadingImages > 0 && <CircularProgress />}
           {game.cyoa_pages.map((_, index) => (
             <Box
               key={index}
@@ -574,23 +540,28 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
                 }),
               }}
             >
-              {!imageErrors[index] && imageUrls[index] && (
-                <img
-                  src={imageUrls[index]}
-                  alt={`Game content ${index + 1}`}
-                  className={
-                    viewMode === ImageViewMode.FIT_SCREEN
-                      ? 'full-width-image'
-                      : viewMode === ImageViewMode.ORIGINAL_SIZE
-                      ? 'original-size-image'
-                      : 'normal-image'
-                  }
-                  style={{
-                    display: loadingImages > 0 ? 'none' : 'block',
-                    transition: 'all 0.3s ease',
-                  }}
-                  onLoad={handleImageLoad}
-                />
+              {!imageErrors[index] && (
+                <>
+                  {!imageUrls[index] && <CircularProgress size={24} />}
+                  {imageUrls[index] && (
+                    <img
+                      src={imageUrls[index]}
+                      alt={`Game content ${index + 1}`}
+                      className={
+                        viewMode === ImageViewMode.FIT_SCREEN
+                          ? 'full-width-image'
+                          : viewMode === ImageViewMode.ORIGINAL_SIZE
+                          ? 'original-size-image'
+                          : 'normal-image'
+                      }
+                      style={{
+                        transition: 'all 0.3s ease',
+                        opacity: imageUrls[index].includes('preview') ? 0.8 : 1,
+                      }}
+                      onLoad={handleImageLoad}
+                    />
+                  )}
+                </>
               )}
             </Box>
           ))}

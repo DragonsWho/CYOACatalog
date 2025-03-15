@@ -65,7 +65,7 @@ export type Game = RecordModel & {
   description: string;
   image: string;
   image_preview: string;
-  cyoa_pages_preview: string[]; 
+  cyoa_pages_preview: string[];
   tags: string[];
   img_or_link: 'img' | 'link';
   iframe_url: string;
@@ -73,6 +73,7 @@ export type Game = RecordModel & {
   upvotes: string[];
   comments: string[];
   uploader: string;
+  image_base64?: string;  
 } & {
   expand?: {
     tags?: Tag[];

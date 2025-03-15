@@ -47,6 +47,7 @@ const CATEGORY_COLORS = {
   Extra: 'rgba(0, 0, 0, 0.4)',
   Kinks: 'rgba(255, 69, 0, 0.4)',
 };
+
 export default function GameCard({
   game,
   variant = 'standard',
@@ -68,41 +69,82 @@ export default function GameCard({
     ? `/api/files/${collectionId}/${game.id}/${game.image_preview}` 
     : null;
   
-  // Изначально не устанавливаем изображение
-  const [imageSrc, setImageSrc] = useState<string>('');
+  // Изначально устанавливаем base64, если есть, иначе пустая строка
+  const [imageSrc, setImageSrc] = useState<string>(
+    game.image_base64
+      ? game.image_base64.startsWith('data:')
+        ? game.image_base64
+        : `data:image/avif;base64,${game.image_base64}`
+      : ''
+  );
 
   // Загрузка изображений с правильным порядком приоритетов
   useEffect(() => {
-    // Если есть AVIF, пытаемся его загрузить первым
-    if (avifURL) {
-      console.log("GameCard: Attempting to load AVIF first:", avifURL);
-      
-      const avifImg = new Image();
-      avifImg.onload = () => {
-        console.log("GameCard: AVIF loaded, displaying it");
-        setImageSrc(avifURL); // Устанавливаем AVIF для отображения
-        
-        // Затем загружаем WebP для лучшего качества
+    // Если есть base64, начинаем с него
+    if (game.image_base64) {
+      console.log("GameCard: Using base64 thumbnail initially");
+      setImageSrc(
+        game.image_base64.startsWith('data:')
+          ? game.image_base64
+          : `data:image/avif;base64,${game.image_base64}`
+      );
+
+      // Затем пытаемся загрузить AVIF, если он есть
+      if (avifURL) {
+        console.log("GameCard: Attempting to load AVIF:", avifURL);
+        const avifImg = new Image();
+        avifImg.onload = () => {
+          console.log("GameCard: AVIF loaded, replacing base64");
+          setImageSrc(avifURL);
+          // После AVIF загружаем WebP
+          const webpImg = new Image();
+          webpImg.onload = () => {
+            console.log("GameCard: WebP loaded, replacing AVIF");
+            setImageSrc(webpURL);
+          };
+          webpImg.src = webpURL;
+        };
+        avifImg.onerror = () => {
+          console.error(`GameCard: Failed to load AVIF for game ${game.id}, using WebP`);
+          setImageSrc(webpURL);
+        };
+        avifImg.src = avifURL;
+      } else {
+        // Если нет AVIF, сразу грузим WebP
+        console.log("GameCard: No AVIF, loading WebP after base64");
         const webpImg = new Image();
         webpImg.onload = () => {
-          console.log("GameCard: WebP loaded, replacing AVIF");
+          console.log("GameCard: WebP loaded, replacing base64");
           setImageSrc(webpURL);
         };
         webpImg.src = webpURL;
-      };
-      
-      avifImg.onerror = () => {
-        console.error(`GameCard: Failed to load AVIF for game ${game.id}, using WebP`);
-        setImageSrc(webpURL);
-      };
-      
-      avifImg.src = avifURL; // Запускаем загрузку AVIF
+      }
     } else {
-      // Если AVIF нет, сразу используем WebP
-      console.log("GameCard: No AVIF available, using WebP directly");
-      setImageSrc(webpURL);
+      // Если нет base64, используем старую логику
+      if (avifURL) {
+        console.log("GameCard: Attempting to load AVIF first:", avifURL);
+        const avifImg = new Image();
+        avifImg.onload = () => {
+          console.log("GameCard: AVIF loaded, displaying it");
+          setImageSrc(avifURL);
+          const webpImg = new Image();
+          webpImg.onload = () => {
+            console.log("GameCard: WebP loaded, replacing AVIF");
+            setImageSrc(webpURL);
+          };
+          webpImg.src = webpURL;
+        };
+        avifImg.onerror = () => {
+          console.error(`GameCard: Failed to load AVIF for game ${game.id}, using WebP`);
+          setImageSrc(webpURL);
+        };
+        avifImg.src = avifURL;
+      } else {
+        console.log("GameCard: No AVIF available, using WebP directly");
+        setImageSrc(webpURL);
+      }
     }
-  }, [avifURL, webpURL, game.id]);
+  }, [game.image_base64, avifURL, webpURL, game.id]);
 
   const sortedTags = CATEGORY_ORDER.flatMap((categoryName) =>
     game.expand?.tags?.filter((tag) => tag.expand?.tag_categories_via_tags?.[0].name === categoryName) ?? []
@@ -134,7 +176,7 @@ export default function GameCard({
             backgroundImage: imageSrc ? `url(${imageSrc})` : 'none',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            transition: 'opacity 0.3s ease-in-out', // Плавный переход
+            transition: 'opacity 0.3s ease-in-out',
             '&::after': {
               content: '""',
               position: 'absolute',

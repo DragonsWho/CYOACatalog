@@ -7,8 +7,8 @@ import { Game } from '../pocketbase/pocketbase';
 import DOMPurify from 'dompurify';
 
 // Design variables
-const CARD_ASPECT_RATIO = '133.33%'; // 3:4 aspect ratio 
-const DESCRIPTION_TOP = '60%'; // Базовая позиция для описания
+const CARD_ASPECT_RATIO = '133.33%'; 
+const DESCRIPTION_TOP = '60%';
 const TAG_SECTION_HEIGHT = '80px';
 const TAG_DISPLAY_LIMIT = 12;
 const OVERLAY_OPACITY = 0.5;
@@ -51,23 +51,6 @@ const CATEGORY_COLORS = {
 // Global image cache
 const imageCache = new Map<string, string>();
 
-// Helper function to preload an image
-const preloadImage = (url: string): Promise<string> => {
-  if (imageCache.has(url)) {
-    return Promise.resolve(imageCache.get(url) as string);
-  }
-  
-  return new Promise<string>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      imageCache.set(url, url);
-      resolve(url);
-    };
-    img.onerror = reject;
-    img.src = url;
-  });
-};
-
 interface GameCardProps {
   game: Game;
   variant?: 'standard' | 'simplified';
@@ -76,8 +59,8 @@ interface GameCardProps {
 function GameCard({ game, variant = 'standard' }: GameCardProps) {
   const theme = useTheme();
   const cardRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   
-  // Отладочный useEffect для отслеживания жизненного цикла компонента
   useEffect(() => {
     console.log(`GameCard mount for game ${game.id}`);
     return () => {
@@ -87,98 +70,58 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
   
   const collectionId = game.collectionId || '5kxdvx071c10s2t';
   
-  // Формируем URL для WebP изображения
-  const webpURL = game.image 
+  const imageURL = game.image 
     ? `/api/files/${collectionId}/${game.id}/${game.image}` 
     : 'public/placeholder.jpg';
-    
-  // Формируем URL для AVIF изображения
-  const avifURL = game.image_preview 
-    ? `/api/files/${collectionId}/${game.id}/${game.image_preview}` 
-    : null;
   
-  // Изначально устанавливаем base64, если есть, иначе пустая строка
   const [imageSrc, setImageSrc] = useState<string>(
     game.image_base64
       ? game.image_base64.startsWith('data:')
         ? game.image_base64
-        : `data:image/avif;base64,${game.image_base64}`
-      : ''
+        : `data:image/jpeg;base64,${game.image_base64}` // Предполагаем JPEG для base64, можно уточнить формат
+      : imageURL
   );
-  
-  // Флаг для отслеживания загрузки изображений
-  const [imagesLoaded, setImagesLoaded] = useState<boolean>(false);
+  const [isBase64, setIsBase64] = useState<boolean>(!!game.image_base64);
 
-  // Мемоизированная функция загрузки изображений для избежания пересоздания
-  const loadImages = useCallback(async (): Promise<void> => {
-    console.log(`Loading images for game ${game.id}, already loaded: ${imagesLoaded}`);
-    
-    // Флаг для предотвращения обновления размонтированного компонента
-    let isMounted = true;
-    
-    // Начинаем с base64, если доступен
-    if (game.image_base64 && isMounted) {
-      const base64Data = game.image_base64.startsWith('data:') 
-        ? game.image_base64 
-        : `data:image/avif;base64,${game.image_base64}`;
-      setImageSrc(base64Data);
-    }
-    
-    try {
-      // Проверяем кэш для preview изображения
-      if (avifURL && isMounted) {
-        if (imageCache.has(avifURL)) {
-          console.log(`Using cached AVIF for game ${game.id}`);
-          setImageSrc(imageCache.get(avifURL) as string);
-        } else {
-          try {
-            console.log(`Loading AVIF for game ${game.id}`);
-            const url = await preloadImage(avifURL);
-            if (isMounted) setImageSrc(url);
-          } catch (error) {
-            console.log(`GameCard: Failed to load AVIF for game ${game.id}, using WebP`);
-          }
-        }
-      }
-      
-      // Затем загружаем полное WebP изображение
-      if (webpURL && isMounted) {
-        if (imageCache.has(webpURL)) {
-          console.log(`Using cached WebP for game ${game.id}`);
-          setImageSrc(imageCache.get(webpURL) as string);
-        } else {
-          try {
-            console.log(`Loading WebP for game ${game.id}`);
-            const url = await preloadImage(webpURL);
-            if (isMounted) setImageSrc(url);
-          } catch (error) {
-            console.error(`GameCard: Failed to load WebP for game ${game.id}`);
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`Error loading images for game ${game.id}:`, error);
-    }
-  }, [game.id, game.image_base64, avifURL, webpURL, imagesLoaded]);
+  const loadImage = useCallback(() => {
+    if (!isBase64 && imageSrc === imageURL) return; // Если уже загружено основное изображение, ничего не делаем
 
-  // Оптимизированная загрузка изображений с использованием intersection observer
+    if (imageCache.has(imageURL)) {
+      console.log(`Using cached image for game ${game.id}`);
+      setImageSrc(imageCache.get(imageURL) as string);
+      setIsBase64(false);
+    } else {
+      console.log(`Setting image URL for game ${game.id}`);
+      setImageSrc(imageURL);
+      setIsBase64(false);
+    }
+  }, [game.id, imageURL, imageSrc, isBase64]);
+
   useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !imagesLoaded) {
-        loadImages().catch(err => console.error("Error in loadImages:", err));
-        setImagesLoaded(true);
-      }
-    }, {
-      rootMargin: '200px', // Предзагрузка при приближении на 200px
-      threshold: 0.01
-    });
-    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadImage();
+        }
+      },
+      { rootMargin: '200px', threshold: 0.01 }
+    );
+
     if (cardRef.current) {
       observer.observe(cardRef.current);
     }
-    
+
     return () => observer.disconnect();
-  }, [imagesLoaded, loadImages]);
+  }, [loadImage]);
+
+  useEffect(() => {
+    if (imgRef.current && imageSrc === imageURL && !imageCache.has(imageURL)) {
+      imgRef.current.onload = () => {
+        imageCache.set(imageURL, imageURL);
+        console.log(`Cached image ${imageURL} for game ${game.id}`);
+      };
+    }
+  }, [imageSrc, imageURL, game.id]);
 
   const sortedTags = useMemo(() => {
     return CATEGORY_ORDER.flatMap((categoryName) =>
@@ -204,6 +147,22 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
           boxShadow: theme.shadows[3],
         }}
       >
+        <img
+          ref={imgRef}
+          src={imageSrc}
+          alt={game.title || 'Game image'}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center',
+            transition: 'opacity 0.3s ease-in-out',
+            filter: isBase64 ? 'blur(4px)' : 'none', // Размытие только для base64
+          }}
+        />
         <Box
           sx={{
             position: 'absolute',
@@ -211,19 +170,7 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
             left: 0,
             width: '100%',
             height: '100%',
-            backgroundImage: imageSrc ? `url(${imageSrc})` : 'none',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            transition: 'opacity 0.3s ease-in-out',
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              backgroundColor: `rgba(0, 0, 0, ${OVERLAY_OPACITY})`,
-            },
+            backgroundColor: `rgba(0, 0, 0, ${OVERLAY_OPACITY})`,
           }}
         />
         <CardContent
@@ -240,18 +187,13 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
             boxSizing: 'border-box',
           }}
         >
-          {/* Заголовок с адаптивным размером шрифта */}
           <Typography
             variant="h3"
             component="div"
             align="center"
             sx={{
               fontWeight: 'bold',
-              fontSize: {
-                xs: '1.2rem',
-                sm: '1.5rem',
-                md: '1.8rem',
-              },
+              fontSize: { xs: '1.2rem', sm: '1.5rem', md: '1.8rem' },
               // @ts-expect-error custom theme property
               ...theme.custom.cardTitle,
               mb: `${TITLE_MARGIN_BOTTOM}px`,
@@ -260,10 +202,8 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
             {game.title || 'Untitled'}
           </Typography>
 
-          {/* Описание и теги в стандартном виде */}
           {variant === 'standard' ? (
             <>
-              {/* Описание с текстовыми эффектами */}
               <Box
                 sx={{
                   position: 'absolute',
@@ -272,23 +212,16 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
                   right: CARD_PADDING,
                   bottom: `calc(${TAG_SECTION_HEIGHT} + ${BOTTOM_INFO_MARGIN_TOP + BOTTOM_INFO_MARGIN_BOTTOM + 40}px)`,
                   overflow: 'hidden',
-                  fontSize: {
-                    xs: '0.8rem',
-                    sm: '0.9rem',
-                    md: '1rem',
-                  },
+                  fontSize: { xs: '0.8rem', sm: '0.9rem', md: '1rem' },
                   maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
                   WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
                   // @ts-expect-error custom theme property
                   ...theme.custom.cardText,
                 }}
               >
-                <div
-                  dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
-                />
+                <div dangerouslySetInnerHTML={{ __html: sanitizedDescription }} />
               </Box>
 
-              {/* Секция тегов */}
               <Box
                 sx={{
                   position: 'absolute',
@@ -305,11 +238,7 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
                     maxHeight: TAG_SECTION_HEIGHT,
                     overflow: 'hidden',
                     mt: `${TAGS_MARGIN_TOP}px`,
-                    fontSize: {
-                      xs: '0.6rem',
-                      sm: '0.7rem',
-                      md: '0.8rem',
-                    },
+                    fontSize: { xs: '0.6rem', sm: '0.7rem', md: '0.8rem' },
                   }}
                 >
                   {sortedTags.map((tag, index) => {
@@ -334,7 +263,6 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
             </>
           ) : null}
 
-          {/* Информация снизу с адаптивным размером шрифта */}
           <Box
             sx={{
               display: 'flex',
@@ -349,11 +277,7 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
             <Typography
               variant="body2"
               sx={{
-                fontSize: {
-                  xs: '0.7rem',
-                  sm: '0.8rem',
-                  md: '0.9rem',
-                },
+                fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.9rem' },
                 // @ts-expect-error custom theme property
                 ...theme.custom.cardText,
                 textShadow: '1px 1px 3px rgba(3, 3, 3, 1)',
@@ -363,21 +287,12 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
                 ? game.expand?.authors_via_games[0].name
                 : 'Anonymous'}
             </Typography>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <CommentIcon sx={{ color: theme.palette.secondary.main, fontSize: { xs: '0.8rem', sm: '1rem' }, mr: 0.5 }} />
               <Typography
                 variant="body2"
                 sx={{
-                  fontSize: {
-                    xs: '0.7rem',
-                    sm: '0.8rem',
-                    md: '0.9rem',
-                  },
+                  fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.9rem' },
                   color: 'white',
                   fontWeight: 'bold',
                   textShadow: '1px 1px 2px rgba(3,3,3,1)',
@@ -390,11 +305,7 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
               <Typography
                 variant="body2"
                 sx={{
-                  fontSize: {
-                    xs: '0.7rem',
-                    sm: '0.8rem',
-                    md: '0.9rem',
-                  },
+                  fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.9rem' },
                   color: 'white',
                   fontWeight: 'bold',
                   textShadow: '1px 1px 2px rgba(3,3,3,1)',
@@ -410,9 +321,7 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
   );
 }
 
-// Используем React.memo для предотвращения лишних рендеров
 export default React.memo(GameCard, (prevProps, nextProps) => {
-  // Оптимизация: перерисовываем только если изменились критические свойства
   return prevProps.game.id === nextProps.game.id && 
          prevProps.variant === nextProps.variant;
 });

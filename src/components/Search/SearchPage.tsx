@@ -23,7 +23,8 @@ export default function SearchPage({
   const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [tagMap, setTagMap] = useState<Map<string, Tag>>(new Map()); // Кэш тегов
+  const [tagMap, setTagMap] = useState<Map<string, Tag>>(new Map());
+  const [tagsLoaded, setTagsLoaded] = useState(false); // Новое состояние для отслеживания загрузки тегов
 
   const observer = useRef<IntersectionObserver | null>(null);
   const lastGameElementRef = useCallback(
@@ -40,7 +41,7 @@ export default function SearchPage({
     [loading, hasMore],
   );
 
-  // Загрузка тегов с TTL (обновление раз в 24 часа)
+  // Загрузка тегов
   useEffect(() => {
     (async () => {
       const cachedTags = localStorage.getItem('tagMap');
@@ -49,6 +50,7 @@ export default function SearchPage({
 
       if (cachedTags && lastUpdated && now - parseInt(lastUpdated) < ONE_DAY_IN_MS) {
         setTagMap(new Map(JSON.parse(cachedTags)));
+        setTagsLoaded(true);
       } else {
         console.log('Fetching tags...');
         const fetchedTags = await tagsCollection.getFullList({
@@ -59,12 +61,13 @@ export default function SearchPage({
         setTagMap(newTagMap);
         localStorage.setItem('tagMap', JSON.stringify([...newTagMap]));
         localStorage.setItem('tagMapLastUpdated', now.toString());
+        setTagsLoaded(true);
       }
     })();
   }, []);
 
   const fetchGames = useCallback(async () => {
-    if (!hasMore) return;
+    if (!hasMore || !tagsLoaded) return; // Ждём загрузки тегов
 
     setLoading(true);
     try {
@@ -86,14 +89,13 @@ export default function SearchPage({
         sort: '-created',
         expand: 'authors_via_games',
         filter: filterString,
-        fields: 'id,title,description,image,image_preview,upvotes,comments,tags,expand.authors_via_games.name',
+        fields: 'id,title,description,image,image_preview,image_base64,upvotes,comments,tags,expand.authors_via_games.name',
       });
 
-      // Обогащение игр тегами из tagMap с фильтрацией undefined
       const enrichedGames = fetchedGames.items.map((game) => {
         const enrichedTags = game.tags
           .map((tagId) => tagMap.get(tagId))
-          .filter((tag): tag is Tag => tag !== undefined); // Утверждаем, что tag не undefined
+          .filter((tag): tag is Tag => tag !== undefined);
         return {
           ...game,
           expand: {
@@ -113,17 +115,21 @@ export default function SearchPage({
     } finally {
       setLoading(false);
     }
-  }, [page, hasMore, selectedTags, selectedAuthors, tagMap]);
+  }, [page, hasMore, selectedTags, selectedAuthors, tagMap, tagsLoaded]);
 
+  // Объединённая логика сброса и загрузки
   useEffect(() => {
+    if (!tagsLoaded) return; // Ждём загрузки тегов
     setGames([]);
     setPage(1);
     setHasMore(true);
-  }, [selectedTags, selectedAuthors]);
+    fetchGames(); // Загружаем сразу после сброса
+  }, [selectedTags, selectedAuthors, tagsLoaded]);
 
+  // Загрузка игр при изменении страницы (бесконечная прокрутка)
   useEffect(() => {
-    fetchGames();
-  }, [fetchGames]);
+    if (page > 1) fetchGames();
+  }, [page, fetchGames]);
 
   const isSearchActive = selectedTags.length > 0 || selectedAuthors.length > 0;
 

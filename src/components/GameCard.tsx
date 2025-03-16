@@ -1,6 +1,6 @@
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Card, CardContent, Typography, Chip, Box, useTheme } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { useState, useEffect, useMemo } from 'react';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import CommentIcon from '@mui/icons-material/Comment';
 import { Game } from '../pocketbase/pocketbase';
@@ -48,14 +48,42 @@ const CATEGORY_COLORS = {
   Kinks: 'rgba(255, 69, 0, 0.4)',
 };
 
-export default function GameCard({
-  game,
-  variant = 'standard',
-}: {
+// Global image cache
+const imageCache = new Map<string, string>();
+
+// Helper function to preload an image
+const preloadImage = (url: string): Promise<string> => {
+  if (imageCache.has(url)) {
+    return Promise.resolve(imageCache.get(url) as string);
+  }
+  
+  return new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      imageCache.set(url, url);
+      resolve(url);
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+};
+
+interface GameCardProps {
   game: Game;
   variant?: 'standard' | 'simplified';
-}) {
+}
+
+function GameCard({ game, variant = 'standard' }: GameCardProps) {
   const theme = useTheme();
+  const cardRef = useRef<HTMLDivElement>(null);
+  
+  // Отладочный useEffect для отслеживания жизненного цикла компонента
+  useEffect(() => {
+    console.log(`GameCard mount for game ${game.id}`);
+    return () => {
+      console.log(`GameCard unmount for game ${game.id}`);
+    };
+  }, [game.id]);
   
   const collectionId = game.collectionId || '5kxdvx071c10s2t';
   
@@ -77,84 +105,94 @@ export default function GameCard({
         : `data:image/avif;base64,${game.image_base64}`
       : ''
   );
+  
+  // Флаг для отслеживания загрузки изображений
+  const [imagesLoaded, setImagesLoaded] = useState<boolean>(false);
 
-  // Загрузка изображений с правильным порядком приоритетов
-  useEffect(() => {
-    // Если есть base64, начинаем с него
-    if (game.image_base64) {
-      console.log("GameCard: Using base64 thumbnail initially");
-      setImageSrc(
-        game.image_base64.startsWith('data:')
-          ? game.image_base64
-          : `data:image/avif;base64,${game.image_base64}`
-      );
-
-      // Затем пытаемся загрузить AVIF, если он есть
-      if (avifURL) {
-        console.log("GameCard: Attempting to load AVIF:", avifURL);
-        const avifImg = new Image();
-        avifImg.onload = () => {
-          console.log("GameCard: AVIF loaded, replacing base64");
-          setImageSrc(avifURL);
-          // После AVIF загружаем WebP
-          const webpImg = new Image();
-          webpImg.onload = () => {
-            console.log("GameCard: WebP loaded, replacing AVIF");
-            setImageSrc(webpURL);
-          };
-          webpImg.src = webpURL;
-        };
-        avifImg.onerror = () => {
-          console.error(`GameCard: Failed to load AVIF for game ${game.id}, using WebP`);
-          setImageSrc(webpURL);
-        };
-        avifImg.src = avifURL;
-      } else {
-        // Если нет AVIF, сразу грузим WebP
-        console.log("GameCard: No AVIF, loading WebP after base64");
-        const webpImg = new Image();
-        webpImg.onload = () => {
-          console.log("GameCard: WebP loaded, replacing base64");
-          setImageSrc(webpURL);
-        };
-        webpImg.src = webpURL;
-      }
-    } else {
-      // Если нет base64, используем старую логику
-      if (avifURL) {
-        console.log("GameCard: Attempting to load AVIF first:", avifURL);
-        const avifImg = new Image();
-        avifImg.onload = () => {
-          console.log("GameCard: AVIF loaded, displaying it");
-          setImageSrc(avifURL);
-          const webpImg = new Image();
-          webpImg.onload = () => {
-            console.log("GameCard: WebP loaded, replacing AVIF");
-            setImageSrc(webpURL);
-          };
-          webpImg.src = webpURL;
-        };
-        avifImg.onerror = () => {
-          console.error(`GameCard: Failed to load AVIF for game ${game.id}, using WebP`);
-          setImageSrc(webpURL);
-        };
-        avifImg.src = avifURL;
-      } else {
-        console.log("GameCard: No AVIF available, using WebP directly");
-        setImageSrc(webpURL);
-      }
+  // Мемоизированная функция загрузки изображений для избежания пересоздания
+  const loadImages = useCallback(async (): Promise<void> => {
+    console.log(`Loading images for game ${game.id}, already loaded: ${imagesLoaded}`);
+    
+    // Флаг для предотвращения обновления размонтированного компонента
+    let isMounted = true;
+    
+    // Начинаем с base64, если доступен
+    if (game.image_base64 && isMounted) {
+      const base64Data = game.image_base64.startsWith('data:') 
+        ? game.image_base64 
+        : `data:image/avif;base64,${game.image_base64}`;
+      setImageSrc(base64Data);
     }
-  }, [game.image_base64, avifURL, webpURL, game.id]);
+    
+    try {
+      // Проверяем кэш для preview изображения
+      if (avifURL && isMounted) {
+        if (imageCache.has(avifURL)) {
+          console.log(`Using cached AVIF for game ${game.id}`);
+          setImageSrc(imageCache.get(avifURL) as string);
+        } else {
+          try {
+            console.log(`Loading AVIF for game ${game.id}`);
+            const url = await preloadImage(avifURL);
+            if (isMounted) setImageSrc(url);
+          } catch (error) {
+            console.log(`GameCard: Failed to load AVIF for game ${game.id}, using WebP`);
+          }
+        }
+      }
+      
+      // Затем загружаем полное WebP изображение
+      if (webpURL && isMounted) {
+        if (imageCache.has(webpURL)) {
+          console.log(`Using cached WebP for game ${game.id}`);
+          setImageSrc(imageCache.get(webpURL) as string);
+        } else {
+          try {
+            console.log(`Loading WebP for game ${game.id}`);
+            const url = await preloadImage(webpURL);
+            if (isMounted) setImageSrc(url);
+          } catch (error) {
+            console.error(`GameCard: Failed to load WebP for game ${game.id}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error loading images for game ${game.id}:`, error);
+    }
+  }, [game.id, game.image_base64, avifURL, webpURL, imagesLoaded]);
 
-  const sortedTags = CATEGORY_ORDER.flatMap((categoryName) =>
-    game.expand?.tags?.filter((tag) => tag.expand?.tag_categories_via_tags?.[0].name === categoryName) ?? []
-  ).slice(0, TAG_DISPLAY_LIMIT);
+  // Оптимизированная загрузка изображений с использованием intersection observer
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !imagesLoaded) {
+        loadImages().catch(err => console.error("Error in loadImages:", err));
+        setImagesLoaded(true);
+      }
+    }, {
+      rootMargin: '200px', // Предзагрузка при приближении на 200px
+      threshold: 0.01
+    });
+    
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    }
+    
+    return () => observer.disconnect();
+  }, [imagesLoaded, loadImages]);
+
+  const sortedTags = useMemo(() => {
+    return CATEGORY_ORDER.flatMap((categoryName) =>
+      game.expand?.tags?.filter((tag) => tag.expand?.tag_categories_via_tags?.[0].name === categoryName) ?? []
+    ).slice(0, TAG_DISPLAY_LIMIT);
+  }, [game.expand?.tags]);
+  
   const gameUpvoteCount = game.upvotes.length;
   const sanitizedDescription = useMemo(() => DOMPurify.sanitize(game.description), [game.description]);
 
   return (
     <Link to={`/game/${game.id}`} style={{ textDecoration: 'none' }}>
       <Card
+        ref={cardRef}
         sx={{
           cursor: 'pointer',
           transition: '0.3s',
@@ -371,3 +409,10 @@ export default function GameCard({
     </Link>
   );
 }
+
+// Используем React.memo для предотвращения лишних рендеров
+export default React.memo(GameCard, (prevProps, nextProps) => {
+  // Оптимизация: перерисовываем только если изменились критические свойства
+  return prevProps.game.id === nextProps.game.id && 
+         prevProps.variant === nextProps.variant;
+});

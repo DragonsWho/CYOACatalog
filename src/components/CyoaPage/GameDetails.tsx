@@ -1,6 +1,6 @@
 // src/components/CyoaPage/GameDetails.tsx
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -25,7 +25,8 @@ interface CustomTheme extends Theme {
 export default function GameDetails() {
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [imageSrc, setImageSrc] = useState<string>(''); // Для хранения URL изображения
+  const [imageSrc, setImageSrc] = useState<string>(''); 
+  const imgRef = useRef<HTMLImageElement>(null);
   const { id } = useParams<{ id: string }>();
   const theme = useTheme<CustomTheme>();
   const sanitizedDescription = useMemo(() => (game ? DOMPurify.sanitize(game.description) : ''), [game]);
@@ -38,8 +39,6 @@ export default function GameDetails() {
         });
         setGame(game);
         setLoading(false);
-        
-        // Изначально не устанавливаем изображение, это будет сделано во втором useEffect
       } catch (error) {
         console.error('Ошибка при загрузке игры:', error);
         setLoading(false);
@@ -47,57 +46,36 @@ export default function GameDetails() {
     })();
   }, [id]);
 
-  // Управление загрузкой AVIF и WebP изображений
   useEffect(() => {
     if (!game) return;
     
     const collectionId = game.collectionId || '5kxdvx071c10s2t';
-    
-    // Формируем URL для AVIF изображения
-    const avifURL = game.image_preview 
-      ? `/api/files/${collectionId}/${game.id}/${game.image_preview}` 
-      : '';
-      
-    // Формируем URL для WebP изображения
-    const webpURL = game.image 
+    const imageURL = game.image 
       ? `/api/files/${collectionId}/${game.id}/${game.image}` 
       : '';
-    
-    // Проверяем наличие AVIF версии
-    if (avifURL) {
-      // Сначала пытаемся загрузить AVIF
-      console.log("Attempting to load AVIF first:", avifURL);
-      
-      // Создаем и загружаем AVIF изображение
-      const avifImg = new Image();
-      avifImg.onload = () => {
-        console.log("AVIF loaded, displaying it");
-        setImageSrc(avifURL); // Устанавливаем AVIF для отображения
-        
-        // Затем загружаем WebP для последующей замены
-        if (webpURL) {
-          console.log("Now loading WebP for better quality:", webpURL);
-          const webpImg = new Image();
-          webpImg.onload = () => {
-            console.log("WebP loaded, replacing AVIF");
-            setImageSrc(webpURL); // Заменяем на WebP для лучшего качества
-          };
-          webpImg.src = webpURL;
-        }
+
+    // Устанавливаем сначала base64 как заполнитель, если он есть
+    if (game.image_base64) {
+      setImageSrc(
+        game.image_base64.startsWith('data:')
+          ? game.image_base64
+          : `data:image/jpeg;base64,${game.image_base64}`
+      );
+    }
+
+    // Если есть полноценное изображение, загружаем его
+    if (imageURL && game.image_base64) {
+      const img = new Image();
+      img.onload = () => {
+        setImageSrc(imageURL); // Заменяем base64 на полноценное изображение
       };
-      
-      avifImg.onerror = () => {
-        console.error("Failed to load AVIF, falling back to WebP");
-        if (webpURL) {
-          setImageSrc(webpURL); // Если AVIF не загрузился, используем WebP
-        }
+      img.onerror = () => {
+        console.error('Failed to load full image, keeping base64');
       };
-      
-      avifImg.src = avifURL; // Запускаем загрузку AVIF
-    } else if (webpURL) {
-      // Если нет AVIF, сразу используем WebP
-      console.log("No AVIF available, using WebP directly:", webpURL);
-      setImageSrc(webpURL);
+      img.src = imageURL;
+    } else if (imageURL && !game.image_base64) {
+      // Если нет base64, сразу используем полноценное изображение
+      setImageSrc(imageURL);
     }
   }, [game]);
 
@@ -139,20 +117,23 @@ export default function GameDetails() {
               <Box
                 sx={{
                   width: '100%',
-                  height: '100%',
+                  height: '500px', // Фиксированная высота контейнера (можно настроить)
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
+                  position: 'relative', // Для правильного позиционирования изображения
                 }}
               >
                 <img
+                  ref={imgRef}
                   src={imageSrc}
                   alt={game.title || "Game image"}
                   style={{ 
-                    maxWidth: '60%', 
-                    height: 'auto', 
-                    objectFit: 'contain',
-                    transition: 'opacity 0.3s ease-in-out' // Плавный переход
+                    width: '100%', // Растягиваем до ширины контейнера
+                    height: '100%', // Растягиваем до высоты контейнера
+                    objectFit: 'contain', // Сохраняем пропорции
+                    transition: 'opacity 0.3s ease-in-out',
+                    filter: imageSrc.startsWith('data:') ? 'blur(4px)' : 'none' // Размытие для base64
                   }}
                 />
               </Box>

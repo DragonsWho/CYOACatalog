@@ -63,8 +63,7 @@ export const tagCategoriesCollection = pb.collection('tag_categories') as Record
 export type Game = RecordModel & {
   title: string;
   description: string;
-  image: string;
-  image_preview: string;
+  image: string; 
   cyoa_pages_preview: string[];
   tags: string[];
   img_or_link: 'img' | 'link';

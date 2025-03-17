@@ -12,6 +12,15 @@ const MemoizedGameCard = memo(GameCard, (prevProps, nextProps) => {
   return prevProps.game.id === nextProps.game.id;
 });
 
+// Интерфейс для ответа от Pocketbase (для типизации window.__INITIAL_DATA__)
+interface PocketbaseResponse {
+  items: Game[];
+  page: number;
+  perPage: number;
+  totalItems: number;
+  totalPages: number;
+}
+
 export default function SearchPage({
   selectedTags,
   selectedAuthors,
@@ -20,27 +29,28 @@ export default function SearchPage({
   selectedAuthors: string[];
 }) {
   console.log('SearchPage render', { selectedTags, selectedAuthors });
-  
+
   const theme = useTheme();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [tagMap, setTagMap] = useState<Map<string, Tag>>(new Map());
-  const [tagsLoaded, setTagsLoaded] = useState(false); // Добавляем состояние для отслеживания загрузки тегов
+  const [tagsLoaded, setTagsLoaded] = useState(false);
+  const [isPreloaded, setIsPreloaded] = useState(false); // Новый флаг для отслеживания предзагрузки
 
   const prevFiltersRef = useRef({ tags: [] as string[], authors: [] as string[] });
 
   // Проверка изменений в фильтрах
   const filtersChanged = useCallback(() => {
-    const tagsChanged = 
-      selectedTags.length !== prevFiltersRef.current.tags.length || 
+    const tagsChanged =
+      selectedTags.length !== prevFiltersRef.current.tags.length ||
       selectedTags.some((tag, i) => tag !== prevFiltersRef.current.tags[i]);
-    
-    const authorsChanged = 
-      selectedAuthors.length !== prevFiltersRef.current.authors.length || 
+
+    const authorsChanged =
+      selectedAuthors.length !== prevFiltersRef.current.authors.length ||
       selectedAuthors.some((author, i) => author !== prevFiltersRef.current.authors[i]);
-    
+
     return tagsChanged || authorsChanged;
   }, [selectedTags, selectedAuthors]);
 
@@ -76,7 +86,7 @@ export default function SearchPage({
         } else {
           console.log('Fetching tags from server...');
           const fetchedTags = await tagsCollection.getFullList({
-            expand: 'tag_categories_via_tags', // Убеждаемся, что категории загружаются
+            expand: 'tag_categories_via_tags',
             fields: 'id,name,expand.tag_categories_via_tags.name',
           });
           console.log(`Received ${fetchedTags.length} tags from server`);
@@ -93,68 +103,110 @@ export default function SearchPage({
   }, []);
 
   // Загрузка игр с обогащением тегов
-  const fetchGames = useCallback(async (pageNum = page, isReset = false) => {
-    console.log('fetchGames', { pageNum, isReset });
-    if (!hasMore && !isReset) return;
-    if (!tagsLoaded) return; // Ждём загрузки тегов
+  const fetchGames = useCallback(
+    async (pageNum = page, isReset = false) => {
+      console.log('fetchGames', { pageNum, isReset });
+      if (!hasMore && !isReset) return;
+      if (!tagsLoaded) return;
 
-    setLoading(true);
-    try {
-      const filterConditions = [];
+      // Проверяем наличие предзагруженных данных
+      const initialData = (window as any).__INITIAL_DATA__ as PocketbaseResponse | null;
+      if (
+        pageNum === 1 &&
+        isReset &&
+        initialData &&
+        initialData.items &&
+        selectedTags.length === 0 &&
+        selectedAuthors.length === 0 &&
+        !isPreloaded // Проверяем, не использовали ли мы уже предзагруженные данные
+      ) {
+        console.log('Using preloaded data from window.__INITIAL_DATA__');
+        const enrichedGames = initialData.items.map((game) => {
+          const enrichedTags = game.tags
+            .map((tagId) => tagMap.get(tagId))
+            .filter((tag): tag is Tag => tag !== undefined);
+          return {
+            ...game,
+            expand: {
+              ...game.expand,
+              tags: enrichedTags,
+            },
+          };
+        });
 
-      if (selectedTags.length > 0) {
-        const tagConditions = selectedTags.map((tag) => `tags.name ?~ "${tag}"`);
-        filterConditions.push(`(${tagConditions.join(' || ')})`);
+        setGames(enrichedGames);
+        setHasMore(initialData.items.length > 0 && initialData.totalPages > pageNum);
+        setLoading(false);
+        setIsPreloaded(true); // Устанавливаем флаг, что данные уже загружены
+        (window as any).__INITIAL_DATA__ = null; // Очищаем после использования
+        return;
       }
 
-      if (selectedAuthors.length > 0) {
-        const authorConditions = selectedAuthors.map((author) => `authors_via_games.name ?~ "${author}"`);
-        filterConditions.push(`(${authorConditions.join(' || ')})`);
+      // Если данные уже загружены из window.__INITIAL_DATA__, пропускаем запрос для page === 1
+      if (pageNum === 1 && isReset && isPreloaded) {
+        console.log('Skipping fetchGames: Data already preloaded');
+        setLoading(false);
+        return;
       }
 
-      const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
-      console.log('Fetching games with filter:', filterString);
+      setLoading(true);
+      try {
+        const filterConditions = [];
 
-      const fetchedGames = await gamesCollection.getList(pageNum, ITEMS_PER_PAGE, {
-        sort: '-created',
-        expand: 'authors_via_games',
-        filter: filterString,
-        fields: 'id,title,description,image,image_base64,upvotes,comments,tags,expand.authors_via_games.name',
-      });
-
-      // Обогащаем игры тегами из tagMap
-      const enrichedGames = fetchedGames.items.map((game) => {
-        const enrichedTags = game.tags
-          .map((tagId) => tagMap.get(tagId))
-          .filter((tag): tag is Tag => tag !== undefined);
-        console.log(`Game ${game.id} enriched tags:`, enrichedTags); // Логирование для отладки
-        return {
-          ...game,
-          expand: {
-            ...game.expand,
-            tags: enrichedTags,
-          },
-        };
-      });
-
-      console.log(`Fetched ${fetchedGames.items.length} games (page ${pageNum}/${fetchedGames.totalPages})`);
-
-      setGames((prevGames) => {
-        if (isReset) {
-          return enrichedGames;
-        } else {
-          const newGames = [...prevGames, ...enrichedGames];
-          return Array.from(new Map(newGames.map((game) => [game.id, game])).values());
+        if (selectedTags.length > 0) {
+          const tagConditions = selectedTags.map((tag) => `tags.name ?~ "${tag}"`);
+          filterConditions.push(`(${tagConditions.join(' || ')})`);
         }
-      });
-      
-      setHasMore(fetchedGames.items.length > 0 && fetchedGames.totalPages > pageNum);
-    } catch (error) {
-      console.error('Error fetching games:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, hasMore, selectedTags, selectedAuthors, tagMap, tagsLoaded]);
+
+        if (selectedAuthors.length > 0) {
+          const authorConditions = selectedAuthors.map((author) => `authors_via_games.name ?~ "${author}"`);
+          filterConditions.push(`(${authorConditions.join(' || ')})`);
+        }
+
+        const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
+        console.log('Fetching games with filter:', filterString);
+
+        const fetchedGames = await gamesCollection.getList(pageNum, ITEMS_PER_PAGE, {
+          sort: '-created',
+          expand: 'authors_via_games',
+          filter: filterString,
+          fields: 'id,title,description,image,image_base64,upvotes,comments,tags,expand.authors_via_games.name',
+        });
+
+        const enrichedGames = fetchedGames.items.map((game) => {
+          const enrichedTags = game.tags
+            .map((tagId) => tagMap.get(tagId))
+            .filter((tag): tag is Tag => tag !== undefined);
+          console.log(`Game ${game.id} enriched tags:`, enrichedTags);
+          return {
+            ...game,
+            expand: {
+              ...game.expand,
+              tags: enrichedTags,
+            },
+          };
+        });
+
+        console.log(`Fetched ${fetchedGames.items.length} games (page ${pageNum}/${fetchedGames.totalPages})`);
+
+        setGames((prevGames) => {
+          if (isReset) {
+            return enrichedGames;
+          } else {
+            const newGames = [...prevGames, ...enrichedGames];
+            return Array.from(new Map(newGames.map((game) => [game.id, game])).values());
+          }
+        });
+
+        setHasMore(fetchedGames.items.length > 0 && fetchedGames.totalPages > pageNum);
+      } catch (error) {
+        console.error('Error fetching games:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [page, hasMore, selectedTags, selectedAuthors, tagMap, tagsLoaded, isPreloaded], // Добавляем isPreloaded в зависимости
+  );
 
   // Начальная загрузка игр
   useEffect(() => {
@@ -162,29 +214,33 @@ export default function SearchPage({
     if (tagsLoaded) {
       fetchGames(1, true);
     }
-  }, [tagsLoaded]);
+  }, [tagsLoaded, fetchGames]);
 
   // Обработка изменения фильтров
   useEffect(() => {
-    if (!tagsLoaded) return; // Ждём загрузки тегов
-    if (selectedTags.length === 0 && selectedAuthors.length === 0 && 
-        prevFiltersRef.current.tags.length === 0 && prevFiltersRef.current.authors.length === 0) {
+    if (!tagsLoaded) return;
+    if (
+      selectedTags.length === 0 &&
+      selectedAuthors.length === 0 &&
+      prevFiltersRef.current.tags.length === 0 &&
+      prevFiltersRef.current.authors.length === 0
+    ) {
       console.log('Skipping initial filter check');
       return;
     }
-    
+
     if (!filtersChanged()) {
       console.log('Filters not changed, skipping update');
       return;
     }
-    
+
     console.log('Filters changed, updating search results');
-    
+
     prevFiltersRef.current = {
       tags: [...selectedTags],
-      authors: [...selectedAuthors]
+      authors: [...selectedAuthors],
     };
-    
+
     setPage(1);
     setHasMore(true);
     fetchGames(1, true);
@@ -224,10 +280,7 @@ export default function SearchPage({
             key={`search-${game.id}`}
             ref={memoizedGames.length === index + 1 ? lastGameElementRef : null}
           >
-            <MemoizedGameCard 
-              game={game} 
-              key={game.id}
-            />
+            <MemoizedGameCard game={game} key={game.id} />
           </Grid2>
         ))}
       </Grid2>

@@ -1,3 +1,5 @@
+//src/components/Add/ImageSplitter/ImageSpliter.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Dialog, 

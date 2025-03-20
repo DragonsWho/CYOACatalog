@@ -19,6 +19,7 @@ export type User = RecordModel & {
   email: string;
   name: string;
   avatar: string;
+  isModerator: boolean;
 };
 
 export const usersCollection = pb.collection('users') as RecordService<User>;
@@ -159,4 +160,4 @@ export async function login(args: { usernameOrEmail: string; password: string } 
   }
 }
 
-export const AuthContext = createContext({ signedIn: false, user: null as User | null });
+export const AuthContext = createContext({ signedIn: false, user: null as User | null, isModerator: false, });

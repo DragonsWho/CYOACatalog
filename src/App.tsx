@@ -6,15 +6,12 @@ import { Container, Box, CircularProgress } from '@mui/material';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
 import SearchPage from './components/Search/SearchPage';
-// const SearchPage = lazy(() => import('./components/Search/SearchPage'));
 const GameDetails = lazy(() => import('./components/CyoaPage/GameDetails'));
 const CreateGame = lazy(() => import('./components/Add/CreateGame'));
-// import CreateGame from './components/Add/CreateGame';
-import Login from './components/Header/Login';
-// import Profile from './components/Profile/Profile';
 const Profile = lazy(() => import('./components/Profile/Profile'));
 import { AuthContext, pb, User } from './pocketbase/pocketbase';
 import { tagsCollection, authorsCollection } from './pocketbase/pocketbase';
+import Login from './components/Header/Login';
 
 export default function App() {
   const [signedIn, setSignedIn] = useState(!!pb.authStore.model);
@@ -43,7 +40,6 @@ export default function App() {
     });
   }, []);
 
-  // Resetting selected tags and authors when navigating to pages other than the main page
   useEffect(() => {
     if (location.pathname !== '/' && location.pathname !== '/search') {
       setSelectedTags([]);
@@ -62,7 +58,7 @@ export default function App() {
   }
 
   return (
-    <AuthContext.Provider value={{ signedIn, user }}>
+    <AuthContext.Provider value={{ signedIn, user, isModerator: user?.isModerator || false }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%' }}>
         <Header
           tags={tags}
@@ -78,7 +74,7 @@ export default function App() {
           sx={{ mt: 4, mb: 4, flex: 1, display: 'flex', flexDirection: 'column' }}
         >
           <Suspense fallback={<Box sx={{ display: 'flex' }}><CircularProgress /></Box>}>
-          <Routes>
+            <Routes>
               <Route path="/" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />} />
               <Route
                 path="/search"
@@ -88,7 +84,7 @@ export default function App() {
               <Route path="/create" element={signedIn ? <CreateGame /> : <Login />} />
               <Route path="/login" element={<Login />} />
               <Route path="/profile" element={<Profile />} />
-          </Routes>
+            </Routes>
           </Suspense>
         </Container>
         <Footer />
@@ -96,4 +92,3 @@ export default function App() {
     </AuthContext.Provider>
   );
 }
-

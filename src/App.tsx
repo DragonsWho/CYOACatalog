@@ -1,5 +1,4 @@
 // src/App.tsx
-
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Container, Box, CircularProgress } from '@mui/material';
@@ -9,9 +8,10 @@ import SearchPage from './components/Search/SearchPage';
 const GameDetails = lazy(() => import('./components/CyoaPage/GameDetails'));
 const CreateGame = lazy(() => import('./components/Add/CreateGame'));
 const Profile = lazy(() => import('./components/Profile/Profile'));
+const ModeratorPanel = lazy(() => import('./components/ModeratorPanel/ModeratorPanel')); // Добавляем
+import Login from './components/Header/Login';
 import { AuthContext, pb, User } from './pocketbase/pocketbase';
 import { tagsCollection, authorsCollection } from './pocketbase/pocketbase';
-import Login from './components/Header/Login';
 
 export default function App() {
   const [signedIn, setSignedIn] = useState(!!pb.authStore.model);
@@ -84,6 +84,7 @@ export default function App() {
               <Route path="/create" element={signedIn ? <CreateGame /> : <Login />} />
               <Route path="/login" element={<Login />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/moderator" element={<ModeratorPanel />} /> {/* Новый маршрут */}
             </Routes>
           </Suspense>
         </Container>

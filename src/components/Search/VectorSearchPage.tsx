@@ -33,7 +33,7 @@ interface WorkerSearchResponse {
 }
 
 export default function VectorSearchPage() {
-  const theme = useTheme(); // Получаем тему
+ 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);

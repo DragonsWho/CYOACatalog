@@ -1,6 +1,6 @@
 // src/App.tsx
-import { useState, useEffect, lazy, Suspense } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, lazy, Suspense, useContext } from 'react'; // Добавили useContext
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom'; // Добавили Navigate
 import { Container, Box, CircularProgress } from '@mui/material';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
@@ -8,11 +8,30 @@ import SearchPage from './components/Search/SearchPage';
 const GameDetails = lazy(() => import('./components/CyoaPage/GameDetails'));
 const CreateGame = lazy(() => import('./components/Add/CreateGame'));
 const Profile = lazy(() => import('./components/Profile/Profile'));
-const ModeratorPanel = lazy(() => import('./components/ModeratorPanel/ModeratorPanel')); // Добавляем
+const ModeratorPanel = lazy(() => import('./components/ModeratorPanel/ModeratorPanel'));
+// --- Добавляем импорт для новой страницы ---
+const VectorSearchPage = lazy(() => import('./components/Search/VectorSearchPage'));
+// -----------------------------------------
 import Login from './components/Header/Login';
 import { AuthContext, pb, User } from './pocketbase/pocketbase';
 import { tagsCollection, authorsCollection } from './pocketbase/pocketbase';
 
+// --- Компонент-обертка для защищенных роутов модератора ---
+const ModeratorRoute = ({ children }: { children: JSX.Element }) => {
+  const { signedIn, isModerator } = useContext(AuthContext); // Получаем нужные значения из контекста
+
+  // Проверяем, вошел ли пользователь и является ли он модератором
+  if (!signedIn || !isModerator) {
+    // Если нет, перенаправляем на главную страницу
+    // `replace` заменяет текущую запись в истории, чтобы нельзя было вернуться назад кнопкой браузера
+    return <Navigate to="/" replace />;
+  }
+
+  // Если все проверки пройдены, рендерим дочерний компонент (защищенную страницу)
+  return children;
+};
+// ------------------------------------------------------
+  
 export default function App() {
   const [signedIn, setSignedIn] = useState(!!pb.authStore.model);
   const [user, setUser] = useState<User | null>(pb.authStore.model as User | null);
@@ -73,7 +92,7 @@ export default function App() {
           maxWidth={false}
           sx={{ mt: 4, mb: 4, flex: 1, display: 'flex', flexDirection: 'column' }}
         >
-          <Suspense fallback={<Box sx={{ display: 'flex' }}><CircularProgress /></Box>}>
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><CircularProgress /></Box>}>
             <Routes>
               <Route path="/" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} />} />
               <Route
@@ -84,7 +103,24 @@ export default function App() {
               <Route path="/create" element={signedIn ? <CreateGame /> : <Login />} />
               <Route path="/login" element={<Login />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/moderator" element={<ModeratorPanel />} /> {/* Новый маршрут */}
+              {/* --- Обновляем роут модератора и добавляем новый --- */}
+              <Route
+                path="/moderator"
+                element={
+                  <ModeratorRoute>
+                    <ModeratorPanel />
+                  </ModeratorRoute>
+                }
+              />
+              <Route
+                path="/vector-search"
+                element={
+                  <ModeratorRoute>
+                    <VectorSearchPage />
+                  </ModeratorRoute>
+                }
+              />
+              {/* ---------------------------------------------- */}
             </Routes>
           </Suspense>
         </Container>

@@ -8,13 +8,13 @@ import {
   Button,
   CircularProgress,
   Alert,
-  Grid2, // Импортируем Grid2
-  useTheme // Импортируем useTheme для стилей
+  Grid2 // Импортируем Grid2
+  // useTheme больше не нужен, так как не используется
 } from '@mui/material';
 import { Game, gamesCollection } from '../../pocketbase/pocketbase'; // Импортируем Game и gamesCollection
 import GameCard from '../GameCard'; // Импортируем GameCard
 
-// Интерфейс для ответа воркера (оставляем как есть)
+// Интерфейс для ответа воркера
 interface VectorMatch {
   id: string; // Это ID вектора, не ID игры
   score: number;
@@ -33,13 +33,14 @@ interface WorkerSearchResponse {
 }
 
 export default function VectorSearchPage() {
- 
+  // const theme = useTheme(); // Удалено, так как не используется
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Game[]>([]); // Состояние для хранения найденных игр
   const [searchAttempted, setSearchAttempted] = useState<boolean>(false); // Флаг, что поиск был выполнен
 
+  // Убедись, что URL верный и доступен из твоего окружения
   const workerUrl = 'https://my-game-search-worker.dragonswho.workers.dev/search';
 
   const handleSearch = async () => {
@@ -59,6 +60,7 @@ export default function VectorSearchPage() {
       if (!workerResponse.ok) {
         const errorText = await workerResponse.text();
         console.error('Worker Error Response:', errorText);
+        // Попытка показать более понятную ошибку, если есть текст от воркера
         throw new Error(`Search worker failed: ${workerResponse.status} ${workerResponse.statusText}. ${errorText || ''}`);
       }
 
@@ -66,48 +68,41 @@ export default function VectorSearchPage() {
       console.log('Worker Response:', workerData);
 
       if (!workerData.matches || workerData.matches.length === 0) {
-        // Если воркер ничего не нашел, просто завершаем
         console.log('Worker returned no matches.');
-        setIsLoading(false); // Важно остановить загрузку
-        return;
+        setIsLoading(false);
+        return; // Завершаем, так как нет совпадений для поиска в PB
       }
 
       // --- Шаг 2: Извлечение ID игр ---
-      const gameIds = workerData.matches.map(match => match.metadata.game_id).filter(id => !!id); // Извлекаем и фильтруем пустые ID на всякий случай
+      const gameIds = workerData.matches
+        .map(match => match.metadata?.game_id) // Добавили ?. на случай отсутствия metadata
+        .filter((id): id is string => !!id); // Извлекаем и фильтруем null/undefined/пустые ID
 
       if (gameIds.length === 0) {
-        // Если не удалось извлечь ID (маловероятно, но возможно)
         console.log('No valid game_ids found in worker metadata.');
+        // Возможно, стоит показать сообщение пользователю?
+        // setError("Search results found, but couldn't identify games.");
         setIsLoading(false);
         return;
       }
       console.log('Extracted game IDs:', gameIds);
 
       // --- Шаг 3: Формирование фильтра для PocketBase ---
-      // Создаем строку вида "id='id1' || id='id2' || ..."
       const pbFilter = gameIds.map(id => `id = "${id}"`).join(' || ');
       console.log('PocketBase Filter:', pbFilter);
 
       // --- Шаг 4: Запрос к PocketBase ---
-      // Используем getFullList, т.к. ожидаем небольшое кол-во результатов (topK=5)
-      // Указываем тип <Game> для типизации результата
-      const pbGames = await gamesCollection.getFullList<Game>(/*{ // getFullList не принимает batch, если записей больше 500, нужно использовать getList постранично, но здесь это не нужно
-        batch: gameIds.length // Можно указать batch для оптимизации, но getFullList делает это автоматически
-      },*/ {
+      const pbGames = await gamesCollection.getFullList<Game>({ // getFullList<Game> типизирует результат
         filter: pbFilter,
-        // Важно добавить expand, чтобы получить теги и авторов для GameCard
-        expand: 'tags.tag_categories_via_tags,authors_via_games',
+        expand: 'tags.tag_categories_via_tags,authors_via_games', // Необходимые expand для GameCard
       });
       console.log('PocketBase Response (unordered):', pbGames);
 
       // --- Шаг 5: Сохранение порядка из воркера ---
-      // PocketBase НЕ гарантирует порядок при использовании '||' в фильтре.
-      // Нужно отсортировать полученные игры (pbGames) в том же порядке,
-      // в котором ID пришли от воркера (gameIds).
       const gameMap = new Map(pbGames.map(game => [game.id, game]));
       const orderedGames = gameIds
-        .map(id => gameMap.get(id)) // Получаем игры по ID в нужном порядке
-        .filter((game): game is Game => !!game); // Отфильтровываем игры, которые могли не найтись в PB (хотя не должны)
+        .map(id => gameMap.get(id))
+        .filter((game): game is Game => !!game); // Отфильтровываем, если игра не нашлась в PB
 
       console.log('PocketBase Response (ordered):', orderedGames);
 
@@ -125,24 +120,25 @@ export default function VectorSearchPage() {
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
     if (error && event.target.value.trim()) {
-      setError(null);
+      setError(null); // Сбрасываем ошибку при начале ввода
     }
-    // Не сбрасываем searchAttempted здесь
   };
 
   const handleKeyPress = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter') {
-      handleSearch();
+      handleSearch(); // Запускаем поиск по Enter
     }
   };
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}> {/* Используем xl для большего пространства */}
+    // Используем maxWidth="xl" для большего пространства под карточки
+    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ my: 2 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Vector Search (Moderator Tool)
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 3 }}> {/* Изменили align-items */}
+        {/* Форма поиска */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 3 }}>
           <TextField
             fullWidth
             variant="outlined"
@@ -151,48 +147,51 @@ export default function VectorSearchPage() {
             onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             disabled={isLoading}
+            // Показываем ошибку только если было взаимодействие и поле пустое
             error={!!error && !searchQuery.trim()}
-            helperText={error && !searchQuery.trim() ? error : ''} // Показываем helperText только при ошибке пустого поля
-            sx={{ flexGrow: 1 }}
+            helperText={error && !searchQuery.trim() ? error : ''}
+            sx={{ flexGrow: 1 }} // Поле ввода растягивается
           />
           <Button
             variant="contained"
             onClick={handleSearch}
-            disabled={isLoading || !searchQuery.trim()}
-            sx={{ height: '56px', flexShrink: 0 }} // Фиксированная высота, не сжимается
+            disabled={isLoading || !searchQuery.trim()} // Блокируем если загрузка или поле пустое
+            sx={{ height: '56px', flexShrink: 0 }} // Фикс. высота, не сжимается
           >
             {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Search'}
           </Button>
         </Box>
 
-        {/* Показываем общую ошибку запроса */}
+        {/* Отображение ошибки запроса (если она есть и не связана с пустым полем) */}
         {error && searchQuery.trim() && (
            <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
         )}
 
         {/* --- Область результатов --- */}
+        {/* Индикатор загрузки */}
         {isLoading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
             <CircularProgress />
           </Box>
         )}
 
+        {/* Сообщение "Ничего не найдено" */}
         {!isLoading && searchAttempted && searchResults.length === 0 && !error && (
            <Typography sx={{ mt: 4, textAlign: 'center' }}>
              No games found for your query "{searchQuery}".
            </Typography>
         )}
 
+        {/* Сетка с результатами */}
         {!isLoading && searchResults.length > 0 && (
            <Box sx={{ width: '100%', mt: 4 }}>
-            {/* Используем Grid2 как в GameList или SearchPage */}
             <Grid2 container spacing={2} justifyContent="center">
                 {searchResults.map((game) => (
                 <Grid2
-                    size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }} // Такие же размеры, как в GameList
+                    // Размеры колонок как в GameList/SearchPage
+                    size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}
                     key={`vector-search-${game.id}`} // Уникальный ключ
                 >
-                    {/* Передаем найденную игру в GameCard */}
                     <GameCard game={game} variant="standard" />
                 </Grid2>
                 ))}

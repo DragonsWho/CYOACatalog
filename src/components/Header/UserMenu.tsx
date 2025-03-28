@@ -8,7 +8,7 @@ import { AuthContext } from '../../pocketbase/pocketbase';
 export default function UserMenu({ currentUser }: { currentUser: User | null }) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
-  const { isModerator } = useContext(AuthContext); // Получаем флаг модератора
+  const { isModerator } = useContext(AuthContext);  
 
   return (
     <>
@@ -32,9 +32,17 @@ export default function UserMenu({ currentUser }: { currentUser: User | null }) 
           Profile
         </MenuItem>
         {isModerator && (
-          <MenuItem onClick={() => setAnchorEl(null)} component={Link} to="/moderator">
-            Moderator Panel
-          </MenuItem>
+           
+          <>
+            <MenuItem onClick={() => setAnchorEl(null)} component={Link} to="/moderator">
+              Moderator Panel
+            </MenuItem>
+             
+            <MenuItem onClick={() => setAnchorEl(null)} component={Link} to="/vector-search">
+              Vector Search
+            </MenuItem>
+             
+          </>
         )}
         <MenuItem
           onClick={() => {

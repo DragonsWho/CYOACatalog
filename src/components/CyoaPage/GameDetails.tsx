@@ -2,13 +2,20 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+
 import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import TagDisplay from './TagDisplay';
 import GameContent from './GameContent';
 import SimpleComments from './SimpleComments';
 import GameAdditionalInfo from './GameAdditionalInfo';
-import { Game, gamesCollection } from '../../pocketbase/pocketbase';
+import {
+  Game,
+  gamesCollection,
+  GameRelationship, // Тип теперь включает языки
+  gameRelationshipsCollection,
+  logFrontendError,
+} from '../../pocketbase/pocketbase';
 import DOMPurify from 'dompurify';
 
 interface CustomTheme extends Theme {
@@ -24,6 +31,8 @@ interface CustomTheme extends Theme {
 
 export default function GameDetails() {
   const [game, setGame] = useState<Game | null>(null);
+  // Массив будет содержать объекты GameRelationship с новыми полями языков
+  const [relatedGames, setRelatedGames] = useState<GameRelationship[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [imageSrc, setImageSrc] = useState<string>(''); 
   const imgRef = useRef<HTMLImageElement>(null);
@@ -32,18 +41,61 @@ export default function GameDetails() {
   const sanitizedDescription = useMemo(() => (game ? DOMPurify.sanitize(game.description) : ''), [game]);
 
   useEffect(() => {
-    (async () => {
+    const fetchGameData = async () => {
+      if (!id) {
+          setLoading(false);
+          console.error("Game ID is missing");
+          return;
+      };
+      setLoading(true);
+      setGame(null);
+      setRelatedGames([]);
+
       try {
-        const game = await gamesCollection.getOne(id as string, {
+        const gamePromise = gamesCollection.getOne(id, {
           expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
         });
-        setGame(game);
-        setLoading(false);
+
+        // Запрос связей. Новые поля (source_language, target_language)
+        // будут получены автоматически, так как они часть самой записи relationship.
+        const outgoingRelationshipsPromise = gameRelationshipsCollection.getFullList({
+          filter: `source_game = "${id}"`,
+          expand: 'target_game', // Expand остается тем же
+        }).catch(err => {
+            console.error("Failed to fetch outgoing relationships:", err);
+            logFrontendError("Fetch outgoing relationships failed", { gameId: id, error: err });
+            return [];
+        });
+
+        const incomingRelationshipsPromise = gameRelationshipsCollection.getFullList({
+          filter: `target_game = "${id}"`,
+          expand: 'source_game', // Expand остается тем же
+        }).catch(err => {
+            console.error("Failed to fetch incoming relationships:", err);
+            logFrontendError("Fetch incoming relationships failed", { gameId: id, error: err });
+            return [];
+        });
+
+        const [gameData, outgoingRelationships, incomingRelationships] = await Promise.all([
+          gamePromise,
+          outgoingRelationshipsPromise,
+          incomingRelationshipsPromise,
+        ]);
+
+        setGame(gameData);
+        const validOutgoing = Array.isArray(outgoingRelationships) ? outgoingRelationships : [];
+        const validIncoming = Array.isArray(incomingRelationships) ? incomingRelationships : [];
+        setRelatedGames([...validOutgoing, ...validIncoming]); // Здесь теперь будут объекты с языками
+
       } catch (error) {
-        console.error('Ошибка при загрузке игры:', error);
+        console.error('Ошибка при загрузке основной информации игры:', error);
+        logFrontendError("Fetch game details failed", { gameId: id, error: error instanceof Error ? error.message : String(error) });
+      } finally {
         setLoading(false);
       }
-    })();
+    };
+
+    fetchGameData();
   }, [id]);
 
   useEffect(() => {
@@ -80,7 +132,7 @@ export default function GameDetails() {
   }, [game]);
 
   if (loading) return <CircularProgress />;
-  if (!game) return <Typography>Game not found</Typography>;
+  if (!game) return <Typography>Game not found or failed to load.</Typography>;
 
   return (
     <Container maxWidth="lg" disableGutters>
@@ -149,10 +201,10 @@ export default function GameDetails() {
                 />
               </Box>
             )}
-
             <GameAdditionalInfo
               gameId={id as string}
               upvotes={game.upvotes}
+              relatedGames={relatedGames} // Передаем связи с возможными языками
             />
           </Grid2>
         </Grid2>

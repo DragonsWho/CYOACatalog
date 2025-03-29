@@ -1,3 +1,4 @@
+// src/pocketbase/pocketbase.ts
 import PocketBase, { RecordService } from 'pocketbase';
 import { createContext } from 'react';
 
@@ -108,7 +109,26 @@ export type Author = RecordModel & {
 
 export const authorsCollection = pb.collection('authors') as RecordService<Author>;
 
-// Новая модель для логов
+// Обновленный тип GameRelationship
+export type GameRelationship = RecordModel & {
+  source_game: string; // ID игры-источника
+  target_game: string; // ID игры-цели
+  relationship_type: 'Translation' | 'Expansion' | 'Sequel' | 'Interactive Port' | 'Static Port' | 'DLC' | 'Inspired By';
+  description?: string;
+  order_in_series?: number;
+  source_language?: string; // НОВОЕ: Язык оригинала (для переводов)
+  target_language?: string; // НОВОЕ: Язык перевода (для переводов)
+} & {
+  expand?: {
+    source_game?: Game;
+    target_game?: Game;
+  };
+};
+
+// Сервис для коллекции game_relationships
+export const gameRelationshipsCollection = pb.collection('game_relationships') as RecordService<GameRelationship>;
+
+// Модель для логов
 export type FrontendLog = RecordModel & {
   message: string;
   userAgent: string;
@@ -118,7 +138,7 @@ export type FrontendLog = RecordModel & {
 
 export const frontendLogsCollection = pb.collection('frontend_logs') as RecordService<FrontendLog>;
 
-// Функция для отправки логов в коллекцию frontend_logs
+// Функция для отправки логов
 export async function logFrontendError(message: string, details: Record<string, any> = {}): Promise<void> {
   try {
     await frontendLogsCollection.create({

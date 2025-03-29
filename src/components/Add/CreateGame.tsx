@@ -1,6 +1,4 @@
 // src/components/Add/CreateGame.tsx
-// Updated version to include CustomTagSelector
-
 import { useState, useEffect, ChangeEvent, FormEvent, useContext } from 'react';
 import {
   TextField,
@@ -18,22 +16,20 @@ import {
 import { useNavigate } from 'react-router-dom';
 import AuthorSelector from './AuthorSelector';
 import TagSelector from './TagSelector';
-import CustomTagSelector from './CustomTagSelector'; // Import our new component
+import CustomTagSelector from './CustomTagSelector';
 import CyoaImageUploader from './CyoaImageUploader';
 import ImageCompressor from './ImageCompressor';
 import {
   AuthContext,
   Author,
-  Tag, // Make sure Tag is exported from pocketbase.ts
+  Tag,
   authorsCollection,
   gamesCollection,
   tagCategoriesCollection,
-  tagsCollection, // Make sure this is exported
+  tagsCollection,
   TagCategory,
-} from '../../pocketbase/pocketbase'; 
-
+} from '../../pocketbase/pocketbase';
 import { encode as webpencode } from '@jsquash/webp';
-
 import DOMPurify from 'dompurify';
 
 export default function CreateGame() {
@@ -116,95 +112,188 @@ export default function CreateGame() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
+  
     if (!title.trim()) {
       setError('Title is required.');
       setLoading(false);
       return;
     }
-
+  
     if (!description.trim()) {
       setError('Description is required.');
       setLoading(false);
       return;
     }
-
+  
     if (!cardImage) {
       setError('Please upload a card image.');
       setLoading(false);
       return;
     }
-
+  
     if (imgOrLink === 'img' && cyoaImages.length === 0) {
       setError('Please upload at least one CYOA page image.');
       setLoading(false);
       return;
     }
-
+  
     if (imgOrLink === 'link' && !iframeUrl.trim()) {
       setError('Please provide an iframe URL.');
       setLoading(false);
       return;
     }
-
+  
     const tagErrors = validateTags();
     if (tagErrors.length > 0) {
       setError(`Tag selection errors:\n${tagErrors.join('\n')}`);
       setLoading(false);
       return;
     }
-
+  
     if (splitsNeeded) {
       setError('Please split images into vertical segments of less than 16,383 pixels.');
       setLoading(false);
       return;
     }
-
+  
     const formData = new FormData();
-
+  
     const descriptionData = DOMPurify.sanitize(`<p>${description}</p>`);
-
+  
     formData.append('title', title);
     formData.append('description', descriptionData);
-    formData.append('image', new Blob([cardImage], { type: cardImage.type }));
-    
-    // Add all selected tags and custom tags to the formData
+  
+    // Обработка cardImage: сохраняем оригинал и создаём image_base64 (WebP сжатие)
+    if (cardImage) {
+      let cardImageBitmap;
+      try {
+        cardImageBitmap = await createImageBitmap(cardImage);
+      } catch (e) {
+        console.error('Failed to process cardImage:', e);
+        setError('Failed to process card image. Please try again.');
+        setLoading(false);
+        return;
+      }
+  
+      // Сохраняем оригинальное изображение
+      formData.append('image', cardImage);
+  
+      // Генерируем image_base64 с WebP сжатием (настройки из скриншота)
+      const targetWidth = 100; // Из скриншота: ширина 100
+      const targetHeight = 133; // Из скриншота: высота 133
+      const sourceAspect = cardImageBitmap.width / cardImageBitmap.height;
+      let scaleWidth = targetWidth;
+      let scaleHeight = targetHeight;
+  
+      if (sourceAspect > targetWidth / targetHeight) {
+        scaleHeight = Math.round(targetWidth / sourceAspect);
+      } else {
+        scaleWidth = Math.round(targetHeight * sourceAspect);
+      }
+  
+      const webpCanvas = new OffscreenCanvas(scaleWidth, scaleHeight);
+      const webpCtx = webpCanvas.getContext('2d', { alpha: false }); // Alpha не преумножается (по скриншоту)
+      webpCtx!.imageSmoothingQuality = 'high'; // Используем Lanczos3 через высокое качество сглаживания
+      webpCtx!.drawImage(
+        cardImageBitmap,
+        0, 0, cardImageBitmap.width, cardImageBitmap.height,
+        0, 0, scaleWidth, scaleHeight
+      );
+      const webpImageData = webpCtx!.getImageData(0, 0, scaleWidth, scaleHeight);
+  
+      try {
+        const webpBuffer = await webpencode(webpImageData, {
+          quality: 40, // Качество из скриншота
+          lossless: 0, // Без потерь выключено
+          filter_strength: 100, // Исправлено: filterStrength -> filter_strength
+          filter_sharpness: 7, // Исправлено: filterSharpness -> filter_sharpness
+          // Убрано effort, так как оно не поддерживается
+        });
+        const webpBlob = new Blob([webpBuffer], { type: 'image/webp' });
+        const base64String = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(webpBlob);
+        });
+        formData.append('image_base64', base64String); // Сохраняем как base64
+      } catch (e) {
+        console.error('Failed to encode WebP:', e);
+        setError('WebP encoding failed. Using original file.');
+        formData.append('image', cardImage); // Фallback на оригинал
+      }
+    }
+  
+    // Обработка cyoa_pages: оставляем как есть (WebP lossless)
+    if (imgOrLink === 'img') {
+      for (const [index, imageFile] of cyoaImages.entries()) {
+        let image;
+        try {
+          image = await createImageBitmap(imageFile);
+        } catch (e) {
+          console.error('Failed to process CYOA image:', e);
+          formData.append('cyoa_pages', imageFile);
+          continue;
+        }
+  
+        const canvas = new OffscreenCanvas(image.width, image.height);
+        const ctx = canvas.getContext('2d', { alpha: false });
+        ctx!.drawImage(image, 0, 0, image.width, image.height);
+        const imageData = ctx!.getImageData(0, 0, image.width, image.height);
+  
+        try {
+          const webPBuffer = await webpencode(imageData, { lossless: 1 });
+          const webpBlob = new Blob([webPBuffer], { type: 'image/webp' });
+          formData.append('cyoa_pages', webpBlob);
+        } catch (e) {
+          console.error('Failed to encode WebP for cyoa_pages:', e);
+          formData.append('cyoa_pages', imageFile);
+        }
+  
+        // Превью для первого изображения остаётся как есть (WebP качество 10)
+        if (index === 0) {
+          const targetAspect = 2 / 3;
+          let cropWidth = image.width;
+          let cropHeight = Math.min(image.height, Math.round(image.width / targetAspect));
+  
+          const cropCanvas = new OffscreenCanvas(cropWidth, cropHeight);
+          const cropCtx = cropCanvas.getContext('2d', { alpha: true });
+          if (cropCtx) {
+            cropCtx.drawImage(
+              image,
+              0, 0, image.width, cropHeight,
+              0, 0, cropWidth, cropHeight
+            );
+            const cropImageData = cropCtx.getImageData(0, 0, cropWidth, cropHeight);
+  
+            try {
+              const previewBuffer = await webpencode(cropImageData, { quality: 10 });
+              const previewBlob = new Blob([previewBuffer], { type: 'image/webp' });
+              formData.append('cyoa_pages_preview', previewBlob);
+            } catch (e) {
+              console.error('Failed to encode WebP preview for cyoa_pages:', e);
+            }
+          }
+        }
+      }
+    }
+  
     for (const tag of selectedTags) formData.append('tags', tag);
     for (const customTag of customTags) formData.append('tags', customTag.id);
-    
     formData.append('img_or_link', imgOrLink);
     if (imgOrLink === 'link') formData.append('iframe_url', iframeUrl);
-    if (imgOrLink === 'img') {
-      for (const imageFile of cyoaImages) {
-        // convert to imageData for encoder
-
-          let image;
-          // if it isn't an image return the file unchanged
-          try {
-            image = await createImageBitmap(imageFile);
-          } catch (e) {
-            return imageFile;
-          }
-
-          const canvas = new OffscreenCanvas(image.width, image.height);
-          const ctx = canvas.getContext('2d', { alpha: false });
-          ctx!.drawImage(image, 0 ,0, image.width, image.height);
-          const imageData = ctx!.getImageData(0, 0, image.width, image.height);
-
-          const webPBuffer = await webpencode(imageData!, {quality: 75, lossless: 1});
-
-          const b = new Blob([webPBuffer]);
-
-          formData.append('cyoa_pages', new Blob([b], { type: 'image/webp' }));
-        }
-    }
     if (user) formData.append('uploader', user.id);
-
-    const res = await gamesCollection.create(formData);
-    for (const author of authors) await authorsCollection.update(author.id, { 'games+': [res.id] });
-    console.log('Created game:', res.id);
-    navigate('/');
-    setLoading(false);
+  
+    try {
+      const res = await gamesCollection.create(formData);
+      for (const author of authors) await authorsCollection.update(author.id, { 'games+': [res.id] });
+      console.log('Created game:', res.id);
+      navigate('/');
+    } catch (err) {
+      setError('Failed to create game. Please try again.');
+      console.error('Error creating game:', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (initialDataLoading) {
@@ -290,22 +379,18 @@ export default function CreateGame() {
       </Box>
       {imgOrLink === 'img' && (
         <Box sx={{ mt: 2 }}>
-          <CyoaImageUploader onImagesChange={handleCyoaImagesChange} onNeedsSplitChange={handleNeedsSplitChange}/>
+          <CyoaImageUploader onImagesChange={handleCyoaImagesChange} onNeedsSplitChange={handleNeedsSplitChange} />
         </Box>
       )}
-<Button 
-  type="submit" 
-  variant="contained" 
-  color="primary" 
-  sx={{ 
-    mt: 3,
-    ml: 'auto', // добавляем автоматический отступ слева
-    display: 'block' // убеждаемся, что margn работает корректно
-  }} 
-  disabled={loading}
->
-  {loading ? <CircularProgress size={24} /> : 'Create Game'}
-</Button>
+      <Button
+        type="submit"
+        variant="contained"
+        color="primary"
+        sx={{ mt: 3, ml: 'auto', display: 'block' }}
+        disabled={loading}
+      >
+        {loading ? <CircularProgress size={24} /> : 'Create Game'}
+      </Button>
       {error && (
         <Alert severity="error" sx={{ mt: 2 }}>
           {error}

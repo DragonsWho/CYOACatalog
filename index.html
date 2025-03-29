@@ -13,6 +13,20 @@
     </script>
     <script>
       const global = globalThis;
+    </script> 
+    <script>
+      (async () => {
+        try {
+          const response = await fetch(
+            `${window.location.origin}/api/collections/games/records?page=1&perPage=25&sort=-created&expand=authors_via_games&filter=&fields=id%2Ctitle%2Cdescription%2Cimage%2Cimage_base64%2Cupvotes%2Ccomments%2Ctags%2Cexpand.authors_via_games.name`
+          );
+          const data = await response.json();
+          window.__INITIAL_DATA__ = data;
+        } catch (error) {
+          console.error('Failed to preload data:', error);
+          window.__INITIAL_DATA__ = null;
+        }
+      })();
     </script>
   </head>
   <body>

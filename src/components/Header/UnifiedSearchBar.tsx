@@ -47,12 +47,12 @@ export default function UnifiedSearchBar({
     const delayDebounce = setTimeout(() => {
       if (searchQuery) {
         (async () => {
-          const fetchedGames = await gamesCollection.getFullList({
+          const fetchedGames = await gamesCollection.getList(1, 10, {
             filter: `title ~ "${searchQuery}"`,
             sort: '-created',
-            expand: 'tags.tag_categories_via_tags,authors_via_games',
+            fields: 'id,title', // Запрашиваем только id и title
           });
-          setSearchResults(fetchedGames);
+          setSearchResults(fetchedGames.items);
         })();
       } else {
         setSearchResults([]);

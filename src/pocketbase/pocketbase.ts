@@ -1,4 +1,6 @@
+
 // src/pocketbase/pocketbase.ts
+
 import PocketBase, { RecordService } from 'pocketbase';
 import { createContext } from 'react';
 
@@ -64,7 +66,8 @@ export const tagCategoriesCollection = pb.collection('tag_categories') as Record
 export type Game = RecordModel & {
   title: string;
   description: string;
-  image: string;
+  image: string; 
+  cyoa_pages_preview: string[];
   tags: string[];
   img_or_link: 'img' | 'link';
   iframe_url: string;
@@ -72,6 +75,7 @@ export type Game = RecordModel & {
   upvotes: string[];
   comments: string[];
   uploader: string;
+  image_base64?: string;  
 } & {
   expand?: {
     tags?: Tag[];

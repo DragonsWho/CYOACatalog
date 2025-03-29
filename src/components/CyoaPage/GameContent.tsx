@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Box, Button, CircularProgress, useMediaQuery, useTheme, ButtonGroup, Tooltip } from '@mui/material';
+import { Box, Button, CircularProgress, ButtonGroup, Tooltip } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
@@ -9,7 +9,6 @@ import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
 import { Game, logFrontendError } from '../../pocketbase/pocketbase';
 
-// Интерфейс для Fullscreen API в Document
 interface FullscreenDocument extends Document {
   fullscreenElement: Element | null;
   webkitFullscreenElement?: Element | null;
@@ -27,7 +26,6 @@ interface FullscreenDocument extends Document {
   msExitFullscreen?(): Promise<void>;
 }
 
-// Перечисление для режимов отображения изображений
 enum ImageViewMode {
   FIT_CONTAINER = 'fit-container',
   FIT_SCREEN = 'fit-screen',
@@ -38,23 +36,28 @@ interface GameContentProps {
   game: Game;
 }
 
+interface ImageState {
+  url: string;
+  isLoading: boolean;
+  isPreview: boolean;
+}
+
 export default function GameContent({ game }: GameContentProps): JSX.Element {
-  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
-  const [loadingImages, setLoadingImages] = useState<number>(game.cyoa_pages.length || 0);
+  const [imageErrors] = useState<Record<number, boolean>>({});
   const [isIframeLoading, setIsIframeLoading] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [isImmersiveMode, setIsImmersiveMode] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ImageViewMode>(ImageViewMode.FIT_CONTAINER);
-  const [fullscreenError, setFullscreenError] = useState<string | null>(null);
+  const [imageStates, setImageStates] = useState<ImageState[]>([]);
+
+  const collectionId = game.collectionId || '5kxdvx071c10s2t';
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const contentContainerRef = useRef<HTMLDivElement>(null);
+  const scrollPositionRef = useRef<number>(0);
+  const initialIframeStyles = useRef<{ height: string; width: string } | null>(null);
 
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
-
-  // Вспомогательные функции для определения платформы
   const isIOS = (): boolean => {
     return (
       ['iPad Simulator', 'iPhone Simulator', 'iPod Simulator', 'iPad', 'iPhone', 'iPod'].includes(
@@ -70,10 +73,113 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     );
   };
 
-  // Задержка для надежности
-  const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+  useEffect(() => {
+    if (!game.cyoa_pages || game.cyoa_pages.length === 0) return;
 
-  // Обработка изменения полноэкранного режима
+    // Инициализируем состояние для каждого изображения
+    const initialStates = game.cyoa_pages.map(() => ({
+      url: '',
+      isLoading: true,
+      isPreview: false,
+    }));
+    setImageStates(initialStates);
+
+    // Функция для загрузки одного изображения
+    const loadImage = async (index: number) => {
+      if (index >= game.cyoa_pages.length) return;
+
+      // Загружаем превью, если есть
+      if (game.cyoa_pages_preview?.[index]) {
+        const previewUrl = `/api/files/${collectionId}/${game.id}/${game.cyoa_pages_preview[index]}`;
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+              setImageStates(prev => {
+                const newStates = [...prev];
+                newStates[index] = { url: previewUrl, isLoading: false, isPreview: true };
+                return newStates;
+              });
+              resolve();
+            };
+            img.onerror = reject;
+            img.src = previewUrl;
+          });
+        } catch (error) {
+          console.error(`Failed to load preview image ${index}`);
+        }
+      }
+
+      // Загружаем полное изображение
+      const fullUrl = `/api/files/${collectionId}/${game.id}/${game.cyoa_pages[index]}`;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            setImageStates(prev => {
+              const newStates = [...prev];
+              newStates[index] = { url: fullUrl, isLoading: false, isPreview: false };
+              return newStates;
+            });
+            resolve();
+          };
+          img.onerror = reject;
+          img.src = fullUrl;
+        });
+      } catch (error) {
+        console.error(`Failed to load full image ${index}`);
+        setImageStates(prev => {
+          const newStates = [...prev];
+          newStates[index] = { ...newStates[index], isLoading: false };
+          return newStates;
+        });
+      }
+    };
+
+    // Запускаем загрузку всех изображений параллельно
+    game.cyoa_pages.forEach((_, index) => loadImage(index));
+  }, [game.cyoa_pages, game.cyoa_pages_preview, game.id, collectionId]);
+
+  const resetIframeStyles = (): void => {
+    const iframeContainer = iframeContainerRef.current;
+    if (iframeContainer) {
+      iframeContainer.style.height = initialIframeStyles.current?.height || '500px';
+      iframeContainer.style.width = initialIframeStyles.current?.width || '100%';
+      iframeContainer.style.position = 'relative';
+      iframeContainer.style.paddingBottom = '0';
+    }
+  };
+
+  useEffect(() => {
+    const iframeContainer = iframeContainerRef.current;
+    if (iframeContainer && !initialIframeStyles.current) {
+      initialIframeStyles.current = {
+        height: iframeContainer.style.height || '500px',
+        width: iframeContainer.style.width || '100%',
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    const updateIframeHeight = (): void => {
+      const iframeContainer = iframeContainerRef.current;
+      if (iframeContainer && isImmersiveMode) {
+        iframeContainer.style.height = `${window.innerHeight}px`;
+      }
+    };
+
+    if (isImmersiveMode) {
+      updateIframeHeight();
+      window.addEventListener('resize', updateIframeHeight);
+    } else {
+      resetIframeStyles();
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateIframeHeight);
+    };
+  }, [isImmersiveMode]);
+
   useEffect(() => {
     const handleFullscreenChange = (): void => {
       const doc = document as FullscreenDocument;
@@ -83,14 +189,12 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         doc.mozFullScreenElement ||
         doc.msFullscreenElement
       );
-      console.log('Fullscreen state changed:', isInFullscreen);
       setIsFullscreen(isInFullscreen);
 
       if (!isInFullscreen) {
-        console.log('Exited fullscreen, resetting expanded state');
-        setIsExpanded(false);
-        setFullscreenError(null);
+        setIsImmersiveMode(false);
         document.body.style.overflow = '';
+        resetIframeStyles();
       }
     };
 
@@ -104,11 +208,11 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           doc.msFullscreenElement
         );
 
-        if (!isStillFullscreen && isFullscreen) {
-          console.log('Fullscreen was exited due to orientation change');
+        if (!isStillFullscreen) {
           setIsFullscreen(false);
-          setIsExpanded(false);
+          setIsImmersiveMode(false);
           document.body.style.overflow = '';
+          resetIframeStyles();
         }
       }
     };
@@ -137,24 +241,21 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           document.removeEventListener(event, handler);
         }
       });
-      setFullscreenError(null);
     };
   }, [isFullscreen]);
 
-  // Обработка клавиши Escape
   useEffect(() => {
     const handleEscapeKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape' && isExpanded && !isFullscreen) {
-        setIsExpanded(false);
-        document.body.style.overflow = '';
+      if (event.key === 'Escape' && isImmersiveMode) {
+        toggleImmersiveMode();
+        event.preventDefault();
       }
     };
 
     document.addEventListener('keydown', handleEscapeKey);
     return () => document.removeEventListener('keydown', handleEscapeKey);
-  }, [isExpanded, isFullscreen]);
+  }, [isImmersiveMode]);
 
-  // Обновление стилей контейнера в зависимости от viewMode
   useEffect(() => {
     const contentContainer = contentContainerRef.current;
     if (contentContainer) {
@@ -163,7 +264,6 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     }
   }, [viewMode]);
 
-  // Проверка поддержки Fullscreen API
   const isFullscreenSupported = (elem: HTMLElement | null): boolean => {
     const doc = document as FullscreenDocument;
     const isApiSupported = !!(
@@ -172,59 +272,86 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       doc.mozFullScreenEnabled ||
       doc.msFullscreenEnabled
     );
-    const isElementValid = !!(
-      elem &&
-      ('requestFullscreen' in elem ||
-        'webkitRequestFullscreen' in elem ||
-        'mozRequestFullScreen' in elem ||
-        'msRequestFullscreen' in elem)
+    const isElementValid = !!elem && (
+      'requestFullscreen' in elem ||
+      'webkitRequestFullscreen' in elem ||
+      'mozRequestFullScreen' in elem ||
+      'msRequestFullscreen' in elem
     );
     return isApiSupported && isElementValid;
   };
 
-  // Обработчики загрузки и ошибок изображений
-  const handleImageLoad = (): void => {
-    setLoadingImages((prev) => prev - 1);
-  };
-
-  const handleImageError = (id: number): void => {
-    setImageErrors((prev) => ({ ...prev, [id]: true }));
-    setLoadingImages((prev) => prev - 1);
-  };
-
-  // Функция для отправки отчета об ошибке
   const reportFullscreenIssue = async (error: string): Promise<void> => {
-    const details = {
+    const doc = document as FullscreenDocument;
+    const docElement = document.documentElement;
+    
+    const fullscreenMethods = {
+      requestFullscreen: 'requestFullscreen' in docElement,
+      webkitRequestFullscreen: 'webkitRequestFullscreen' in docElement,
+      mozRequestFullScreen: 'mozRequestFullScreen' in docElement,
+      msRequestFullscreen: 'msRequestFullscreen' in docElement,
+    };
+    
+    const fullscreenExitMethods = {
+      exitFullscreen: !!doc.exitFullscreen,
+      webkitExitFullscreen: !!doc.webkitExitFullscreen,
+      mozCancelFullScreen: !!doc.mozCancelFullScreen,
+      msExitFullscreen: !!doc.msExitFullscreen,
+    };
+
+    const details: Record<string, unknown> = {
+      error: error,
+      errorStack: typeof error === 'object' && error !== null && 'stack' in error ? 
+                  (error as { stack: string }).stack : 'No stack available',
       isFullscreen,
-      isExpanded,
+      isImmersiveMode,
       viewMode,
       fullscreenSupported: isFullscreenSupported(iframeContainerRef.current),
-      iframeUrl: game.iframe_url || 'N/A',
       userAgent: navigator.userAgent,
       platform: navigator.platform,
+      vendor: navigator.vendor,
+      appVersion: navigator.appVersion,
+      isIOS: isIOS(),
+      isAndroidWebView: isAndroidWebView(),
       screenOrientation: screen.orientation?.type || 'unknown',
-      timestamp: new Date().toISOString(),
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      screenPixelRatio: window.devicePixelRatio,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
       iframeRefExists: !!iframeRef.current,
       iframeContainerRefExists: !!iframeContainerRef.current,
+      iframeUrl: game.iframe_url || 'N/A',
+      iframeCurrentWidth: iframeRef.current?.clientWidth,
+      iframeCurrentHeight: iframeRef.current?.clientHeight,
+      fullscreenAPISupport: {
+        documentFullscreenEnabled: doc.fullscreenEnabled,
+        webkitFullscreenEnabled: doc.webkitFullscreenEnabled,
+        mozFullScreenEnabled: doc.mozFullScreenEnabled,
+        msFullscreenEnabled: doc.msFullscreenEnabled,
+      },
+      fullscreenMethodsAvailable: fullscreenMethods,
+      fullscreenExitMethodsAvailable: fullscreenExitMethods,
+      currentFullscreenElement: {
+        standard: !!doc.fullscreenElement,
+        webkit: !!doc.webkitFullscreenElement,
+        moz: !!doc.mozFullScreenElement,
+        ms: !!doc.msFullscreenElement,
+      },
+      timestamp: new Date().toISOString(),
     };
+    
     await logFrontendError(`Fullscreen error: ${error}`, details);
-    setFullscreenError(`Fullscreen error: ${error}`);
-    setTimeout(() => setFullscreenError(null), 5000);
   };
 
-  // Переключение полноэкранного режима
   const toggleFullscreen = async (): Promise<void> => {
     try {
       const targetElement = iframeContainerRef.current ?? iframeRef.current;
       if (!targetElement) {
-        throw new Error('No valid target element for fullscreen (both container and iframe are null)');
+        throw new Error('No valid target element for fullscreen');
       }
 
-      // Задержка в 1 секунду для надежности
-      await delay(1000);
-
       const doc = document as FullscreenDocument;
-      const elem = targetElement; // Оставляем как HTMLElement | null
       const isCurrentlyFullscreen = !!(
         doc.fullscreenElement ||
         doc.webkitFullscreenElement ||
@@ -234,51 +361,48 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
 
       if (!isCurrentlyFullscreen) {
         if (!isFullscreenSupported(targetElement)) {
-          throw new Error('Fullscreen API not supported for this element or device');
+          throw new Error('Fullscreen API not supported');
         }
 
-        if (isIOS()) {
-          if (!('webkitRequestFullscreen' in elem)) {
-            console.log('iOS detected, Webkit fullscreen not supported, forcing expanded mode');
-            toggleExpand();
-            return;
-          }
-          console.log('Entering fullscreen mode on iOS with element:', targetElement);
-          await (elem as any).webkitRequestFullscreen();
+        const elemWithFullscreen = targetElement as unknown as {
+          requestFullscreen(): Promise<void>;
+          webkitRequestFullscreen?(): Promise<void>;
+          mozRequestFullScreen?(): Promise<void>;
+          msRequestFullscreen?(): Promise<void>;
+        };
+
+        if (isIOS() && elemWithFullscreen.webkitRequestFullscreen) {
+          await elemWithFullscreen.webkitRequestFullscreen();
         } else if (isAndroidWebView()) {
-          console.log('Android WebView detected, fullscreen API unreliable, switching to expanded mode');
-          toggleExpand();
+          toggleImmersiveMode();
           return;
+        } else if ('requestFullscreen' in targetElement) {
+          await elemWithFullscreen.requestFullscreen();
+        } else if (elemWithFullscreen.mozRequestFullScreen) {
+          await elemWithFullscreen.mozRequestFullScreen();
+        } else if (elemWithFullscreen.webkitRequestFullscreen) {
+          await elemWithFullscreen.webkitRequestFullscreen();
+        } else if (elemWithFullscreen.msRequestFullscreen) {
+          await elemWithFullscreen.msRequestFullscreen();
         } else {
-          console.log('Entering fullscreen mode with element:', targetElement);
-          if ('requestFullscreen' in elem) {
-            await elem.requestFullscreen();
-          } else if ('mozRequestFullScreen' in elem) {
-            await (elem as any).mozRequestFullScreen();
-          } else if ('webkitRequestFullscreen' in elem) {
-            await (elem as any).webkitRequestFullscreen();
-          } else if ('msRequestFullscreen' in elem) {
-            await (elem as any).msRequestFullscreen();
-          } else {
-            throw new Error('No fullscreen method available on this element');
-          }
+          throw new Error('No fullscreen method available');
         }
 
         setTimeout(() => {
           const docCheck = document as FullscreenDocument;
-          const isStillFullscreen = !!(
-            docCheck.fullscreenElement ||
-            docCheck.webkitFullscreenElement ||
-            docCheck.mozFullScreenElement ||
-            docCheck.msFullscreenElement
-          );
-          if (!isStillFullscreen) {
-            console.warn('Fullscreen failed to activate');
-            throw new Error('Fullscreen activation check failed');
+          if (
+            !(
+              docCheck.fullscreenElement ||
+              docCheck.webkitFullscreenElement ||
+              docCheck.mozFullScreenElement ||
+              docCheck.msFullscreenElement
+            )
+          ) {
+            reportFullscreenIssue('Fullscreen activation check failed after timeout');
+            toggleImmersiveMode();
           }
-        }, 500);
+        }, 300);
       } else {
-        console.log('Exiting fullscreen mode');
         if (doc.exitFullscreen) {
           await doc.exitFullscreen();
         } else if (doc.mozCancelFullScreen) {
@@ -291,44 +415,81 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           throw new Error('No exit fullscreen method available');
         }
 
-        setTimeout(() => {
-          const docCheck = document as FullscreenDocument;
-          const isStillFullscreen = !!(
-            docCheck.fullscreenElement ||
-            docCheck.webkitFullscreenElement ||
-            docCheck.mozFullScreenElement ||
-            docCheck.msFullscreenElement
-          );
-          if (isStillFullscreen) {
-            console.warn('Failed to exit fullscreen');
-            throw new Error('Fullscreen exit check failed');
-          }
-        }, 500);
+        resetIframeStyles();
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Fullscreen toggle failed:', error);
       await reportFullscreenIssue(errorMessage);
-      toggleExpand();
+      toggleImmersiveMode();
     }
   };
 
-  // Переключение расширенного режима
-  const toggleExpand = (): void => {
-    setIsExpanded((prev) => !prev);
-    document.body.style.overflow = isExpanded ? '' : 'hidden';
+  const toggleImmersiveMode = (): void => {
+    if (!isImmersiveMode) {
+      scrollPositionRef.current = window.scrollY;
+    }
+
+    setIsImmersiveMode((prev) => !prev);
+
+    if (!isImmersiveMode) {
+      document.body.style.overflow = 'hidden';
+      const header = document.querySelector('header');
+      const footer = document.querySelector('footer');
+      const mainContent = document.querySelector('main');
+
+      if (header) (header as HTMLElement).style.display = 'none';
+      if (footer) (footer as HTMLElement).style.display = 'none';
+      if (mainContent) {
+        const main = mainContent as HTMLElement;
+        main.style.padding = '0';
+        main.style.margin = '0';
+        main.style.height = '100vh';
+        main.style.width = '100vw';
+        main.style.maxWidth = '100vw';
+      }
+
+      document.querySelectorAll('body > *:not(#root)').forEach((el) => {
+        (el as HTMLElement).style.display = 'none';
+      });
+
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    } else {
+      document.body.style.overflow = '';
+      const header = document.querySelector('header');
+      const footer = document.querySelector('footer');
+      const mainContent = document.querySelector('main');
+
+      if (header) (header as HTMLElement).style.display = '';
+      if (footer) (footer as HTMLElement).style.display = '';
+      if (mainContent) {
+        const main = mainContent as HTMLElement;
+        main.style.padding = '';
+        main.style.margin = '';
+        main.style.height = '';
+        main.style.width = '';
+        main.style.maxWidth = '';
+      }
+
+      document.querySelectorAll('body > *:not(#root)').forEach((el) => {
+        (el as HTMLElement).style.display = '';
+      });
+
+      resetIframeStyles();
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollPositionRef.current);
+      });
+    }
   };
 
-  // Смена режима отображения изображений
   const changeViewMode = (mode: ImageViewMode): void => {
     setViewMode((prev) =>
       mode === prev && mode !== ImageViewMode.FIT_CONTAINER ? ImageViewMode.FIT_CONTAINER : mode
     );
   };
 
-  // Обработка ошибок iframe
   const handleIframeError = (): void => {
-    console.error('Iframe failed to load:', game.iframe_url);
     setIsIframeLoading(false);
   };
 
@@ -339,40 +500,22 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
         backgroundColor: '#121212',
         position: 'relative',
         width: '100%',
-        ...(isExpanded && {
+        height: isImmersiveMode ? '100vh' : 'auto',
+        ...(isImmersiveMode && {
           position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          zIndex: 1300,
+          zIndex: 9999,
           width: '100vw',
-          height: '100vh',
           backgroundColor: '#000',
-          overflowY: 'auto',
+          padding: 0,
+          margin: 0,
+          overflow: 'hidden',
         }),
       }}
     >
-      {fullscreenError && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '10px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: 'rgba(200, 0, 0, 0.8)',
-            color: 'white',
-            padding: '8px 16px',
-            borderRadius: '4px',
-            zIndex: 2000,
-            maxWidth: '90%',
-            textAlign: 'center',
-          }}
-        >
-          {fullscreenError}
-        </Box>
-      )}
-
       {game.img_or_link === 'img' && game.cyoa_pages.length > 0 ? (
         <Box
           sx={{
@@ -385,8 +528,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
             position: 'relative',
           }}
         >
-          {loadingImages > 0 && <CircularProgress />}
-          {game.cyoa_pages.map((image, index) => (
+          {game.cyoa_pages.map((_, index) => (
             <Box
               key={index}
               sx={{
@@ -407,92 +549,89 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
               }}
             >
               {!imageErrors[index] && (
-                <img
-                  src={`/api/files/games/${game.id}/${image}`}
-                  alt={`Game content ${index + 1}`}
-                  className={
-                    viewMode === ImageViewMode.FIT_SCREEN
-                      ? 'full-width-image'
-                      : viewMode === ImageViewMode.ORIGINAL_SIZE
-                      ? 'original-size-image'
-                      : 'normal-image'
-                  }
-                  style={{
-                    display: loadingImages > 0 ? 'none' : 'block',
-                    transition: 'all 0.3s ease',
-                  }}
-                  onLoad={handleImageLoad}
-                  onError={() => handleImageError(index)}
-                />
-              )}
-              {imageErrors[index] && (
-                <div style={{ color: 'red' }}>Failed to load image {index + 1}</div>
+                imageStates[index]?.isLoading ? (
+                  <CircularProgress size={24} />
+                ) : imageStates[index]?.url ? (
+                  <img
+                    src={imageStates[index].url}
+                    alt={`Game content ${index + 1}`}
+                    className={
+                      viewMode === ImageViewMode.FIT_SCREEN
+                        ? 'full-width-image'
+                        : viewMode === ImageViewMode.ORIGINAL_SIZE
+                        ? 'original-size-image'
+                        : 'normal-image'
+                    }
+                    style={{
+                      transition: 'all 0.3s ease',
+                      opacity: imageStates[index].isPreview ? 0.8 : 1,
+                    }}
+                  />
+                ) : null
               )}
             </Box>
           ))}
 
-          {loadingImages === 0 && (
-            <Box
-              sx={{
-                position: 'fixed',
-                bottom: '20px',
-                right: '20px',
-                zIndex: 1000,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-              }}
+          <Box
+            sx={{
+              position: 'fixed',
+              bottom: '20px',
+              right: '20px',
+              zIndex: 1000,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            <ButtonGroup
+              orientation="horizontal"
+              variant="contained"
+              size="small"
+              sx={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '4px' }}
             >
-              <ButtonGroup
-                orientation="horizontal"
-                variant="contained"
-                size="small"
-                sx={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '4px' }}
-              >
-                <Tooltip title="Fit to Container" placement="top">
-                  <Button
-                    onClick={() => changeViewMode(ImageViewMode.FIT_CONTAINER)}
-                    sx={{
-                      backgroundColor:
-                        viewMode === ImageViewMode.FIT_CONTAINER ? '#4a4a4a' : 'transparent',
-                      color: 'white',
-                      '&:hover': { backgroundColor: '#636363' },
-                    }}
-                  >
-                    <FitScreenIcon />
-                  </Button>
-                </Tooltip>
+              <Tooltip title="Fit to Container" placement="top">
+                <Button
+                  onClick={() => changeViewMode(ImageViewMode.FIT_CONTAINER)}
+                  sx={{
+                    backgroundColor:
+                      viewMode === ImageViewMode.FIT_CONTAINER ? '#4a4a4a' : 'transparent',
+                    color: 'white',
+                    '&:hover': { backgroundColor: '#636363' },
+                  }}
+                >
+                  <FitScreenIcon />
+                </Button>
+              </Tooltip>
 
-                <Tooltip title="Fit to Screen Width" placement="top">
-                  <Button
-                    onClick={() => changeViewMode(ImageViewMode.FIT_SCREEN)}
-                    sx={{
-                      backgroundColor:
-                        viewMode === ImageViewMode.FIT_SCREEN ? '#4a4a4a' : 'transparent',
-                      color: 'white',
-                      '&:hover': { backgroundColor: '#636363' },
-                    }}
-                  >
-                    <AspectRatioIcon />
-                  </Button>
-                </Tooltip>
+              <Tooltip title="Fit to Screen Width" placement="top">
+                <Button
+                  onClick={() => changeViewMode(ImageViewMode.FIT_SCREEN)}
+                  sx={{
+                    backgroundColor:
+                      viewMode === ImageViewMode.FIT_SCREEN ? '#4a4a4a' : 'transparent',
+                    color: 'white',
+                    '&:hover': { backgroundColor: '#636363' },
+                  }}
+                >
+                  <AspectRatioIcon />
+                </Button>
+              </Tooltip>
 
-                <Tooltip title="Original Size" placement="top">
-                  <Button
-                    onClick={() => changeViewMode(ImageViewMode.ORIGINAL_SIZE)}
-                    sx={{
-                      backgroundColor:
-                        viewMode === ImageViewMode.ORIGINAL_SIZE ? '#4a4a4a' : 'transparent',
-                      color: 'white',
-                      '&:hover': { backgroundColor: '#636363' },
-                    }}
-                  >
-                    <ZoomOutMapIcon />
-                  </Button>
-                </Tooltip>
-              </ButtonGroup>
-            </Box>
-          )}
+              <Tooltip title="Original Size" placement="top">
+                <Button
+                  onClick={() => changeViewMode(ImageViewMode.ORIGINAL_SIZE)}
+                  sx={{
+                    backgroundColor:
+                      viewMode === ImageViewMode.ORIGINAL_SIZE ? '#4a4a4a' : 'transparent',
+                    color: 'white',
+                    '&:hover': { backgroundColor: '#636363' },
+                  }}
+                >
+                  <ZoomOutMapIcon />
+                </Button>
+              </Tooltip>
+            </ButtonGroup>
+          </Box>
         </Box>
       ) : game.img_or_link === 'link' && game.iframe_url ? (
         <Box
@@ -500,12 +639,13 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
           sx={{
             position: 'relative',
             width: '100%',
-            height: isExpanded ? '100vh' : { xs: '50vh', sm: '500px' },
-            minHeight: isExpanded ? '100vh' : '300px',
+            height: isImmersiveMode ? '100%' : { xs: '50vh', sm: '500px' },
+            minHeight: isImmersiveMode ? '100%' : '300px',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
             transition: 'all 0.3s ease',
+            paddingBottom: isImmersiveMode ? 'env(safe-area-inset-bottom)' : 0,
           }}
         >
           {isIframeLoading && (
@@ -538,37 +678,32 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
             allowFullScreen
             aria-label="Interactive CYOA"
             loading="lazy"
-            onLoad={() => {
-              console.log('Iframe loaded successfully, ref:', iframeRef.current);
-              setIsIframeLoading(false);
-            }}
+            onLoad={() => setIsIframeLoading(false)}
             onError={handleIframeError}
           />
           {!isIframeLoading && (
             <Box
               sx={{
                 position: 'absolute',
-                bottom: '10px',
+                bottom: isImmersiveMode ? 'calc(10px + env(safe-area-inset-bottom))' : '10px',
                 right: '10px',
                 zIndex: 10,
                 display: 'flex',
                 gap: '8px',
               }}
             >
-              {isDesktop && (
-                <Button
-                  onClick={toggleExpand}
-                  sx={{
-                    backgroundColor: '#4a4a4a',
-                    color: 'white',
-                    minWidth: '40px',
-                    '&:hover': { backgroundColor: '#636363' },
-                  }}
-                  title={isExpanded ? 'Collapse' : 'Expand'}
-                >
-                  {isExpanded ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
-                </Button>
-              )}
+              <Button
+                onClick={toggleImmersiveMode}
+                sx={{
+                  backgroundColor: '#4a4a4a',
+                  color: 'white',
+                  minWidth: '40px',
+                  '&:hover': { backgroundColor: '#636363' },
+                }}
+                title={isImmersiveMode ? 'Collapse' : 'Expand'}
+              >
+                {isImmersiveMode ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
+              </Button>
 
               <Button
                 onClick={toggleFullscreen}

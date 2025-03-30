@@ -2,27 +2,29 @@
 import React from 'react';
 import { Box, Typography, Link } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import { GameRelationship, Game } from '../../pocketbase/pocketbase'; // Тип GameRelationship теперь включает языки
+import { GameRelationship, Game } from '../../pocketbase/pocketbase'; // Тип теперь включает description_source/target
 
 interface RelatedGamesListProps {
   relationships: GameRelationship[];
   currentGameId: string;
 }
 
-// Обновляем возвращаемый тип и логику для извлечения языков
+// Обновляем возвращаемый тип и логику для выбора правильного описания
 const getRelativeRelationship = (relationship: GameRelationship, currentGameId: string): {
     relatedGame: Game;
     relativeTypeLabel: string;
-    description?: string;
-    source_language?: string; // Добавляем
-    target_language?: string; // Добавляем
+    displayDescription?: string; // <<<--- Используем это поле для отображаемого описания
+    source_language?: string;
+    target_language?: string;
 } | null => {
     let relatedGame: Game | undefined = undefined;
     let relativeTypeLabel: string = relationship.relationship_type;
+    let displayDescription: string | undefined = undefined; // <<<--- Инициализируем
 
-    // ИСХОДЯЩИЕ
+    // ИСХОДЯЩИЕ (Текущая игра = Источник)
     if (relationship.source_game === currentGameId && relationship.expand?.target_game?.id) {
         relatedGame = relationship.expand.target_game;
+        displayDescription = relationship.description_source; // <<<--- Берем описание ИСТОЧНИКА
         switch (relationship.relationship_type) {
             case 'Translation': relativeTypeLabel = 'Translation'; break;
             case 'Expansion': relativeTypeLabel = 'Expansion'; break;
@@ -33,66 +35,52 @@ const getRelativeRelationship = (relationship: GameRelationship, currentGameId: 
             case 'Inspired By': relativeTypeLabel = 'Inspired Game'; break;
             default: relativeTypeLabel = relationship.relationship_type;
         }
-    // ВХОДЯЩИЕ
+    // ВХОДЯЩИЕ (Текущая игра = Цель)
     } else if (relationship.target_game === currentGameId && relationship.expand?.source_game?.id) {
         relatedGame = relationship.expand.source_game;
+        displayDescription = relationship.description_target; // <<<--- Берем описание ЦЕЛИ
         switch (relationship.relationship_type) {
-            case 'Translation':
-            case 'Interactive Port':
-            case 'Static Port':
+            case 'Translation': case 'Interactive Port': case 'Static Port':
                 relativeTypeLabel = 'Original Version'; break;
-            case 'Sequel':
-                relativeTypeLabel = 'Prequel'; break;
-            case 'Expansion':
-            case 'DLC':
+            case 'Sequel': relativeTypeLabel = 'Prequel'; break;
+            case 'Expansion': case 'DLC':
                 relativeTypeLabel = 'Base Game'; break;
-            case 'Inspired By':
-                relativeTypeLabel = 'Inspiration'; break;
+            case 'Inspired By': relativeTypeLabel = 'Inspiration'; break;
             default: relativeTypeLabel = `Source (${relationship.relationship_type})`;
         }
-    } else {
-        return null;
-    }
+    } else { return null; }
 
-    if (!relatedGame) {
-        return null;
-    }
+    if (!relatedGame) { return null; }
 
-    // Возвращаем объект, включая языки из relationship
+    // Возвращаем объект с выбранным описанием
     return {
         relatedGame,
         relativeTypeLabel,
-        description: relationship.description,
-        source_language: relationship.source_language, // Извлекаем язык источника
-        target_language: relationship.target_language, // Извлекаем язык цели
+        displayDescription, // <<<--- Возвращаем выбранное описание
+        source_language: relationship.source_language,
+        target_language: relationship.target_language,
     };
 };
 
-// Компонент для отображения списка
+// Компонент отображения списка
 export default function RelatedGamesList({ relationships, currentGameId }: RelatedGamesListProps): JSX.Element | null {
-    // Трансформируем связи, получая объект с языками
+    // Трансформируем связи
     const validRelativeRelationships = relationships
         .map(rel => getRelativeRelationship(rel, currentGameId))
-        .filter((rel): rel is Exclude<ReturnType<typeof getRelativeRelationship>, null> => rel !== null); // Уточненный type guard
+        .filter((rel): rel is Exclude<ReturnType<typeof getRelativeRelationship>, null> => rel !== null);
 
-    if (validRelativeRelationships.length === 0) {
-        return null;
-    }
+    if (validRelativeRelationships.length === 0) { return null; }
 
-    // Группируем по relativeTypeLabel. В массив добавляем объект целиком, включая языки
+    // Группируем по метке типа
     const groupedRelationships = validRelativeRelationships.reduce<Record<string, typeof validRelativeRelationships>>((acc, current) => {
-        const { relativeTypeLabel } = current; // Группируем по метке
-        if (!acc[relativeTypeLabel]) {
-            acc[relativeTypeLabel] = [];
-        }
-        // Добавляем весь объект current (с игрой, описанием, языками)
+        const { relativeTypeLabel } = current;
+        if (!acc[relativeTypeLabel]) { acc[relativeTypeLabel] = []; }
         if (!acc[relativeTypeLabel].some(item => item.relatedGame.id === current.relatedGame.id)) {
             acc[relativeTypeLabel].push(current);
         }
         return acc;
     }, {});
 
-    // Сортируем ключи (метки типов связей)
     const sortedTypeLabels = Object.keys(groupedRelationships).sort((a, b) => a.localeCompare(b));
 
     return (
@@ -103,56 +91,31 @@ export default function RelatedGamesList({ relationships, currentGameId }: Relat
                         {label}:{' '}
                     </Typography>
                     <Box sx={{ display: 'inline' }}>
-                        {/* Деструктурируем языки при итерации */}
+                        {/* Деструктурируем displayDescription */}
                         {groupedRelationships[label].map(({
                             relatedGame,
-                            description,
-                            source_language, // Получаем язык источника
-                            target_language  // Получаем язык цели
+                            displayDescription, // <<<--- Используем это описание
+                            source_language,
+                            target_language
                         }, index, arr) => (
                             <React.Fragment key={relatedGame.id}>
-                                <Link
-                                    component={RouterLink}
-                                    to={`/game/${relatedGame.id}`}
-                                    variant="body2"
-                                    sx={{
-                                        color: 'primary.light',
-                                        '&:hover': { color: 'primary.main', textDecoration: 'underline' },
-                                        // Убираем правый отступ здесь, добавим после языков или описания
-                                        // mr: description ? 0.5 : 0,
-                                    }}
-                                >
+                                <Link component={RouterLink} to={`/game/${relatedGame.id}`} variant="body2" sx={{ color: 'primary.light', '&:hover': { color: 'primary.main', textDecoration: 'underline' }, }} >
                                     {relatedGame.title || 'Untitled Game'}
                                 </Link>
 
-                                {/* --- НОВОЕ: Отображение языков для переводов --- */}
-                                {/* Показываем язык перевода, если смотрим на оригинал */}
-                                {label === 'Translation' && target_language && (
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.5 }}>
-                                        ({target_language})
-                                    </Typography>
-                                )}
-                                {/* Показываем язык оригинала, если смотрим на перевод */}
-                                {label === 'Original Version' && source_language && (
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.5 }}>
-                                        ({source_language})
-                                    </Typography>
-                                )}
-                                {/* --- КОНЕЦ НОВОГО --- */}
+                                {/* Языки для переводов */}
+                                {label === 'Translation' && target_language && ( <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.5 }}>({target_language})</Typography> )}
+                                {label === 'Original Version' && source_language && ( <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.5 }}>(from {source_language})</Typography> )}
 
-                                {/* Описание, если есть (добавляем отступ слева, если не было языка) */}
-                                {description && (
-                                    <Typography variant="caption" sx={{
-                                         color: 'text.disabled',
-                                         // Добавляем отступ слева, только если языка не было показано
-                                         ml: (label === 'Translation' && target_language) || (label === 'Original Version' && source_language) ? 0.5 : 0.5
-                                         }}>
-                                        ({description})
+                                {/* Отображение выбранного описания */}
+                                {displayDescription && (
+                                    <Typography variant="caption" sx={{ color: 'text.disabled', ml: 0.5 }} >
+                                        ({displayDescription}) {/* <<<--- Отображаем displayDescription */}
                                     </Typography>
                                 )}
 
-                                {/* Запятая после элемента */}
-                                {index < arr.length - 1 && <Typography variant="body2" component="span" sx={{ color: 'text.secondary', ml: 0.5 /* Отступ перед запятой */ }}>,</Typography>}
+                                {/* Запятая */}
+                                {index < arr.length - 1 && <Typography variant="body2" component="span" sx={{ color: 'text.secondary', ml: 0.5 }}>,</Typography>}
                             </React.Fragment>
                         ))}
                     </Box>

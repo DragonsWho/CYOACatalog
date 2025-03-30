@@ -1,0 +1,108 @@
+
+
+/// <reference path="../pb_data/types.d.ts" />
+
+/**
+ * Этот хук запускается ОДИН РАЗ при старте PocketBase
+ * для заполнения поля upvotes_count у существующих игр.
+ * После успешного выполнения его нужно будет удалить или закомментировать.
+ *
+ * ПРЕДПОЛАГАЕТ, ЧТО findRecordsByFilter ВОЗВРАЩАЕТ МАССИВ ЗАПИСЕЙ, А НЕ ОБЪЕКТ С ПАГИНАЦИЕЙ.
+ */
+onAfterBootstrap((e) => {
+    console.log("--- Starting Backfill for upvotes_count (v5) ---");
+
+    let processed = 0;
+    const batchSize = 200; // Размер пачки
+    let offset = 0;        // Смещение для запроса
+    let continueFetching = true; // Флаг для продолжения
+
+    function processNextBatch() {
+        if (!continueFetching) {
+             console.log("--- Backfill Completed ---");
+             // ВАЖНО: Закомментируй или удали этот хук после успешного выполнения!
+            return;
+        }
+
+        let batchRecords; // Массив для хранения записей текущей пачки
+        try {
+            console.log(`Fetching batch starting at offset ${offset}...`);
+            // Запрашиваем пачку записей
+            batchRecords = $app.dao().findRecordsByFilter(
+                "games",
+                // Фильтр оставляем, чтобы обновлять только нужные
+                "upvotes_count = null || upvotes_count = 0",
+                "-created", // Сортировка (можно оставить или убрать, если не важна)
+                batchSize,  // limit
+                offset,     // offset
+            );
+
+            // Проверяем, что вернулся массив (даже если пустой)
+            if (!Array.isArray(batchRecords)) {
+                console.error("findRecordsByFilter did not return an array. Found:", batchRecords);
+                console.log("--- Backfill ABORTED due to unexpected return type ---");
+                return;
+            }
+
+            console.log(`Fetched ${batchRecords.length} records for this batch.`);
+
+        } catch (findErr) {
+            console.error(`Failed to fetch records at offset ${offset}:`, findErr);
+             if (findErr instanceof Error && findErr.stack) {
+                  console.error("Fetch Error Stack:", findErr.stack);
+             }
+            console.log("--- Backfill ABORTED due to fetch error ---");
+            return;
+        }
+
+        // Если пачка пустая, значит, мы обработали все записи
+        if (batchRecords.length === 0) {
+            console.log("No more records found to process.");
+            continueFetching = false; // Останавливаем цикл
+            processNextBatch();      // Вызываем еще раз для завершения
+            return;
+        }
+
+        // --- ОБРАБОТКА ПАЧКИ ---
+        let batchErrors = 0;
+        batchRecords.forEach((record) => {
+             if (!record || typeof record.get !== 'function' || typeof record.getInt !== 'function' || typeof record.set !== 'function') {
+                  console.error("Encountered invalid record object in items:", record);
+                  batchErrors++;
+                  return;
+             }
+            try {
+                const currentUpvotes = record.get("upvotes");
+                const count = (currentUpvotes && Array.isArray(currentUpvotes)) ? currentUpvotes.length : 0;
+                const currentCount = record.getInt("upvotes_count") ?? 0;
+
+                if (currentCount !== count) {
+                    record.set("upvotes_count", count);
+                    $app.dao().saveRecord(record);
+                    processed++;
+                }
+            } catch (processErr) {
+                batchErrors++;
+                console.error(`Failed to process or save game ${record.id}:`, processErr);
+                 if (processErr instanceof Error && processErr.stack) {
+                      console.error("Process/Save Error Stack:", processErr.stack);
+                 }
+            }
+        });
+
+        console.log(`Processed batch starting at offset ${offset}. ${batchErrors} errors occurred. Total processed so far: ${processed}`);
+
+        // Увеличиваем смещение для следующей пачки
+        offset += batchSize;
+
+        // Рекурсивно вызываем для следующей пачки
+        processNextBatch();
+    }
+
+    // Запускаем обработку первой пачки
+    processNextBatch();
+});
+
+console.log("Backfill hook loaded (will run once on bootstrap).");
+
+

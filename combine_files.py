@@ -72,5 +72,5 @@ def combine_files(root_dir, output_file_path="================combined.txt"):
 
 if __name__ == "__main__":
     # Укажите корневую директорию вашего проекта (например, текущая директория или путь к 'src')
-    root_directory = "CyoaPage"
+    root_directory = "src"
     combine_files(root_directory)

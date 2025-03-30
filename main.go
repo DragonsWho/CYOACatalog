@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -20,6 +19,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
+	"github.com/pocketbase/pocketbase/plugins/jsvm"
 	"github.com/pocketbase/pocketbase/tools/security"
 )
 
@@ -73,6 +73,19 @@ func main() {
 	isDevelopment := os.Getenv("NODE_ENV") == "development"
 
 	app := pocketbase.New()
+	// Указываем путь к директории с JS хуками
+	hooksDir := "pb_hooks"
+
+	if _, err := os.Stat(hooksDir); os.IsNotExist(err) {
+		log.Printf("Hooks directory '%s' not found, skipping JS hooks loading.", hooksDir)
+	} else {
+		// Передаем только HooksDir, остальные параметры будут по умолчанию
+		jsvm.MustRegister(app, jsvm.Config{
+			HooksDir: hooksDir,
+		})
+		log.Printf("Registered JS hooks from directory: %s", hooksDir)
+	}
+
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
 		apiGroup := e.Router.Group("/api/custom")
 
@@ -164,41 +177,90 @@ func main() {
 		upvoteGroup := apiGroup.Group("/upvotes")
 
 		upvoteGroup.POST("/:id", func(c echo.Context) error {
+			// Получаем информацию о пользователе и ID игры
 			info := apis.RequestInfo(c)
+			if info == nil || info.AuthRecord == nil {
+				return apis.NewUnauthorizedError("User not authenticated", nil) // Добавлена проверка авторизации
+			}
 			userID := info.AuthRecord.Id
 			gameID := c.PathParam("id")
-			state := true
-			count := 0
 
+			// Переменные для результата
+			var finalState bool // true если лайк поставлен, false если снят
+			var finalCount int  // Итоговое количество лайков
+
+			// Выполняем операцию в транзакции
 			err := app.Dao().RunInTransaction(func(txDao *daos.Dao) error {
+				// Находим запись игры
 				record, err := txDao.FindRecordById("games", gameID)
 				if err != nil {
-					return fmt.Errorf("find game record error: %w", err)
+					log.Printf("Error finding game %s: %v", gameID, err) // Логируем ошибку
+					return apis.NewNotFoundError("Game not found", err)
 				}
 
-				upvotes := record.Get("upvotes").([]string)
-				count = len(upvotes)
-				if !slices.Contains(upvotes, userID) {
-					record.Set("upvotes", append(upvotes, userID))
-					count++
+				// Получаем текущий массив лайков
+				// Используем GetStringSlice для работы со срезом строк
+				upvotes := record.GetStringSlice("upvotes") // ИЗМЕНЕНО: record.Get("upvotes").([]string) -> GetStringSlice
+
+				// Проверяем, лайкнул ли уже пользователь
+				userLiked := false
+				userIndex := -1
+				for i, id := range upvotes {
+					if id == userID {
+						userLiked = true
+						userIndex = i
+						break
+					}
+				}
+
+				// Обновляем массив лайков
+				if !userLiked {
+					// Добавляем лайк
+					upvotes = append(upvotes, userID)
+					finalState = true
 				} else {
-					record.Set("upvotes", slices.DeleteFunc(upvotes, func(i string) bool { return i == userID }))
-					state = false
-					count--
-				}
-				err = txDao.SaveRecord(record)
-				if err != nil {
-					return fmt.Errorf("save game record error: %w", err)
+					// Удаляем лайк (более безопасный способ)
+					if userIndex >= 0 {
+						upvotes = append(upvotes[:userIndex], upvotes[userIndex+1:]...)
+					}
+					finalState = false
 				}
 
-				return nil
+				// --- ДОБАВЛЕНА ЛОГИКА ПОДСЧЕТА ---
+				// Считаем итоговое количество лайков
+				finalCount = len(upvotes)
+				// Обновляем поле upvotes_count в записи
+				record.Set("upvotes_count", finalCount)
+				// ---------------------------------
+
+				// Устанавливаем обновленный массив лайков
+				record.Set("upvotes", upvotes)
+
+				// Сохраняем запись
+				if err := txDao.SaveRecord(record); err != nil {
+					log.Printf("Error saving game %s: %v", gameID, err) // Логируем ошибку сохранения
+					return apis.NewApiError(500, "Failed to save game record", err)
+				}
+
+				log.Printf("Game %s updated. User %s action: %t. New upvote count: %d", gameID, userID, finalState, finalCount) // Лог успеха
+
+				return nil // Транзакция успешна
 			})
+
+			// Обработка ошибки транзакции
 			if err != nil {
-				return fmt.Errorf("run in transaction error: %w", err)
+				// Ошибка уже залогирована внутри транзакции
+				// Возвращаем ошибку клиенту (NewNotFoundError или NewApiError)
+				return err
 			}
 
-			return c.JSON(http.StatusOK, map[string]any{"id": gameID, "state": state, "count": count})
-		})
+			// Возвращаем успешный ответ клиенту с итоговым состоянием и счетчиком
+			return c.JSON(http.StatusOK, map[string]any{
+				"id":    gameID,
+				"state": finalState,
+				"count": finalCount, // Возвращаем актуальный счетчик
+			})
+		}) // Конец обработчика POST
 
 		return nil
 	})

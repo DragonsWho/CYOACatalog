@@ -64,21 +64,23 @@ export const tagCategoriesCollection = pb.collection('tag_categories') as Record
 export type Game = RecordModel & {
   title: string;
   description: string;
-  image: string; 
+  image: string;
   cyoa_pages_preview: string[];
   tags: string[];
   img_or_link: 'img' | 'link';
   iframe_url: string;
   cyoa_pages: string[];
-  upvotes: string[];
+  upvotes: string[]; // Оставляем для проверки isUpvoted
+  upvotes_count?: number; // <--- ДОБАВЛЕНО: Необязательное поле для счетчика
   comments: string[];
+  comments_count?: number;
   uploader: string;
-  image_base64?: string;  
+  image_base64?: string;
 } & {
   expand?: {
     tags?: Tag[];
     authors_via_games?: Author[];
-    upvotes?: User[];
+    upvotes?: User[]; // Это expand для самих User объектов, если нужно
     comments?: Comment[];
   };
 };
@@ -90,12 +92,15 @@ export type Comment = RecordModel & {
   author: string;
   children: string[];
   parent: string;
+  game?: string;  
 } & {
   expand?: {
     author?: User;
     children?: Comment[];
+    game?: Game;  
   };
 };
+
 
 export const commentsCollection = pb.collection('comments') as RecordService<Comment>;
 
@@ -111,22 +116,22 @@ export type Author = RecordModel & {
 
 export const authorsCollection = pb.collection('authors') as RecordService<Author>;
 
- 
+
 export type GameRelationship = RecordModel & {
   source_game: string;
   target_game: string;
   relationship_type: 'Translation' | 'Expansion' | 'Sequel' | 'Interactive Port' | 'Static Port' | 'DLC' | 'Inspired By';
   order_in_series?: number;
   source_language?: string;
-  target_language?: string; 
-  description_source?: string;  
-  description_target?: string;  
+  target_language?: string;
+  description_source?: string;
+  description_target?: string;
 } & {
   expand?: {
     source_game?: Game;
     target_game?: Game;
   };
-}; 
+};
 
 export const gameRelationshipsCollection = pb.collection('game_relationships') as RecordService<GameRelationship>;
 

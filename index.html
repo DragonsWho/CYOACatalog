@@ -18,7 +18,7 @@
       (async () => {
         try {
           const response = await fetch(
-            `${window.location.origin}/api/collections/games/records?page=1&perPage=25&sort=-created&expand=authors_via_games&filter=&fields=id%2Ctitle%2Cdescription%2Cimage%2Cimage_base64%2Cupvotes%2Ccomments%2Ctags%2Cexpand.authors_via_games.name`
+            `${window.location.origin}/api/collections/games/records?page=1&perPage=25&sort=-created&expand=authors_via_games&filter=&fields=id%2CcollectionId%2Ctitle%2Cdescription%2Cimage%2Cimage_base64%2Ctags%2Cexpand.authors_via_games.name%2Cupvotes_count%2Ccomments_count`
           );
           const data = await response.json();
           window.__INITIAL_DATA__ = data;
@@ -34,3 +34,4 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+ 

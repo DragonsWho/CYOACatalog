@@ -11,11 +11,13 @@ import './index.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
-root.render( 
+root.render(
+  <React.StrictMode>
     <BrowserRouter>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <App />
       </ThemeProvider>
-    </BrowserRouter> 
+    </BrowserRouter>
+  </React.StrictMode>,
 );

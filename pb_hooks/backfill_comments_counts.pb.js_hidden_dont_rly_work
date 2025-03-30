@@ -1,0 +1,86 @@
+/// <reference path="../pb_data/types.d.ts" />
+
+/**
+ * ОДНОРАЗОВЫЙ ХУК для заполнения поля comments_count у существующих игр.
+ * После успешного выполнения его нужно УДАЛИТЬ или ЗАКОММЕНТИРОВАТЬ.
+ */
+onAfterBootstrap((e) => {
+    console.log("--- Starting Backfill for comments_count ---");
+
+    let processed = 0;
+    const batchSize = 200;
+    let offset = 0;
+    let continueFetching = true;
+
+    function processNextBatch() {
+        if (!continueFetching) {
+             console.log("--- Backfill comments_count Completed ---");
+             // ВАЖНО: Закомментируй или удали этот хук!
+            return;
+        }
+
+        let batchRecords;
+        try {
+            console.log(`[Backfill Comments] Fetching batch at offset ${offset}...`);
+            // Запрашиваем все игры пачками (фильтр убран, т.к. нужно проверить все)
+            batchRecords = $app.dao().findRecordsByFilter(
+                "games",
+                "", // Без фильтра - проверяем все игры
+                "-created",
+                batchSize,
+                offset,
+            );
+
+            if (!Array.isArray(batchRecords)) {
+                console.error("[Backfill Comments] findRecordsByFilter did not return an array. Found:", batchRecords);
+                console.log("--- Backfill comments_count ABORTED ---");
+                return;
+            }
+            console.log(`[Backfill Comments] Fetched ${batchRecords.length} records.`);
+
+        } catch (findErr) {
+            console.error(`[Backfill Comments] Failed to fetch records at offset ${offset}:`, findErr);
+            console.log("--- Backfill comments_count ABORTED ---");
+            return;
+        }
+
+        if (batchRecords.length === 0) {
+            console.log("[Backfill Comments] No more records found.");
+            continueFetching = false;
+            processNextBatch();
+            return;
+        }
+
+        let batchErrors = 0;
+        batchRecords.forEach((record) => {
+            try {
+                // Получаем массив ID комментариев из игры
+                const currentComments = record.get("comments");
+                // Считаем количество
+                const count = (currentComments && Array.isArray(currentComments)) ? currentComments.length : 0;
+                // Получаем текущий счетчик из базы
+                const currentCountInDb = record.getInt("comments_count") ?? -1; // Используем -1, чтобы точно обновить null
+
+                // Обновляем, если значение не совпадает
+                if (currentCountInDb !== count) {
+                    record.set("comments_count", count);
+                    $app.dao().saveRecord(record);
+                    processed++;
+                     console.log(`[Backfill Comments] Updated game ${record.id}, comments_count: ${count}`);
+                }
+            } catch (processErr) {
+                batchErrors++;
+                console.error(`[Backfill Comments] Failed to process/save game ${record.id}:`, processErr);
+            }
+        });
+
+        console.log(`[Backfill Comments] Processed batch at offset ${offset}. ${batchErrors} errors. Total updated: ${processed}`);
+
+        offset += batchSize;
+        processNextBatch(); // Переходим к следующей пачке
+    }
+
+    processNextBatch(); // Запускаем первую пачку
+});
+
+console.log("Backfill hook for 'comments_count' loaded (will run once).");

@@ -3,10 +3,11 @@
 // Fixed TypeScript errors and improved type safety
 
 import { useContext, useMemo } from 'react';
-import { Box, Typography, useTheme, Theme } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { CommentSection } from 'react-comments-section';
 import 'react-comments-section/dist/index.css';
 import { AuthContext, commentsCollection, Game, pb } from '../../pocketbase/pocketbase';
+import { useTheme } from '@mui/material/styles';
 
 interface FormattedComment {
   userId: string;
@@ -18,19 +19,11 @@ interface FormattedComment {
   parentId: string | null;
 }
 
-interface CustomTheme extends Theme {
-  custom?: {
-    comments?: {
-      backgroundColor?: string;
-      borderRadius?: string;
-      color?: string;
-    };
-  };
-}
+ 
 
 export default function SimpleComments({ game }: { game: Game }) {
   const { user } = useContext(AuthContext);
-  const theme = useTheme<CustomTheme>();
+  const theme = useTheme(); 
 
   const comments = useMemo(() => {
     const comments = game.expand?.comments;

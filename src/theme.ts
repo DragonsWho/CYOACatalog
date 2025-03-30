@@ -3,18 +3,74 @@
 // Changes: Added variants for Chip component states and CSS generated noise background
 
 import { createTheme, ThemeOptions } from '@mui/material/styles';
+import { CSSProperties } from 'react';
+
+
 
 declare module '@mui/material/styles' {
-  interface Palette {
+  // Расширяем интерфейс Theme
+  interface Theme {
+    discord: { // Оставляем то, что было
+      main: string;
+      dark: string;
+    };
+    custom?: { // Добавляем все используемые кастомные поля
+      cardTitle?: CSSProperties;
+      cardText?: CSSProperties;
+      boxShadow?: string; // Добавлено
+      borderRadius?: string; // Добавлено
+      comments?: { // Добавлено (структура из SimpleComments/GameDetails)
+        backgroundColor?: string;
+        borderRadius?: string;
+        boxShadow?: string; // Добавим и его, если нужно
+        color?: string;
+        inputBackground?: string;
+        inputBorder?: string;
+        buttonBackground?: string;
+        buttonHoverBackground?: string;
+        replyBackground?: string;
+        avatarBorder?: string;
+        counterColor?: string;
+      };
+    };
+  }
+
+  // Расширяем интерфейс ThemeOptions (для createTheme)
+  interface Palette { // Это уже было
     discord: {
       main: string;
       dark: string;
     };
   }
-  interface PaletteOptions {
+  interface PaletteOptions { // Это уже было
     discord?: {
       main: string;
       dark: string;
+    };
+  }
+  interface ThemeOptions {
+    discord?: { // Это уже было
+      main: string;
+      dark: string;
+    };
+    custom?: { // Добавляем все кастомные поля сюда тоже
+      cardTitle?: CSSProperties;
+      cardText?: CSSProperties;
+      boxShadow?: string;
+      borderRadius?: string;
+      comments?: {
+        backgroundColor?: string;
+        borderRadius?: string;
+        boxShadow?: string;
+        color?: string;
+        inputBackground?: string;
+        inputBorder?: string;
+        buttonBackground?: string;
+        buttonHoverBackground?: string;
+        replyBackground?: string;
+        avatarBorder?: string;
+        counterColor?: string;
+      };
     };
   }
 }
@@ -197,9 +253,9 @@ const themeOptions: ThemeOptions = {
       color: 'rgba(255,255,255,0.9)',
       textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
     },
-    boxShadow: '0 3px 5px 2px rgba(0, 0, 0, .3)',
-    borderRadius: '3px',
-    comments: {
+    boxShadow: '0 3px 5px 2px rgba(0, 0, 0, .3)', // Теперь это известное поле
+    borderRadius: '3px',                        // Теперь это известное поле
+    comments: { // Теперь это известное поле
       backgroundColor: '#121212',
       borderRadius: '8px',
       boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',

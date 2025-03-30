@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme } from '@mui/material';
+import { Container, Typography, Box, CircularProgress, Grid2, Paper } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import TagDisplay from './TagDisplay';
 import GameContent from './GameContent';
@@ -18,16 +18,7 @@ import {
 } from '../../pocketbase/pocketbase';
 import DOMPurify from 'dompurify';
 
-interface CustomTheme extends Theme {
-  custom?: {
-    borderRadius?: string;
-    boxShadow?: string;
-    comments?: {
-      backgroundColor?: string;
-      borderRadius?: string;
-    };
-  };
-}
+ 
 
 export default function GameDetails() {
   const [game, setGame] = useState<Game | null>(null);
@@ -37,7 +28,7 @@ export default function GameDetails() {
   const [imageSrc, setImageSrc] = useState<string>(''); 
   const imgRef = useRef<HTMLImageElement>(null);
   const { id } = useParams<{ id: string }>();
-  const theme = useTheme<CustomTheme>();
+  const theme = useTheme(); 
   const sanitizedDescription = useMemo(() => (game ? DOMPurify.sanitize(game.description) : ''), [game]);
 
   useEffect(() => {

@@ -134,29 +134,7 @@ export type GameRelationship = RecordModel & {
 };
 
 export const gameRelationshipsCollection = pb.collection('game_relationships') as RecordService<GameRelationship>;
-
-export type FrontendLog = RecordModel & {
-  message: string;
-  userAgent: string;
-  timestamp: string;
-  details: Record<string, any>;
-};
-
-export const frontendLogsCollection = pb.collection('frontend_logs') as RecordService<FrontendLog>;
-
-export async function logFrontendError(message: string, details: Record<string, any> = {}): Promise<void> {
-  try {
-    await frontendLogsCollection.create({
-      message,
-      userAgent: navigator.userAgent,
-      timestamp: new Date().toISOString(),
-      details,
-    });
-    console.log('Frontend log sent successfully');
-  } catch (error) {
-    console.error('Failed to send frontend log:', error);
-  }
-}
+ 
 
 type Provider = 'discord';
 

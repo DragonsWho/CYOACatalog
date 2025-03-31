@@ -1,13 +1,13 @@
 // src/components/Header/Header.tsx
 import { useContext, useState } from 'react';
-import { AppBar, Toolbar, Typography, Box, Tooltip, Container, SvgIcon, useTheme, ToggleButtonGroup, ToggleButton } from '@mui/material'; // Добавили ToggleButtonGroup, ToggleButton
+import { AppBar, Toolbar, Typography, Box, Tooltip, Container, SvgIcon, useTheme, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import UnifiedSearchBar from './UnifiedSearchBar';
 import UserMenu from './UserMenu';
 import Login from './Login';
 import Button from '@mui/material/Button';
 import { AuthContext } from '../../pocketbase/pocketbase';
-import type { FilterMode } from '../../App'; // Импортируем тип FilterMode
+import type { FilterMode } from '../../App';
 
 const SITE_TITLE = 'CYOA.CAFE';
 const ADD_CYOA_TEXT = 'Add CYOA';
@@ -15,10 +15,9 @@ const LOGIN_TEXT = 'Login';
 const LOGIN_TOOLTIP = 'Login to add a CYOA';
 const DISCORD_INVITE_URL = 'https://discord.gg/9stHNfEskG';
 
-// Цвета для переключателя
 const sfwColor = '#4f7e50';
 const nsfwColor = '#e8484e';
-const allColor = 'grey.700'; // Нейтральный цвет для 'all'
+const allColor = 'grey.700';
 
 const DiscordIcon = () => (
     <SvgIcon>
@@ -33,10 +32,8 @@ interface HeaderProps {
     selectedAuthors: string[];
     onTagChange: (tags: string[]) => void;
     onAuthorChange: (authors: string[]) => void;
-    // --- НАЧАЛО ИЗМЕНЕНИЙ ---
-    filterMode: FilterMode; // Добавляем текущий режим
-    onFilterModeChange: (newMode: FilterMode) => void; // Добавляем обработчик изменения
-    // --- КОНЕЦ ИЗМЕНЕНИЙ ---
+    filterMode: FilterMode;
+    onFilterModeChange: (newMode: FilterMode) => void;
 }
 
 export default function Header({
@@ -46,10 +43,8 @@ export default function Header({
     selectedAuthors,
     onTagChange,
     onAuthorChange,
-    // --- НАЧАЛО ИЗМЕНЕНИЙ ---
     filterMode,
     onFilterModeChange,
-    // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 }: HeaderProps) {
     const { signedIn, user } = useContext(AuthContext);
     const [loginOpen, setLoginOpen] = useState(false);
@@ -63,21 +58,15 @@ export default function Header({
         if (location.pathname !== '/') navigate('/');
     }
 
-    // --- НАЧАЛО ИЗМЕНЕНИЙ ---
-    // Обработчик для ToggleButtonGroup
+    // Используем _event, чтобы показать TypeScript, что параметр намеренно не используется
     const handleFilterChange = (
-        event: React.MouseEvent<HTMLElement>,
-        newMode: FilterMode | null, // MUI может вернуть null
+        _event: React.MouseEvent<HTMLElement>, // Изменено здесь
+        newMode: FilterMode | null,
     ) => {
-        // Игнорируем, если пользователь отменил выбор (хотя exclusive должен предотвратить это)
-        // или если выбранный режим уже активен
         if (newMode !== null && newMode !== filterMode) {
             onFilterModeChange(newMode);
-            // Опционально: переходить на главную при смене фильтра?
-            // if (location.pathname !== '/') navigate('/');
         }
     };
-    // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
     return (
         <>
@@ -97,46 +86,43 @@ export default function Header({
                                         color: theme.palette.primary.light,
                                     },
                                     transition: 'color 0.3s ease',
-                                    mr: 2, // Добавим отступ справа от логотипа
+                                    mr: 2,
                                 }}
                             >
                                 {SITE_TITLE}
                             </Typography>
 
-                             {/* --- НАЧАЛО ИЗМЕНЕНИЙ: Добавляем ToggleButtonGroup --- */}
                              <ToggleButtonGroup
                                 value={filterMode}
-                                exclusive // Только один выбор
+                                exclusive
                                 onChange={handleFilterChange}
                                 aria-label="Content filter"
                                 size="small"
                                 sx={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.08)', // Легкий фон для группы
-                                    borderRadius: '4px', // Скругление для группы
-                                    mr: 2, // Отступ справа от переключателя
-                                    height: '32px', // Фиксированная высота для выравнивания
+                                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                    borderRadius: '4px',
+                                    mr: 2,
+                                    height: '32px',
                                 }}
                             >
                                 <ToggleButton
                                     value="sfw"
                                     aria-label="Show SFW only"
                                     sx={{
-                                        color: filterMode === 'sfw' ? '#fff' : sfwColor, // Белый текст если выбрано, иначе зеленый
-                                        backgroundColor: filterMode === 'sfw' ? sfwColor : 'transparent', // Зеленый фон если выбрано
-                                        border: 'none', // Убираем рамки
-                                        borderRadius: '4px', // Скругляем углы
-                                        px: 1.5, // Горизонтальные отступы
-                                        textTransform: 'none', // Убираем КАПС
+                                        color: filterMode === 'sfw' ? '#fff' : sfwColor,
+                                        backgroundColor: filterMode === 'sfw' ? sfwColor : 'transparent',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        px: 1.5,
+                                        textTransform: 'none',
                                         '&:hover': {
-                                            // Легкое затемнение при наведении, если не выбрано
                                             backgroundColor: filterMode !== 'sfw' ? 'rgba(79, 126, 80, 0.2)' : sfwColor,
                                         },
                                         '&.Mui-selected': {
-                                            // Стили для выбранной кнопки (переопределяем стандартные)
                                             backgroundColor: sfwColor,
                                             color: '#fff',
                                             '&:hover': {
-                                                backgroundColor: sfwColor, // Не меняем цвет при наведении на выбранную
+                                                backgroundColor: sfwColor,
                                             }
                                         }
                                     }}
@@ -150,9 +136,9 @@ export default function Header({
                                         color: filterMode === 'all' ? '#fff' : allColor,
                                         backgroundColor: filterMode === 'all' ? allColor : 'transparent',
                                         border: 'none',
-                                        borderLeft: `1px solid ${theme.palette.divider}`, // Разделитель слева
-                                        borderRight: `1px solid ${theme.palette.divider}`, // Разделитель справа
-                                        borderRadius: 0, // Убираем скругление для средней кнопки
+                                        borderLeft: `1px solid ${theme.palette.divider}`,
+                                        borderRight: `1px solid ${theme.palette.divider}`,
+                                        borderRadius: 0,
                                         px: 1.5,
                                         textTransform: 'none',
                                          '&:hover': {
@@ -194,10 +180,9 @@ export default function Header({
                                     NSFW
                                 </ToggleButton>
                             </ToggleButtonGroup>
-                            {/* --- КОНЕЦ ИЗМЕНЕНИЙ --- */}
 
 
-                            <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, justifyContent: 'flex-end' }}> {/* Добавили flexGrow и justifyContent */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, justifyContent: 'flex-end' }}>
                                 <UnifiedSearchBar
                                     tags={tags}
                                     authors={authors}
@@ -215,11 +200,8 @@ export default function Header({
                                         sx={{
                                             minWidth: 'auto',
                                             padding: '4px',
-                                            // --- НАЧАЛО ИЗМЕНЕНИЙ ---
-                                            // Добавим немного отступа для иконки Discord
                                             ml: 1,
                                             mr: 1,
-                                            // --- КОНЕЦ ИЗМЕНЕНИЙ ---
                                         }}
                                         aria-label="Join Discord"
                                     >
@@ -233,7 +215,6 @@ export default function Header({
                                             component={Link}
                                             to="/create"
                                             sx={{
-                                                // ml: 1, // Убрали ml, т.к. Discord теперь имеет отступы
                                                 mr: 1,
                                                 opacity: signedIn ? 1 : 0.5,
                                                 '&.Mui-disabled': {
@@ -241,7 +222,7 @@ export default function Header({
                                                 },
                                                 fontSize: '0.875rem',
                                                 padding: '4px 10px',
-                                                minWidth: 'auto', // Чтобы кнопка не растягивалась
+                                                minWidth: 'auto',
                                             }}
                                             disabled={!signedIn}
                                             aria-label={ADD_CYOA_TEXT}
@@ -251,7 +232,7 @@ export default function Header({
                                     </span>
                                 </Tooltip>
 
-                                <Box sx={{ width: 'auto', minWidth: 90 }}> {/* Сделали ширину авто и задали минимум */}
+                                <Box sx={{ width: 'auto', minWidth: 90 }}>
                                     {signedIn ? (
                                         <UserMenu currentUser={user} />
                                     ) : (

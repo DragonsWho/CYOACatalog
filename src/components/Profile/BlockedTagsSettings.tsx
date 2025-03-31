@@ -1,5 +1,5 @@
 // src/components/Profile/BlockedTagsSettings.tsx
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useContext, useRef } from 'react';
 import { Box, Typography, Autocomplete, TextField, Chip, Button, CircularProgress, Alert } from '@mui/material';
 import { Tag, User, pb, usersCollection } from '../../pocketbase/pocketbase'; // Убедимся что User импортирован
 import { AuthContext } from '../../pocketbase/pocketbase';
@@ -128,7 +128,7 @@ export default function BlockedTagsSettings({
         // Контролируем значение через наше состояние
         value={selectedBlockedTagNames}
         // Обновляем состояние при изменении выбора в Autocomplete
-        onChange={(event, newValue) => {
+        onChange={(_event, newValue) => {
           console.log("Autocomplete onChange:", newValue);
           setSelectedBlockedTagNames(newValue.sort()); // Обновляем состояние и сортируем
         }}

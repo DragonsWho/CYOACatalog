@@ -2,9 +2,6 @@
 import { useState, useEffect, lazy, Suspense, useContext } from 'react';
 import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { Container, Box, CircularProgress } from '@mui/material';
-// --- Убираем проблемные импорты ---
-// import PocketBase, { Record, Admin } from 'pocketbase';
-// ---
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
 import SearchPage from './components/Search/SearchPage';
@@ -14,7 +11,6 @@ const Profile = lazy(() => import('./components/Profile/Profile'));
 const ModeratorPanel = lazy(() => import('./components/ModeratorPanel/ModeratorPanel'));
 const VectorSearchPage = lazy(() => import('./components/Search/VectorSearchPage'));
 import Login from './components/Header/Login';
-// --- Используем существующие импорты ---
 import { AuthContext, pb, User, Tag, tagsCollection, authorsCollection, usersCollection } from './pocketbase/pocketbase';
 
 const ModeratorRoute = ({ children }: { children: JSX.Element }) => {
@@ -30,7 +26,6 @@ export type FilterMode = 'sfw' | 'all' | 'nsfw';
 export default function App() {
   const getInitialUser = (): User | null => {
       const model = pb.authStore.model;
-      // Используем проверку collectionName, она должна быть надежной
       return (model && model.collectionName === 'users') ? model as User : null;
   }
   const [user, setUser] = useState<User | null>(getInitialUser);
@@ -46,7 +41,6 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Загрузка общих тегов и авторов
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -64,7 +58,6 @@ export default function App() {
     return () => { isMounted = false; };
   }, []);
 
-  // Загрузка заблокированных тегов пользователя
   const fetchBlockedTags = async (userId: string) => {
       try {
           const currentUserData = await usersCollection.getOne(userId, { expand: 'blocked_tags' });
@@ -74,13 +67,10 @@ export default function App() {
       } catch (error) { console.error("Error fetching blocked tags:", error); setBlockedTags([]); }
   };
 
-  // Отслеживание состояния авторизации
   useEffect(() => {
-    // --- ИЗМЕНЕНИЕ: Используем 'any' для model ---
-    const handleAuthChange = (token: string | null, model: any | null) => {
+    // Используем _token, чтобы показать TypeScript, что параметр намеренно не используется
+    const handleAuthChange = (_token: string | null, model: any | null) => {
       console.log("Auth changed raw model:", model);
-      // Проверяем, что модель существует и это запись из коллекции 'users'
-      // Мы по-прежнему можем безопасно проверять model.collectionName
       const currentUser = (model && model.collectionName === 'users') ? model as User : null;
       console.log("Auth changed currentUser as User:", currentUser);
 
@@ -93,19 +83,14 @@ export default function App() {
         setBlockedTags([]);
       }
     };
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-    // Вызываем при монтировании
-    handleAuthChange(pb.authStore.token, pb.authStore.model); // model здесь тоже будет 'any'
+    handleAuthChange(pb.authStore.token, pb.authStore.model);
 
-    // Подписываемся
     const unsubscribe = pb.authStore.onChange(handleAuthChange);
 
-    // Отписываемся
     return () => { console.log("Unsubscribing from auth changes."); unsubscribe(); };
   }, []);
 
-  // Сброс выбранных тегов/авторов
   useEffect(() => {
     if (location.pathname !== '/' && location.pathname !== '/search') {
       setSelectedTags([]);
@@ -113,7 +98,6 @@ export default function App() {
     }
   }, [location.pathname]);
 
-  // Обработчики изменения тегов/авторов
   function handleTagChange(newTags: string[]) {
     setSelectedTags(newTags);
     if (location.pathname !== '/' && location.pathname !== '/search') navigate('/');
@@ -123,7 +107,6 @@ export default function App() {
     if (location.pathname !== '/' && location.pathname !== '/search') navigate('/');
   }
 
-  // Рендер
   return (
     <AuthContext.Provider value={{ signedIn, user, isModerator: user?.isModerator || false, blockedTags }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%' }}>

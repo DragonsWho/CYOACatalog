@@ -1,6 +1,6 @@
 // src/components/Profile/Profile.tsx
 import React, { useContext } from 'react'; // Добавили useContext
-import { Container, Typography, Paper, Box, List, ListItem, ListItemIcon, ListItemText, Divider } from '@mui/material'; // Добавили Divider
+import { Container, Typography, Paper, List, ListItem, ListItemIcon, ListItemText, Divider } from '@mui/material'; // Добавили Divider
 import { styled } from '@mui/material/styles';
 import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';

@@ -146,13 +146,13 @@ export default function UnifiedSearchBar({
             value={selectedTags}
             options={tags}
             inputValue={tagInputValue}
-            onInputChange={(event, newInputValue, reason) => {
+            onInputChange={(_event, newInputValue, reason) => {
                 // Всегда обновляем inputValue state
                 setTagInputValue(newInputValue);
                 console.log("[onInputChange Tag]", { newInputValue, reason });
             }}
             // --- НАЧАЛО ИЗМЕНЕНИЙ в onChange ---
-            onChange={(event, newValue, reason, details) => {
+            onChange={(_event, newValue, reason, details) => {
                 console.log("[onChange Tag]", { newValue, reason, details, currentTagInputValue: tagInputValue });
 
                 if (reason === 'selectOption' && details?.option) {

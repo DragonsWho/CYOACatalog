@@ -1,28 +1,26 @@
 // src/components/GameCard.tsx
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Card, CardContent, Typography, Chip, Box } from '@mui/material'; 
+import { Card, CardContent, Typography, Chip, Box } from '@mui/material';
 import { Link } from 'react-router-dom';
 import FavoriteIcon from '@mui/icons-material/Favorite';
-import CommentIcon from '@mui/icons-material/Comment'; 
+import CommentIcon from '@mui/icons-material/Comment';
 import { Game } from '../pocketbase/pocketbase';
 import DOMPurify from 'dompurify';
 
 import { useTheme } from '@mui/material/styles';
 
- 
-
-
 // Design variables
 const CARD_ASPECT_RATIO = '133.33%'; // 4:3 aspect ratio
+const DESCRIPTION_TOP = '60%'; // <<< ВОЗВРАЩЕНО ИЗ СТАРОЙ ВЕРСИИ
 const TAG_SECTION_HEIGHT = '80px';
 const TAG_DISPLAY_LIMIT = 12;
 const OVERLAY_OPACITY = 0.5;
 
 // Spacing variables
 const CARD_PADDING = 16;
-const TITLE_MARGIN_BOTTOM = 8;
-const TAGS_MARGIN_TOP = 8;
-const BOTTOM_INFO_MARGIN_TOP = 8;
+const TITLE_MARGIN_BOTTOM = 8; 
+const BOTTOM_INFO_MARGIN_TOP = 8; // Используется в расчетах bottom
+const BOTTOM_INFO_MARGIN_BOTTOM = 0; // <<< ДОБАВЛЕНО ИЗ СТАРОЙ ВЕРСИИ (хотя = 0, для точности расчета)
 
 const CATEGORY_ORDER = [
   'Rating', 'Interactivity', 'POV', 'Player Sexual Role', 'Playtime',
@@ -47,7 +45,7 @@ interface GameCardProps {
 }
 
 function GameCard({ game, variant = 'standard' }: GameCardProps) {
-  const theme = useTheme(); // Тип theme теперь включает наш custom
+  const theme = useTheme();
   const cardRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -70,7 +68,7 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
     if ((!isBase64 && imageSrc === imageURL) || !imageURL || imageURL === 'public/placeholder.jpg') return;
 
     if (imageCache.has(imageURL)) {
-      if (cardRef.current) { // Проверка на размонтирование
+      if (cardRef.current) {
         setImageSrc(imageCache.get(imageURL) as string);
         setIsBase64(false);
       }
@@ -92,7 +90,7 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
       };
       img.src = imageURL;
     }
-  }, [game.image_base64, imageURL, imageSrc, isBase64]); // game.id не нужен
+  }, [game.image_base64, imageURL, imageSrc, isBase64]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -140,11 +138,12 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
           position: 'relative',
           overflow: 'hidden',
           backgroundColor: theme.palette.background.paper,
-          paddingTop: CARD_ASPECT_RATIO,
+          paddingTop: CARD_ASPECT_RATIO, // Задает высоту через aspect ratio
           boxShadow: theme.shadows[3],
-          height: 0,
+          height: 0, // Необходимо для работы paddingTop trick
         }}
       >
+        {/* Контейнер для всего содержимого, чтобы оно было над псевдо-элементом высоты */}
         <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
           <img
             ref={imgRef}
@@ -158,44 +157,102 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
               filter: isBase64 ? 'blur(4px)' : 'none',
             }}
           />
-          <Box sx={{ /* Оверлей */ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: `rgba(0, 0, 0, ${OVERLAY_OPACITY})` }} />
-          <CardContent sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: `${CARD_PADDING}px`, boxSizing: 'border-box', '&:last-child': { paddingBottom: `${CARD_PADDING}px` } }} >
+          {/* Оверлей */}
+          <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: `rgba(0, 0, 0, ${OVERLAY_OPACITY})` }} />
+
+          {/* CardContent теперь снова управляет позиционированием через абсолютные дочерние элементы */}
+          <CardContent sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', /* Убрали justifyContent: 'space-between', т.к. элементы позиционируются абсолютно */ p: 0, /* Убрали padding здесь, будем добавлять где нужно */ boxSizing: 'border-box', '&:last-child': { paddingBottom: 0 } }} >
+
             {/* Заголовок */}
-            <Typography variant="h3" component="div" align="center" sx={{ fontWeight: 'bold', fontSize: { xs: '1.2rem', sm: '1.5rem', md: '1.8rem' },
-                // Убрали @ts-expect-error
-                ...(theme.custom?.cardTitle ?? {}), // Используем ?. и ?? {} для безопасности
-                mb: `${TITLE_MARGIN_BOTTOM}px`, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', }} >
+            <Typography
+              variant="h3"
+              component="div"
+              align="center"
+              sx={{
+                // Добавили позиционирование и паддинги сюда
+                position: 'relative', // Чтобы z-index работал, если понадобится
+                zIndex: 1, // На всякий случай поверх описания/тегов
+                pt: `${CARD_PADDING}px`,
+                pl: `${CARD_PADDING}px`,
+                pr: `${CARD_PADDING}px`,
+                fontWeight: 'bold',
+                fontSize: { xs: '1.2rem', sm: '1.5rem', md: '1.8rem' },
+                ...(theme.custom?.cardTitle ?? {}),
+                mb: `${TITLE_MARGIN_BOTTOM}px`, // Оставляем нижний отступ
+                overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+              }}
+            >
               {game.title || 'Untitled'}
             </Typography>
 
-            {/* Описание и Теги (standard variant) */}
+            {/* Описание и Теги (standard variant) - Используем старую логику позиционирования */}
             {variant === 'standard' && (
-              <Box sx={{ flexGrow: 1, overflow: 'hidden', position: 'relative', minHeight: '50px' }}>
+              <>
                 {/* Описание */}
-                <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: `calc(${TAG_SECTION_HEIGHT} + ${TAGS_MARGIN_TOP}px)`, overflow: 'hidden', fontSize: { xs: '0.8rem', sm: '0.9rem', md: '1rem' }, maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
-                     // Убрали @ts-expect-error
-                     ...(theme.custom?.cardText ?? {}), // Используем ?. и ?? {}
-                     }} >
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: DESCRIPTION_TOP, // <<< ВОЗВРАЩЕНО: Начинается с 60% высоты
+                    left: `${CARD_PADDING}px`, // Отступ слева
+                    right: `${CARD_PADDING}px`, // Отступ справа
+                    // <<< ВОЗВРАЩЕНО: Расчет низа из старой версии
+                    bottom: `calc(${TAG_SECTION_HEIGHT} + ${BOTTOM_INFO_MARGIN_TOP}px + ${BOTTOM_INFO_MARGIN_BOTTOM}px + 40px)`, // Оставляет место для тегов и нижней информации + небольшой запас (40px как в старой версии)
+                    overflow: 'hidden',
+                    fontSize: { xs: '0.8rem', sm: '0.9rem', md: '1rem' },
+                    maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)', // Оставляем градиент из новой версии (можно вернуть 80% если нужно)
+                    WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
+                    ...(theme.custom?.cardText ?? {}),
+                    color: theme.palette.text.primary, // Убедимся, что цвет текста установлен
+                     // zIndex: 0, // Можно добавить, если будут проблемы с перекрытием
+                  }}
+                >
                   <div dangerouslySetInnerHTML={{ __html: sanitizedDescription }} />
                 </Box>
+
                 {/* Теги */}
-                <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, mt: `${TAGS_MARGIN_TOP}px`, maxHeight: TAG_SECTION_HEIGHT, overflow: 'hidden', }} >
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, fontSize: { xs: '0.6rem', sm: '0.7rem', md: '0.8rem' } }} >
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    // <<< ВОЗВРАЩЕНО: Расчет низа из старой версии
+                    bottom: `calc(${BOTTOM_INFO_MARGIN_TOP}px + ${BOTTOM_INFO_MARGIN_BOTTOM}px + 30px)`, // Позиция над нижней информацией + небольшой запас (30px как в старой версии)
+                    left: `${CARD_PADDING}px`, // Отступ слева
+                    right: `${CARD_PADDING}px`, // Отступ справа
+                     // zIndex: 0, // Можно добавить, если будут проблемы с перекрытием
+                  }}
+                >
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, fontSize: { xs: '0.6rem', sm: '0.7rem', md: '0.8rem' }, maxHeight: TAG_SECTION_HEIGHT, overflow: 'hidden', /* Убрали mt, т.к. позиционируется абсолютно */ }} >
                     {sortedTags.map((tag) => {
                       const category = tag.expand?.tag_categories_via_tags?.[0].name;
                       return ( <Chip key={tag.id} label={tag.name} size="small" sx={{ backgroundColor: `${CATEGORY_COLORS[category ?? ''] || 'transparent'}`, color: theme.palette.text.primary, textShadow: '1px 1px 2px rgba(0,0,0,0.5)', }} /> );
                     })}
                   </Box>
                 </Box>
-              </Box>
+              </>
             )}
 
-            {/* Автор и Счетчики */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: variant !== 'standard' ? 'auto' : `${BOTTOM_INFO_MARGIN_TOP}px`, }} >
-              <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.9rem' },
-                    // Убрали @ts-expect-error
-                    ...(theme.custom?.cardText ?? {}), // Используем ?. и ?? {}
-                    textShadow: '1px 1px 3px rgba(3, 3, 3, 1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '50%', }} >
+            {/* Автор и Счетчики - Используем старую логику позиционирования */}
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                position: 'absolute', // <<< ВОЗВРАЩЕНО: Абсолютное позиционирование
+                bottom: `${CARD_PADDING}px`, // <<< ВОЗВРАЩЕНО: Отступ снизу
+                left: `${CARD_PADDING}px`, // <<< ВОЗВРАЩЕНО: Отступ слева
+                right: `${CARD_PADDING}px`, // <<< ВОЗВРАЩЕНО: Отступ справа
+                // mt не нужен при абсолютном позиционировании
+                 zIndex: 1, // На всякий случай поверх описания/тегов
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.9rem' },
+                  ...(theme.custom?.cardText ?? {}),
+                  textShadow: '1px 1px 3px rgba(3, 3, 3, 1)',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '50%', // Оставим ограничение ширины из новой версии
+                }}
+              >
                 {game.expand?.authors_via_games?.[0]?.name || 'Anonymous'}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>

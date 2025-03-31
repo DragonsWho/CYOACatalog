@@ -7,7 +7,9 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import AspectRatioIcon from '@mui/icons-material/AspectRatio';
-import { Game, logFrontendError } from '../../pocketbase/pocketbase';
+// Убираем импорт logFrontendError, так как он больше не используется напрямую в этом файле после удаления reportFullscreenIssue
+// import { Game, logFrontendError } from '../../pocketbase/pocketbase';
+import { Game } from '../../pocketbase/pocketbase'; // Оставляем только Game
 
 interface FullscreenDocument extends Document {
   fullscreenElement: Element | null;
@@ -281,68 +283,7 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
     return isApiSupported && isElementValid;
   };
 
-  const reportFullscreenIssue = async (error: string): Promise<void> => {
-    const doc = document as FullscreenDocument;
-    const docElement = document.documentElement;
-    
-    const fullscreenMethods = {
-      requestFullscreen: 'requestFullscreen' in docElement,
-      webkitRequestFullscreen: 'webkitRequestFullscreen' in docElement,
-      mozRequestFullScreen: 'mozRequestFullScreen' in docElement,
-      msRequestFullscreen: 'msRequestFullscreen' in docElement,
-    };
-    
-    const fullscreenExitMethods = {
-      exitFullscreen: !!doc.exitFullscreen,
-      webkitExitFullscreen: !!doc.webkitExitFullscreen,
-      mozCancelFullScreen: !!doc.mozCancelFullScreen,
-      msExitFullscreen: !!doc.msExitFullscreen,
-    };
-
-    const details: Record<string, unknown> = {
-      error: error,
-      errorStack: typeof error === 'object' && error !== null && 'stack' in error ? 
-                  (error as { stack: string }).stack : 'No stack available',
-      isFullscreen,
-      isImmersiveMode,
-      viewMode,
-      fullscreenSupported: isFullscreenSupported(iframeContainerRef.current),
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      vendor: navigator.vendor,
-      appVersion: navigator.appVersion,
-      isIOS: isIOS(),
-      isAndroidWebView: isAndroidWebView(),
-      screenOrientation: screen.orientation?.type || 'unknown',
-      screenWidth: screen.width,
-      screenHeight: screen.height,
-      screenPixelRatio: window.devicePixelRatio,
-      windowWidth: window.innerWidth,
-      windowHeight: window.innerHeight,
-      iframeRefExists: !!iframeRef.current,
-      iframeContainerRefExists: !!iframeContainerRef.current,
-      iframeUrl: game.iframe_url || 'N/A',
-      iframeCurrentWidth: iframeRef.current?.clientWidth,
-      iframeCurrentHeight: iframeRef.current?.clientHeight,
-      fullscreenAPISupport: {
-        documentFullscreenEnabled: doc.fullscreenEnabled,
-        webkitFullscreenEnabled: doc.webkitFullscreenEnabled,
-        mozFullScreenEnabled: doc.mozFullScreenEnabled,
-        msFullscreenEnabled: doc.msFullscreenEnabled,
-      },
-      fullscreenMethodsAvailable: fullscreenMethods,
-      fullscreenExitMethodsAvailable: fullscreenExitMethods,
-      currentFullscreenElement: {
-        standard: !!doc.fullscreenElement,
-        webkit: !!doc.webkitFullscreenElement,
-        moz: !!doc.mozFullScreenElement,
-        ms: !!doc.msFullscreenElement,
-      },
-      timestamp: new Date().toISOString(),
-    };
-    
-    await logFrontendError(`Fullscreen error: ${error}`, details);
-  };
+  // Удалена функция reportFullscreenIssue, так как она больше не используется
 
   const toggleFullscreen = async (): Promise<void> => {
     try {
@@ -398,7 +339,8 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
               docCheck.msFullscreenElement
             )
           ) {
-            reportFullscreenIssue('Fullscreen activation check failed after timeout');
+            // Логирование на сервер убрано
+            console.error('Fullscreen activation check failed after timeout'); // Можно оставить для локальной отладки
             toggleImmersiveMode();
           }
         }, 300);
@@ -419,10 +361,12 @@ export default function GameContent({ game }: GameContentProps): JSX.Element {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      await reportFullscreenIssue(errorMessage);
+      console.error('Fullscreen toggle error:', errorMessage); // Оставляем локальное логирование для отладки
+      // Логирование на сервер убрано
       toggleImmersiveMode();
     }
   };
+
 
   const toggleImmersiveMode = (): void => {
     if (!isImmersiveMode) {

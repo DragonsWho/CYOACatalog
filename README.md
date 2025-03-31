@@ -10,7 +10,7 @@ node.js
 typescript
 
 # For *nix
-
+ 
 `make install` to install dependencies
 
 `make build` to build the project

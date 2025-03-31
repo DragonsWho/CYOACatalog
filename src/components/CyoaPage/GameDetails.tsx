@@ -13,8 +13,7 @@ import {
   Game,
   gamesCollection,
   GameRelationship, // Тип теперь включает языки
-  gameRelationshipsCollection,
-  logFrontendError,
+  gameRelationshipsCollection, 
 } from '../../pocketbase/pocketbase';
 import DOMPurify from 'dompurify';
 
@@ -53,8 +52,7 @@ export default function GameDetails() {
           filter: `source_game = "${id}"`,
           expand: 'target_game', // Expand остается тем же
         }).catch(err => {
-            console.error("Failed to fetch outgoing relationships:", err);
-            logFrontendError("Fetch outgoing relationships failed", { gameId: id, error: err });
+            console.error("Failed to fetch outgoing relationships:", err); 
             return [];
         });
 
@@ -62,8 +60,7 @@ export default function GameDetails() {
           filter: `target_game = "${id}"`,
           expand: 'source_game', // Expand остается тем же
         }).catch(err => {
-            console.error("Failed to fetch incoming relationships:", err);
-            logFrontendError("Fetch incoming relationships failed", { gameId: id, error: err });
+            console.error("Failed to fetch incoming relationships:", err); 
             return [];
         });
 
@@ -79,8 +76,7 @@ export default function GameDetails() {
         setRelatedGames([...validOutgoing, ...validIncoming]); // Здесь теперь будут объекты с языками
 
       } catch (error) {
-        console.error('Ошибка при загрузке основной информации игры:', error);
-        logFrontendError("Fetch game details failed", { gameId: id, error: error instanceof Error ? error.message : String(error) });
+        console.error('Ошибка при загрузке основной информации игры:', error); 
       } finally {
         setLoading(false);
       }

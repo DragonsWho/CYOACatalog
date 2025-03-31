@@ -20,6 +20,12 @@ export type User = RecordModel & {
   name: string;
   avatar: string;
   isModerator: boolean;
+  blocked_tags?: string[];
+  blocked_tags_customized?: boolean; // <--- ДОБАВЛЕНО ПОЛЕ
+} & {
+  expand?: {
+    blocked_tags?: Tag[];
+  };
 };
 
 export const usersCollection = pb.collection('users') as RecordService<User>;
@@ -160,4 +166,9 @@ export async function login(args: { usernameOrEmail: string; password: string } 
   }
 }
 
-export const AuthContext = createContext({ signedIn: false, user: null as User | null, isModerator: false, });
+export const AuthContext = createContext({
+  signedIn: false,
+  user: null as User | null,
+  isModerator: false,
+  blockedTags: [] as Tag[], // Добавляем массив заблокированных тегов (объекты Tag)
+});

@@ -1,0 +1,50 @@
+/// <reference path="../pb_data/types.d.ts" />
+
+/**
+ * Хук, срабатывающий *перед* созданием записи в коллекции 'games'.
+ * Пытается установить начальное значение 'upvotes_count' на 0.
+ * Добавлены проверки и логирование для диагностики проблемы с 'e.data'.
+ */
+onRecordBeforeCreateRequest((e) => {
+    console.log("[Hook Create - games] Triggered.");
+
+    // Логируем весь объект 'e', чтобы увидеть его структуру
+    console.log("[Hook Create - games] Logging event object 'e':");
+    try {
+        // Используем JSON.stringify с replacer для обработки возможных сложных или циклических структур
+        console.log(JSON.stringify(e, (key, value) => {
+             // Простой обработчик, можно расширить при необходимости
+             if (key === 'httpContext') return '[omitted due to size]';
+             // Можно добавить обработку других больших или циклических полей
+             return value;
+        }, 2)); // 2 = отступ для читаемости
+    } catch (stringifyError) {
+        // Если JSON.stringify не сработал (например, из-за BigInt или циклических ссылок)
+        console.error("[Hook Create - games] Error stringifying 'e':", stringifyError);
+        // Логируем ключи и основные части по отдельности
+        console.log("[Hook Create - games] Available keys in 'e':", e ? Object.keys(e) : 'e is null/undefined');
+        console.log("[Hook Create - games] e.collection (type):", typeof e?.collection, "Value:", e?.collection);
+        console.log("[Hook Create - games] e.data (type):", typeof e?.data, "Value:", e?.data); // Особенно важно
+    }
+
+    // --- БЕЗОПАСНАЯ УСТАНОВКА ЗНАЧЕНИЯ ---
+    // Явно проверяем, что e и e.data существуют и являются объектом
+    if (e && typeof e.data === 'object' && e.data !== null) {
+        // Устанавливаем начальное значение счетчика.
+        e.data.upvotes_count = 0;
+        console.log(`[Hook Create - games] Successfully set e.data.upvotes_count to 0.`);
+    } else {
+        // Логируем, если e или e.data некорректны
+        console.error(`[Hook Create - games] Cannot set upvotes_count because 'e' or 'e.data' is missing or not an object.`);
+        console.log(`[Hook Create - games] Type of 'e':`, typeof e);
+        console.log(`[Hook Create - games] Type of 'e.data':`, typeof e?.data);
+        console.log(`[Hook Create - games] Value of 'e.data':`, e?.data);
+        // Мы не прерываем запрос, просто констатируем факт.
+        // Возможно, PocketBase сам установит значение по умолчанию (0), если оно задано в схеме.
+    }
+
+    // Явно ничего не возвращаем, чтобы запрос продолжился
+
+}, "games");
+
+console.log("Hook 'onRecordBeforeCreateRequest' for 'games' collection loaded (with diagnostics).");

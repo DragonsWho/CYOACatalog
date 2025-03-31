@@ -2,124 +2,237 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Typography, CircularProgress, Grid2, useTheme } from '@mui/material';
 import { Game, gamesCollection, tagsCollection, Tag } from '../../pocketbase/pocketbase';
+import type { FilterMode } from '../../App';
 import GameCard from '../GameCard';
 
 const ITEMS_PER_PAGE = 25;
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
- 
+interface SearchPageProps {
+  selectedTags: string[];
+  selectedAuthors: string[];
+  filterMode: FilterMode;
+  blockedTags: Tag[];
+}
+
 export default function SearchPage({
   selectedTags,
   selectedAuthors,
-}: {
-  selectedTags: string[];
-  selectedAuthors: string[];
-}) {
+  filterMode,
+  blockedTags,
+}: SearchPageProps) {
   const theme = useTheme();
   const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState<boolean>(true); // Начинаем с true
+  const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [tagMap, setTagMap] = useState<Map<string, Tag>>(new Map());
   const [tagsLoaded, setTagsLoaded] = useState(false);
-  // const [isPreloaded, setIsPreloaded] = useState(false); // Пока не используем initialData
-
-  // Реф для хранения предыдущих фильтров, чтобы избежать лишних запросов
-  const prevFiltersRef = useRef<{ tags: string[], authors: string[] } | null>(null); // Инициализируем null
-  // Флаг, чтобы выполнить начальную загрузку только один раз
   const initialFetchPerformedRef = useRef<boolean>(false);
 
-  // Функция загрузки игр (useCallback для стабильной ссылки)
+  const [sfwTagId, setSfwTagId] = useState<string | null>(null);
+  const [nsfwTagId, setNsfwTagId] = useState<string | null>(null);
+
+  const prevFiltersRef = useRef<{
+    tags: string[],
+    authors: string[],
+    mode: FilterMode,
+    blocked: string[]
+  } | null>(null);
+
+  // Находим ID для sfw и nsfw тегов после загрузки tagMap
+  useEffect(() => {
+    if (tagsLoaded && tagMap.size > 0) {
+      let foundSfwId: string | null = null;
+      let foundNsfwId: string | null = null;
+      console.log("[Tag ID Finder] Searching in tagMap size:", tagMap.size);
+      for (const [id, tag] of tagMap.entries()) {
+        if (tag.name.toLowerCase() === 'sfw') {
+          foundSfwId = id;
+          console.log(`[Tag ID Finder] Found SFW Tag: ID=${id}, Name=${tag.name}`);
+        } else if (tag.name.toLowerCase() === 'nsfw') {
+          foundNsfwId = id;
+          console.log(`[Tag ID Finder] Found NSFW Tag: ID=${id}, Name=${tag.name}`);
+        }
+      }
+      setSfwTagId(foundSfwId);
+      setNsfwTagId(foundNsfwId);
+      if (!foundSfwId) console.warn("[Tag ID Finder] SFW tag ID not found in tagMap!");
+      if (!foundNsfwId) console.warn("[Tag ID Finder] NSFW tag ID not found in tagMap!");
+    }
+  }, [tagsLoaded, tagMap]);
+
   const fetchGames = useCallback(
     async (pageNum = 1, isReset = false) => {
-      // Не выполняем запрос, если теги не загружены (доп. проверка)
-      if (!tagsLoaded) {
-          console.log("fetchGames aborted: tags not loaded yet.");
-          return;
-      }
-       // Предотвращаем лишние запросы при пагинации
-       if (!isReset && !hasMore) {
-        console.log("fetchGames aborted: no more pages.");
-        return;
-       }
+      const nsfwFilterActive = filterMode === 'nsfw' || filterMode === 'sfw';
+      const canFetch = tagsLoaded && (!nsfwFilterActive || nsfwTagId !== null);
 
-      console.log('fetchGames called with:', { pageNum, isReset });
+      if (!canFetch) { /* ... */ return; }
+      if (!isReset && !hasMore) { /* ... */ return; }
+
+      console.log('fetchGames called with:', { pageNum, isReset, filterMode, selectedTags });
       setLoading(true);
 
       try {
-         // Формирование фильтра
-         const filterConditions = [];
-         if (selectedTags.length > 0) {
-             const tagIds = Array.from(tagMap.entries())
-                               .filter(([_, tag]) => selectedTags.includes(tag.name))
-                               .map(([id, _]) => id);
-             if (tagIds.length > 0) {
-                  const tagConditions = tagIds.map(id => `tags.id ?= "${id}"`);
-                  filterConditions.push(`(${tagConditions.join(' || ')})`);
-             } else {
-                 console.warn("Selected tags not found in tagMap, filtering by tags resulted in no matches.");
-                 filterConditions.push('(1=0)');
+        const filterConditions: string[] = [];
+        const blockedTagIds = blockedTags.map(tag => tag.id);
+
+        const positiveSelectedTags: string[] = [];
+        const negativeSelectedTagNames: string[] = [];
+        selectedTags.forEach(tag => { if (tag.startsWith('-')) { const baseTagName = tag.substring(1); if (baseTagName) negativeSelectedTagNames.push(baseTagName); } else { positiveSelectedTags.push(tag); } });
+        console.log('[fetchGames] Parsed tags:', { positiveSelectedTags, negativeSelectedTagNames });
+
+
+        // --- НАЧАЛО ИЗМЕНЕНИЙ: Фильтр ПОЗИТИВНЫХ тегов (AND) ---
+        // 1. Фильтр по выбранным ПОЗИТИВНЫМ тегам (Все из)
+        if (positiveSelectedTags.length > 0) {
+          const positiveTagIds = Array.from(tagMap.entries())
+            .filter(([_, tag]) => positiveSelectedTags.includes(tag.name))
+            .map(([id, _]) => id);
+
+          if (positiveTagIds.length > 0) {
+             // Проверяем, все ли выбранные позитивные теги нашлись в tagMap
+             if (positiveTagIds.length !== positiveSelectedTags.length) {
+                console.warn("Some selected positive tags were not found in tagMap. Search results might be incomplete or empty.");
+                // Можно решить: или показать предупреждение, или сделать поиск невозможным (1=0)
+                // filterConditions.push('(1=0)');
              }
+
+             // Добавляем условие 'tags ~ "ID"' для КАЖДОГО ID через AND
+             const tagConditions = positiveTagIds.map(id => `tags ~ "${id}"`); // Используем '~' (contains)
+             filterConditions.push(...tagConditions); // Добавляем все условия как отдельные элементы (неявно через AND)
+             console.log(`Applying POSITIVE tags filter (AND): requiring all of IDs ${positiveTagIds.join(', ')}`);
+
+          } else {
+            // Если ни один из выбранных позитивных тегов не найден, результат будет пустым
+            console.warn("Selected positive tags not found in tagMap, filtering resulted in no matches.");
+            filterConditions.push('(1=0)');
+          }
+        }
+        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
+
+        // 2. Фильтр по выбранным авторам
+        if (selectedAuthors.length > 0) {
+          const authorConditions = selectedAuthors.map((author) => `authors_via_games.name ?~ "${author}"`);
+          filterConditions.push(`(${authorConditions.join(' || ')})`);
+        }
+
+        // 3. Фильтр по SFW/NSFW режиму
+        if (filterMode === 'sfw') {
+          if (nsfwTagId) { // Доп. проверка на наличие ID
+              filterConditions.push(`tags.id != "${nsfwTagId}"`);
+              console.log(`Applying SFW filter: excluding tag ID ${nsfwTagId}`);
+          } else {
+              console.error("SFW filter active, but NSFW tag ID is null!");
+              filterConditions.push('(1=0)'); // Блокируем результат если ID нет
+          }
+        } else if (filterMode === 'nsfw') {
+           if (nsfwTagId) { // Доп. проверка на наличие ID
+              filterConditions.push(`tags ~ "${nsfwTagId}"`); // Используем '~'
+              console.log(`Applying NSFW filter: requiring tag ID ${nsfwTagId} using '~' operator`);
+           } else {
+               console.error("NSFW filter active, but NSFW tag ID is null!");
+               filterConditions.push('(1=0)'); // Блокируем результат если ID нет
            }
-           if (selectedAuthors.length > 0) {
-             const authorConditions = selectedAuthors.map((author) => `authors_via_games.name ?~ "${author}"`);
-             filterConditions.push(`(${authorConditions.join(' || ')})`);
+        }
+
+        // 4. Фильтр по НЕГАТИВНЫМ выбранным тегам
+        if (negativeSelectedTagNames.length > 0) {
+            const negativeTagIds = Array.from(tagMap.entries())
+                .filter(([_, tag]) => negativeSelectedTagNames.includes(tag.name))
+                .map(([id, _]) => id);
+
+             if (negativeTagIds.length > 0) {
+                 const negativeConditions = negativeTagIds.map(id => `tags.id != "${id}"`);
+                 filterConditions.push(...negativeConditions); // Добавляем каждое условие через AND
+                 console.log(`Applying NEGATIVE tags filter: excluding IDs ${negativeTagIds.join(', ')}`);
+             } else {
+                 console.warn("Selected negative tags were specified, but their base names were not found in tagMap.");
+             }
+        }
+
+        // 5. Фильтр по заблокированным тегам (применяется всегда)
+        if (blockedTagIds.length > 0) {
+          // Убедимся, что не дублируем условия с негативными тегами
+          const finalBlockedIds = blockedTagIds.filter(blockedId =>
+              !negativeSelectedTagNames.some(negName => tagMap.get(blockedId)?.name === negName)
+          );
+          if (finalBlockedIds.length > 0) {
+              const blockedConditions = finalBlockedIds.map(id => `tags.id != "${id}"`);
+              filterConditions.push(...blockedConditions);
+              console.log(`Applying BLOCKED tags filter: excluding IDs ${finalBlockedIds.join(', ')}`);
+          }
+        }
+
+        const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
+        console.log('[fetchGames] Final filter string:', filterString || '<no filter>');
+        console.log('[fetchGames] Requesting page:', pageNum);
+
+        const fieldsToFetch = 'id,collectionId,title,description,image,image_base64,tags,expand.authors_via_games.name,upvotes_count,comments_count';
+
+        const fetchedGamesResult = await gamesCollection.getList(pageNum, ITEMS_PER_PAGE, {
+          sort: '-created',
+          expand: 'authors_via_games',
+          filter: filterString,
+          fields: fieldsToFetch,
+        });
+
+        console.log(`[fetchGames] RAW response (page ${pageNum}):`, fetchedGamesResult.items.length, 'items received.');
+
+        const enrichedGames = fetchedGamesResult.items.map((game) => {
+          const gameTags = Array.isArray(game.tags) ? game.tags : [];
+          const enrichedTags = gameTags
+            .map((tagId) => tagMap.get(tagId))
+            .filter((tag): tag is Tag => tag !== undefined);
+          return { ...game, expand: { ...game.expand, tags: enrichedTags }, };
+        });
+
+        // Пост-проверка для негативных тегов
+        if (negativeSelectedTagNames.length > 0) {
+           const negativeTagIds = Array.from(tagMap.entries())
+               .filter(([_, tag]) => negativeSelectedTagNames.includes(tag.name))
+               .map(([id, _]) => id);
+           const gamesWithNegativeTags = enrichedGames.filter(g =>
+               g.expand?.tags?.some(t => negativeTagIds.includes(t.id))
+           );
+            if (gamesWithNegativeTags.length > 0) {
+              console.warn(`[POST-CHECK] Negative tags filter applied, but ${gamesWithNegativeTags.length} games with excluded tags found AFTER enrichment! IDs:`, gamesWithNegativeTags.map(g => g.id));
+            }
+        }
+        // Пост-проверка для NSFW режима
+        if (filterMode === 'nsfw' && nsfwTagId) {
+           const gamesWithNsfw = enrichedGames.filter(g => g.expand?.tags?.some(t => t.id === nsfwTagId));
+            if (enrichedGames.length > 0 && gamesWithNsfw.length === 0) {
+               console.warn(`[POST-CHECK] WARNING: NSFW filter active, games received (${enrichedGames.length}), but NONE seem to have the NSFW tag after enrichment.`);
            }
-           const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
-           console.log('Fetching games with filter:', filterString);
+        }
 
-         // Запрос данных с upvotes_count и comments_count
-         const fieldsToFetch = 'id,collectionId,title,description,image,image_base64,tags,expand.authors_via_games.name,upvotes_count,comments_count'; // Добавлен comments_count, убран comments
+        console.log(`[fetchGames] Enriched ${enrichedGames.length} games (page ${pageNum}/${fetchedGamesResult.totalPages})`);
 
-         const fetchedGamesResult = await gamesCollection.getList(pageNum, ITEMS_PER_PAGE, {
-           sort: '-created',
-           expand: 'authors_via_games', // Только авторов, теги обогатим вручную
-           filter: filterString,
-           fields: fieldsToFetch, // Используем обновленный список
-         });
+        setGames((prevGames) => {
+          const newGames = isReset ? enrichedGames : [...prevGames, ...enrichedGames];
+          const uniqueGames = Array.from(new Map(newGames.map((game) => [game.id, game])).values());
+          console.log(`[setGames] Total unique games: ${uniqueGames.length}`);
+          return uniqueGames;
+        });
 
-         console.log(`fetchGames RAW response (page ${pageNum}):`, JSON.parse(JSON.stringify(fetchedGamesResult.items)));
+        setHasMore(fetchedGamesResult.items.length === ITEMS_PER_PAGE);
+        console.log(`[fetchGames] hasMore set to: ${fetchedGamesResult.items.length === ITEMS_PER_PAGE} (based on items received)`);
 
-         // Обогащение тегов
-         const enrichedGames = fetchedGamesResult.items.map((game) => {
-           // Убедимся, что game.tags существует и является массивом перед map
-           const gameTags = Array.isArray(game.tags) ? game.tags : [];
-           const enrichedTags = gameTags
-             .map((tagId) => tagMap.get(tagId))
-             .filter((tag): tag is Tag => tag !== undefined);
-           return {
-             ...game,
-             expand: { ...game.expand, tags: enrichedTags }, // Добавляем теги к существующему expand (авторы)
-           };
-         });
-
-
-         console.log(`fetchGames ENRICHED games (page ${pageNum}):`, JSON.parse(JSON.stringify(enrichedGames)));
-         console.log(`Fetched ${enrichedGames.length} games (page ${pageNum}/${fetchedGamesResult.totalPages})`);
-
-         // Обновление состояния игр
-         setGames((prevGames) => {
-           const newGames = isReset ? enrichedGames : [...prevGames, ...enrichedGames];
-           // Убираем дубликаты на всякий случай
-           return Array.from(new Map(newGames.map((game) => [game.id, game])).values());
-         });
-
-         setHasMore(fetchedGamesResult.items.length > 0 && fetchedGamesResult.totalPages > pageNum);
-
-      } catch (error) {
-        console.error('Error fetching games:', error);
-        setHasMore(false); // Останавливаем пагинацию при ошибке
+      } catch (error: any) {
+        console.error('[fetchGames] Error fetching games:', error);
+        if (error.isAbort) { console.warn('[fetchGames] Request was aborted.'); }
+        else { console.error('[fetchGames] PocketBase error details:', error.data); }
+        setHasMore(false);
       } finally {
-        setLoading(false); // Завершаем загрузку
+        setLoading(false);
+        console.log('[fetchGames] Loading set to false');
       }
     },
-    // Зависимости fetchGames
-    [tagsLoaded, hasMore, selectedTags, selectedAuthors, tagMap]
+    [tagsLoaded, hasMore, selectedTags, selectedAuthors, tagMap, filterMode, blockedTags, nsfwTagId]
   );
 
-  // --- ЛОГИКА useEffect ---
-
-  // 1. Загрузка тегов (выполняется один раз при монтировании)
+  // 1. Загрузка тегов
   useEffect(() => {
     let isMounted = true;
     console.log("[useEffect tags] Starting tags load...");
@@ -136,14 +249,15 @@ export default function SearchPage({
             newTagMap = new Map(JSON.parse(cachedTags));
         } else {
             console.log("[useEffect tags] Fetching tags from server...");
-            const fetchedTags = await tagsCollection.getFullList({
-              expand: 'tag_categories_via_tags',
-              fields: 'id,name,expand.tag_categories_via_tags.name',
+            const fetchedTags = await tagsCollection.getFullList(500, { // Увеличил лимит на всякий случай
+              fields: 'id,name', // Запрашиваем только ID и имя
+              sort: 'name'
             });
-            newTagMap = new Map(fetchedTags.map((tag) => [tag.id, tag as Tag]));
+            const tagsTyped = fetchedTags.map(tag => tag as unknown as Tag);
+            newTagMap = new Map(tagsTyped.map((tag) => [tag.id, tag]));
             localStorage.setItem('tagMap', JSON.stringify([...newTagMap]));
             localStorage.setItem('tagMapLastUpdated', now.toString());
-            console.log("[useEffect tags] Tags fetched and cached.");
+            console.log("[useEffect tags] Tags fetched and cached. Map size:", newTagMap.size);
         }
 
         if (isMounted) {
@@ -153,7 +267,7 @@ export default function SearchPage({
         }
 
       } catch (error) {
-        console.error('Error loading tags:', error);
+        console.error('[useEffect tags] Error loading tags:', error);
         if (isMounted) {
             setTagsLoaded(true);
             setLoading(false);
@@ -165,68 +279,89 @@ export default function SearchPage({
     return () => { isMounted = false; };
   }, []);
 
-  // 2. Начальная загрузка игр (срабатывает ОДИН РАЗ после загрузки тегов)
+  // 2. Начальная загрузка игр
   useEffect(() => {
-    if (tagsLoaded && !initialFetchPerformedRef.current) {
-      console.log("[useEffect initial load] Tags loaded and initial fetch not performed yet. Fetching initial games...");
+    const nsfwFilterActive = filterMode === 'nsfw' || filterMode === 'sfw';
+    const readyToFetch = tagsLoaded && (filterMode === 'all' || (nsfwFilterActive && nsfwTagId !== null));
+
+    console.log("[useEffect initial load] Checking conditions:", { tagsLoaded, filterMode, nsfwFilterActive, nsfwTagIdExists: nsfwTagId !== null, initialFetchPerformed: initialFetchPerformedRef.current });
+
+    if (readyToFetch && !initialFetchPerformedRef.current) {
+      console.log("[useEffect initial load] Conditions met. Fetching initial games...");
       initialFetchPerformedRef.current = true;
       fetchGames(1, true);
-    } else if (!tagsLoaded) {
-      console.log("[useEffect initial load] Waiting for tags...");
-    } else {
-        console.log("[useEffect initial load] Initial fetch already performed.");
+    } else if (tagsLoaded && nsfwFilterActive && nsfwTagId === null && !initialFetchPerformedRef.current) {
+      console.log("[useEffect initial load] Waiting for NSFW tag ID...");
+      setLoading(true);
+    } else if (!tagsLoaded && !initialFetchPerformedRef.current) {
+        console.log("[useEffect initial load] Waiting for tags...");
+        setLoading(true);
     }
-  }, [tagsLoaded, fetchGames]); // Зависит от tagsLoaded и fetchGames
+  }, [tagsLoaded, filterMode, nsfwTagId, fetchGames]);
 
   // 3. Обработка изменения фильтров
   useEffect(() => {
-    if (!tagsLoaded || !initialFetchPerformedRef.current) {
-        console.log("[useEffect filters] Skipping check: tags not loaded or initial fetch not done.");
+    if (!initialFetchPerformedRef.current) {
+      // console.log("[useEffect filters] Skipping check: initial fetch not performed yet.");
+      return;
+    }
+     if (!tagsLoaded) {
+        // console.log("[useEffect filters] Skipping check: tags not loaded yet.");
         return;
     }
+
+    const currentBlockedIds = blockedTags.map(t => t.id).sort();
+
     if (prevFiltersRef.current === null) {
-        console.log("[useEffect filters] Initializing prevFiltersRef.");
-        prevFiltersRef.current = { tags: [...selectedTags], authors: [...selectedAuthors] };
-        return;
+      console.log("[useEffect filters] Initializing prevFiltersRef.");
+      prevFiltersRef.current = {
+        tags: [...selectedTags],
+        authors: [...selectedAuthors],
+        mode: filterMode,
+        blocked: currentBlockedIds,
+      };
+      return;
     }
 
     const tagsChanged = JSON.stringify(selectedTags.sort()) !== JSON.stringify(prevFiltersRef.current.tags.sort());
     const authorsChanged = JSON.stringify(selectedAuthors.sort()) !== JSON.stringify(prevFiltersRef.current.authors.sort());
-    const hasMeaningfulChange = tagsChanged || authorsChanged;
+    const modeChanged = filterMode !== prevFiltersRef.current.mode;
+    const blockedChanged = JSON.stringify(currentBlockedIds) !== JSON.stringify(prevFiltersRef.current.blocked);
+
+    const hasMeaningfulChange = tagsChanged || authorsChanged || modeChanged || blockedChanged;
 
     if (hasMeaningfulChange) {
-        console.log('[useEffect filters] Filters changed, fetching...');
-        prevFiltersRef.current = {
-          tags: [...selectedTags],
-          authors: [...selectedAuthors],
-        };
-        setPage(1);
-        setHasMore(true);
-        setGames([]);
-        fetchGames(1, true);
-    } else {
-         // console.log('[useEffect filters] Filters not meaningfully changed, skipping fetch.');
+      console.log('[useEffect filters] Filters changed, fetching...', { tagsChanged, authorsChanged, modeChanged, blockedChanged });
+      prevFiltersRef.current = {
+        tags: [...selectedTags],
+        authors: [...selectedAuthors],
+        mode: filterMode,
+        blocked: currentBlockedIds,
+      };
+      setPage(1);
+      setHasMore(true);
+      setGames([]);
+      fetchGames(1, true);
     }
-  }, [selectedTags, selectedAuthors, tagsLoaded, fetchGames]); // Зависимости
+  }, [selectedTags, selectedAuthors, filterMode, blockedTags, tagsLoaded, fetchGames]);
 
-  // 4. Бесконечная прокрутка (Загрузка следующей страницы)
+  // 4. Бесконечная прокрутка
   useEffect(() => {
-    if (page > 1 && tagsLoaded && hasMore) {
+    if (page > 1 && hasMore && !loading && initialFetchPerformedRef.current) {
       console.log('[useEffect pagination] Loading next page:', page);
       fetchGames(page, false);
     }
-  }, [page, tagsLoaded, hasMore, fetchGames]);
-
+  }, [page, hasMore, loading, fetchGames]);
 
   // Intersection Observer
   const observer = useRef<IntersectionObserver | null>(null);
   const lastGameElementRef = useCallback(
     (node: HTMLElement | null) => {
-      if (loading) return;
+      if (loading || !hasMore) return;
       if (observer.current) observer.current.disconnect();
       observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMore) {
-          console.log('Observer triggered, loading more games');
+        if (entries[0].isIntersecting) {
+          console.log('[Observer] Last element visible, requesting next page');
           setPage((prevPage) => prevPage + 1);
         }
       });
@@ -235,15 +370,13 @@ export default function SearchPage({
     [loading, hasMore],
   );
 
-  // Мемоизация списка игр для рендера
   const memoizedGames = useMemo(() => games, [games]);
-  // Флаг активного поиска
   const isSearchActive = selectedTags.length > 0 || selectedAuthors.length > 0;
+  const isFilterActive = filterMode !== 'all' || blockedTags.length > 0;
 
   // --- JSX Рендеринг ---
   return (
     <Box sx={{ width: '100%', p: 3 }}>
-      {/* Заголовок */}
       <Typography
         variant="h3"
         sx={{
@@ -257,21 +390,21 @@ export default function SearchPage({
         {isSearchActive ? 'Search Results' : 'Recent Uploads'}
       </Typography>
 
-      {/* Начальный индикатор загрузки */}
-      {loading && !initialFetchPerformedRef.current && (
+      {/* Индикатор загрузки */}
+      {loading && (games.length === 0 || (initialFetchPerformedRef.current && page === 1)) && (
          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
             <CircularProgress />
          </Box>
       )}
 
       {/* Список игр */}
-      {initialFetchPerformedRef.current && games.length > 0 && (
+      {games.length > 0 && (
         <Grid2 container spacing={2} justifyContent="center">
             {memoizedGames.map((game, index) => (
                 <Grid2
                     size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}
-                    key={`search-${game.id}-${index}`} // Уникальный ключ
-                    ref={memoizedGames.length === index + 1 ? lastGameElementRef : null}
+                    key={`search-${game.id}-${index}`}
+                    ref={index === memoizedGames.length - 1 && hasMore ? lastGameElementRef : null}
                 >
                     <GameCard game={game} key={game.id} variant="standard"/>
                 </Grid2>
@@ -279,22 +412,25 @@ export default function SearchPage({
         </Grid2>
       )}
 
-      {/* Индикатор загрузки для пагинации */}
-      {loading && initialFetchPerformedRef.current && page > 1 && (
+      {/* Индикатор пагинации */}
+      {loading && games.length > 0 && page > 1 && (
           <CircularProgress sx={{ mt: 2, display: 'block', margin: 'auto' }} />
       )}
 
-      {/* Сообщение "Больше нет игр" */}
+      {/* Конец списка */}
       {initialFetchPerformedRef.current && !loading && !hasMore && games.length > 0 && (
         <Typography sx={{ mt: 2, textAlign: 'center', color: 'text.secondary' }}>
             No more games to load
         </Typography>
       )}
 
-      {/* Сообщение "Игр не найдено" */}
+      {/* Игр не найдено */}
       {initialFetchPerformedRef.current && !loading && games.length === 0 && (
         <Typography sx={{ mt: 2, textAlign: 'center', color: 'text.secondary' }}>
-          {isSearchActive ? 'No games found matching your search criteria' : 'No games available'}
+          {isSearchActive || isFilterActive
+              ? 'No games found matching your criteria'
+              : 'No games available'
+          }
         </Typography>
       )}
     </Box>

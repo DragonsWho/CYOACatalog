@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { Container, Typography, Box, CircularProgress, Grid2, Paper, Theme } from '@mui/material';
+import { Container, Typography, Box, CircularProgress, Grid2, Paper } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import TagDisplay from './TagDisplay';
 import GameContent from './GameContent';
@@ -13,21 +13,11 @@ import {
   Game,
   gamesCollection,
   GameRelationship, // Тип теперь включает языки
-  gameRelationshipsCollection,
-  logFrontendError,
+  gameRelationshipsCollection, 
 } from '../../pocketbase/pocketbase';
 import DOMPurify from 'dompurify';
 
-interface CustomTheme extends Theme {
-  custom?: {
-    borderRadius?: string;
-    boxShadow?: string;
-    comments?: {
-      backgroundColor?: string;
-      borderRadius?: string;
-    };
-  };
-}
+ 
 
 export default function GameDetails() {
   const [game, setGame] = useState<Game | null>(null);
@@ -37,7 +27,7 @@ export default function GameDetails() {
   const [imageSrc, setImageSrc] = useState<string>(''); 
   const imgRef = useRef<HTMLImageElement>(null);
   const { id } = useParams<{ id: string }>();
-  const theme = useTheme<CustomTheme>();
+  const theme = useTheme(); 
   const sanitizedDescription = useMemo(() => (game ? DOMPurify.sanitize(game.description) : ''), [game]);
 
   useEffect(() => {
@@ -62,8 +52,7 @@ export default function GameDetails() {
           filter: `source_game = "${id}"`,
           expand: 'target_game', // Expand остается тем же
         }).catch(err => {
-            console.error("Failed to fetch outgoing relationships:", err);
-            logFrontendError("Fetch outgoing relationships failed", { gameId: id, error: err });
+            console.error("Failed to fetch outgoing relationships:", err); 
             return [];
         });
 
@@ -71,8 +60,7 @@ export default function GameDetails() {
           filter: `target_game = "${id}"`,
           expand: 'source_game', // Expand остается тем же
         }).catch(err => {
-            console.error("Failed to fetch incoming relationships:", err);
-            logFrontendError("Fetch incoming relationships failed", { gameId: id, error: err });
+            console.error("Failed to fetch incoming relationships:", err); 
             return [];
         });
 
@@ -88,8 +76,7 @@ export default function GameDetails() {
         setRelatedGames([...validOutgoing, ...validIncoming]); // Здесь теперь будут объекты с языками
 
       } catch (error) {
-        console.error('Ошибка при загрузке основной информации игры:', error);
-        logFrontendError("Fetch game details failed", { gameId: id, error: error instanceof Error ? error.message : String(error) });
+        console.error('Ошибка при загрузке основной информации игры:', error); 
       } finally {
         setLoading(false);
       }

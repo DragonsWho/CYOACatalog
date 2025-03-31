@@ -8,15 +8,14 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Link as RouterLink } from 'react-router-dom';
 import {
-    Game, GameRelationship, gameRelationshipsCollection,
-    logFrontendError
+    Game, GameRelationship, gameRelationshipsCollection
 } from '../../pocketbase/pocketbase';
 
 interface RelationshipOption {
-    value: string; // Уникальный ключ опции
-    label: string; // Текст для отображения в Dropdown
-    dbType: GameRelationship['relationship_type']; // Тип для сохранения в БД
-    swapSourceTarget: boolean; // Нужно ли менять местами This/Other при сохранении
+    value: string;
+    label: string;
+    dbType: GameRelationship['relationship_type'];
+    swapSourceTarget: boolean;
 }
 
 const RELATIONSHIP_OPTIONS: RelationshipOption[] = [
@@ -35,10 +34,7 @@ const RELATIONSHIP_OPTIONS: RelationshipOption[] = [
 ];
 
 
-
-
 const formatRelationshipForModerator = (rel: GameRelationship, currentGameId: string): React.ReactNode => {
-
     const otherGame = rel.source_game === currentGameId ? rel.expand?.target_game : rel.expand?.source_game;
     const otherGameTitle = otherGame?.title || 'Unknown Game';
     let baseText = '';
@@ -78,18 +74,17 @@ const GameRelationshipEditor: React.FC<GameRelationshipEditorProps> = ({ selecte
 
 
     const [targetGame, setTargetGame] = useState<Game | null>(null);
-    const [selectedOptionValue, setSelectedOptionValue] = useState<string>(''); // Храним value опции
-    const [language1, setLanguage1] = useState(''); // Язык 1 (оригинал/источник по смыслу)
-    const [language2, setLanguage2] = useState(''); // Язык 2 (перевод/цель по смыслу)
-    const [descriptionThis, setDescriptionThis] = useState(''); // Описание на ЭТОЙ странице
-    const [descriptionOther, setDescriptionOther] = useState(''); // Описание на ДРУГОЙ странице
+    const [selectedOptionValue, setSelectedOptionValue] = useState<string>('');
+    const [language1, setLanguage1] = useState('');
+    const [language2, setLanguage2] = useState('');
+    const [descriptionThis, setDescriptionThis] = useState('');
+    const [descriptionOther, setDescriptionOther] = useState('');
     const [isAdding, setIsAdding] = useState(false);
 
     const availableTargetGames = useMemo(() => {
         return allGames.filter(game => game.id !== selectedGame.id);
     }, [allGames, selectedGame.id]);
 
-    // Находим выбранный объект опции по его value 
     const selectedOption = useMemo(() => {
         return RELATIONSHIP_OPTIONS.find(opt => opt.value === selectedOptionValue);
     }, [selectedOptionValue]);
@@ -97,8 +92,15 @@ const GameRelationshipEditor: React.FC<GameRelationshipEditorProps> = ({ selecte
     const fetchRelationships = useCallback(async () => {
         if (!selectedGame?.id) return;
         setIsLoading(true); setError(null);
-        try { const filter = `(source_game = "${selectedGame.id}" || target_game = "${selectedGame.id}")`; const result = await gameRelationshipsCollection.getFullList({ filter: filter, expand: 'source_game,target_game', sort: '-created' }); setRelationships(result); }
-        catch (err: any) { console.error("Error fetching relationships:", err); setError("Failed to load relationships."); logFrontendError("ModeratorPanel: Fetch relationships failed", { gameId: selectedGame.id, error: err }); }
+        try {
+            const filter = `(source_game = "${selectedGame.id}" || target_game = "${selectedGame.id}")`;
+            const result = await gameRelationshipsCollection.getFullList({ filter: filter, expand: 'source_game,target_game', sort: '-created' });
+            setRelationships(result);
+        }
+        catch (err: any) {
+            console.error("ModeratorPanel: Fetch relationships failed", { gameId: selectedGame.id, error: err }); // Заменено на console.error
+            setError("Failed to load relationships.");
+        }
         finally { setIsLoading(false); }
     }, [selectedGame?.id]);
 
@@ -106,11 +108,16 @@ const GameRelationshipEditor: React.FC<GameRelationshipEditorProps> = ({ selecte
 
     const handleDelete = async (relationshipId: string) => {
         if (!window.confirm("Are you sure you want to delete this relationship?")) return;
-        try { await gameRelationshipsCollection.delete(relationshipId); setRelationships(prev => prev.filter(rel => rel.id !== relationshipId)); }
-        catch (err: any) { console.error("Error deleting relationship:", err); alert("Failed to delete relationship."); logFrontendError("ModeratorPanel: Delete relationship failed", { relationshipId, error: err }); }
+        try {
+            await gameRelationshipsCollection.delete(relationshipId);
+            setRelationships(prev => prev.filter(rel => rel.id !== relationshipId));
+        }
+        catch (err: any) {
+            console.error("ModeratorPanel: Delete relationship failed", { relationshipId, error: err }); // Заменено на console.error
+            alert("Failed to delete relationship.");
+        }
     };
 
-    // Логика добавления связи (остается без изменений, т.к. работает с dbType и swapSourceTarget)
     const handleAdd = async () => {
         if (!targetGame || !selectedOption) { alert("Please select a target game and relationship type."); return; }
         setIsAdding(true);
@@ -123,7 +130,6 @@ const GameRelationshipEditor: React.FC<GameRelationshipEditorProps> = ({ selecte
             let langSource: string | undefined = undefined;
             let langTarget: string | undefined = undefined;
             if (dbType === 'Translation') {
-                // Независимо от swap, language1 должен идти в source_language, language2 в target_language
                 langSource = language1.trim() || undefined;
                 langTarget = language2.trim() || undefined;
             }
@@ -134,12 +140,11 @@ const GameRelationshipEditor: React.FC<GameRelationshipEditorProps> = ({ selecte
                 source_language: langSource, target_language: langTarget,
             };
             await gameRelationshipsCollection.create(payload);
-            // Очистка формы
             setTargetGame(null); setSelectedOptionValue(''); setLanguage1(''); setLanguage2(''); setDescriptionThis(''); setDescriptionOther('');
             await fetchRelationships();
         } catch (err: any) {
-            console.error("Error adding relationship:", err); alert(`Failed to add relationship: ${err.message || 'Unknown error'}`);
-            logFrontendError("ModeratorPanel: Add relationship failed", { selectedOption: selectedOptionValue, thisGameId: selectedGame.id, otherGameId: targetGame?.id, error: err });
+            console.error("ModeratorPanel: Add relationship failed", { selectedOption: selectedOptionValue, thisGameId: selectedGame.id, otherGameId: targetGame?.id, error: err }); // Заменено на console.error
+            alert(`Failed to add relationship: ${err.message || 'Unknown error'}`);
         } finally { setIsAdding(false); }
     };
 
@@ -147,7 +152,6 @@ const GameRelationshipEditor: React.FC<GameRelationshipEditorProps> = ({ selecte
         <Box sx={{ mt: 3, borderTop: '1px solid #555', pt: 2 }}>
             <Typography variant="subtitle1" gutterBottom sx={{ color: '#e0e0e0' }}> Game Relationships </Typography>
 
-            {/* Список существующих связей */}
             {isLoading && <CircularProgress size={24} />}
             {error && <Typography color="error">{error}</Typography>}
             {!isLoading && !error && relationships.length === 0 && ( <Typography variant="body2" sx={{ color: '#aaa' }}>No relationships found.</Typography> )}
@@ -155,62 +159,138 @@ const GameRelationshipEditor: React.FC<GameRelationshipEditorProps> = ({ selecte
                  <List dense sx={{ mb: 2 }}>
                      {relationships.map((rel) => {
                          const otherGame = rel.source_game === selectedGame.id ? rel.expand?.target_game : rel.expand?.source_game;
-                         return ( <ListItem key={rel.id} disableGutters secondaryAction={ <Tooltip title="Delete Relationship"><IconButton edge="end" aria-label="delete" onClick={() => handleDelete(rel.id)} size="small"><DeleteIcon sx={{ color: '#aaa', '&:hover': { color: 'red'} }}/></IconButton></Tooltip> } > <ListItemText primary={ <Typography variant="body2" component="span"> This game {formatRelationshipForModerator(rel, selectedGame.id)} </Typography> } secondary={otherGame && <Link component={RouterLink} to={`/game/${otherGame.id}`} target="_blank" rel="noopener noreferrer" sx={{ fontSize: '0.75rem'}}>View related game</Link> } /> </ListItem> );
+                         return (
+                             <ListItem
+                                key={rel.id}
+                                disableGutters
+                                secondaryAction={
+                                    <Tooltip title="Delete Relationship">
+                                        <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(rel.id)} size="small">
+                                            <DeleteIcon sx={{ color: '#aaa', '&:hover': { color: 'red'} }}/>
+                                        </IconButton>
+                                    </Tooltip>
+                                }
+                             >
+                                <ListItemText
+                                    primary={
+                                        <Typography variant="body2" component="span">
+                                            This game {formatRelationshipForModerator(rel, selectedGame.id)}
+                                        </Typography>
+                                    }
+                                    secondary={otherGame &&
+                                        <Link component={RouterLink} to={`/game/${otherGame.id}`} target="_blank" rel="noopener noreferrer" sx={{ fontSize: '0.75rem'}}>
+                                            View related game
+                                        </Link>
+                                    }
+                                />
+                             </ListItem>
+                         );
                      })}
                  </List>
              )}
 
-            {/* Форма добавления */}
             <Typography variant="subtitle2" sx={{ color: '#ccc', mt: 2, mb: 1 }}> Add New Relationship </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                 <Autocomplete options={availableTargetGames} getOptionLabel={(option) => `${option.title || 'Untitled'} (ID: ${option.id})`} value={targetGame} onChange={(_, newValue) => setTargetGame(newValue)} renderInput={(params) => ( <TextField {...params} label="Select Other Game" variant="outlined" size="small"/> )} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#aaa' }, '&:hover fieldset': { borderColor: '#ccc' }, '&.Mui-focused fieldset': { borderColor: 'primary.main' }, }, '& .MuiInputLabel-root': { color: '#aaa' }, '& .MuiAutocomplete-input': { color: '#e0e0e0' }, '& .MuiAutocomplete-popupIndicator': { color: '#aaa'}, '& .MuiAutocomplete-clearIndicator': { color: '#aaa'} }} slotProps={{ paper: { sx: { bgcolor: '#333', color: '#e0e0e0' } } }} />
+                 <Autocomplete
+                    options={availableTargetGames}
+                    getOptionLabel={(option) => `${option.title || 'Untitled'} (ID: ${option.id})`}
+                    value={targetGame}
+                    onChange={(_, newValue) => setTargetGame(newValue)}
+                    renderInput={(params) => (
+                        <TextField {...params} label="Select Other Game" variant="outlined" size="small"/>
+                    )}
+                    sx={{
+                        '& .MuiOutlinedInput-root': {
+                            '& fieldset': { borderColor: '#aaa' },
+                            '&:hover fieldset': { borderColor: '#ccc' },
+                            '&.Mui-focused fieldset': { borderColor: 'primary.main' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#aaa' },
+                        '& .MuiAutocomplete-input': { color: '#e0e0e0' },
+                        '& .MuiAutocomplete-popupIndicator': { color: '#aaa'},
+                        '& .MuiAutocomplete-clearIndicator': { color: '#aaa'}
+                    }}
+                    slotProps={{ paper: { sx: { bgcolor: '#333', color: '#e0e0e0' } } }}
+                 />
 
-                 {/* Выбор типа связи (используем новые опции) */}
-                 <Select value={selectedOptionValue} onChange={(event: SelectChangeEvent) => setSelectedOptionValue(event.target.value as string)} displayEmpty fullWidth size="small" sx={{ color: selectedOptionValue ? '#e0e0e0' : '#aaa', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#aaa' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#ccc' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' }, '& .MuiSelect-icon': { color: '#aaa' } }} MenuProps={{ PaperProps: { sx: { backgroundColor: '#333', color: '#e0e0e0' } } }} >
+                 <Select
+                    value={selectedOptionValue}
+                    onChange={(event: SelectChangeEvent) => setSelectedOptionValue(event.target.value as string)}
+                    displayEmpty
+                    fullWidth
+                    size="small"
+                    sx={{
+                        color: selectedOptionValue ? '#e0e0e0' : '#aaa',
+                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#aaa' },
+                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#ccc' },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                        '& .MuiSelect-icon': { color: '#aaa' }
+                    }}
+                    MenuProps={{ PaperProps: { sx: { backgroundColor: '#333', color: '#e0e0e0' } } }}
+                 >
                      <MenuItem value="" disabled><em>Select Relationship Between THIS and OTHER Game</em></MenuItem>
-                     {/* <<<=== Используем новые компактные опции ===>>> */}
-                     {RELATIONSHIP_OPTIONS.map((option) => ( <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem> ))}
+                     {RELATIONSHIP_OPTIONS.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                     ))}
                  </Select>
 
-                 {/* Поля для языков (появляются только для Translation) */}
                  {selectedOption?.dbType === 'Translation' && (
                      <Box sx={{ display: 'flex', gap: 1 }}>
                          <TextField
-                             label="Language 1 (Original)" // Лейбл теперь фиксированный
+                             label="Language 1 (Original)"
                              value={language1}
                              onChange={(e) => setLanguage1(e.target.value)}
-                             variant="outlined" size="small" fullWidth InputLabelProps={{ style: { color: '#aaa' } }} InputProps={{ style: { color: '#e0e0e0' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#aaa' } } }}
-                             helperText={selectedOption.swapSourceTarget ? "Lang of OTHER" : "Lang of THIS"} // Подсказка меняется
+                             variant="outlined" size="small" fullWidth
+                             InputLabelProps={{ style: { color: '#aaa' } }}
+                             InputProps={{ style: { color: '#e0e0e0' } }}
+                             sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#aaa' } } }}
+                             helperText={selectedOption.swapSourceTarget ? "Lang of OTHER" : "Lang of THIS"}
                              FormHelperTextProps={{sx:{color:'#888'}}}
                          />
                          <TextField
-                             label="Language 2 (Translated)" // Лейбл теперь фиксированный
+                             label="Language 2 (Translated)"
                              value={language2}
                              onChange={(e) => setLanguage2(e.target.value)}
-                             variant="outlined" size="small" fullWidth InputLabelProps={{ style: { color: '#aaa' } }} InputProps={{ style: { color: '#e0e0e0' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#aaa' } } }}
-                             helperText={selectedOption.swapSourceTarget ? "Lang of THIS" : "Lang of OTHER"} // Подсказка меняется
+                             variant="outlined" size="small" fullWidth
+                             InputLabelProps={{ style: { color: '#aaa' } }}
+                             InputProps={{ style: { color: '#e0e0e0' } }}
+                             sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#aaa' } } }}
+                             helperText={selectedOption.swapSourceTarget ? "Lang of THIS" : "Lang of OTHER"}
                              FormHelperTextProps={{sx:{color:'#888'}}}
                          />
                      </Box>
                  )}
 
-                 {/* Поля для описаний (лейблы фиксированные) */}
                  <TextField
                      label="Description Shown on THIS Game's Page (Optional)"
                      value={descriptionThis} onChange={(e) => setDescriptionThis(e.target.value)}
                      variant="outlined" size="small" fullWidth multiline minRows={1} maxRows={3}
-                     InputLabelProps={{ style: { color: '#aaa' } }} InputProps={{ style: { color: '#e0e0e0' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#aaa' } } }}
-                     helperText="Describes the link TO the OTHER game." FormHelperTextProps={{sx:{color:'#888'}}}
+                     InputLabelProps={{ style: { color: '#aaa' } }}
+                     InputProps={{ style: { color: '#e0e0e0' } }}
+                     sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#aaa' } } }}
+                     helperText="Describes the link TO the OTHER game."
+                     FormHelperTextProps={{sx:{color:'#888'}}}
                  />
                  <TextField
                      label="Description Shown on OTHER Game's Page (Optional)"
                      value={descriptionOther} onChange={(e) => setDescriptionOther(e.target.value)}
                      variant="outlined" size="small" fullWidth multiline minRows={1} maxRows={3}
-                     InputLabelProps={{ style: { color: '#aaa' } }} InputProps={{ style: { color: '#e0e0e0' } }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#aaa' } } }}
-                     helperText="Describes the link BACK TO this game." FormHelperTextProps={{sx:{color:'#888'}}}
+                     InputLabelProps={{ style: { color: '#aaa' } }}
+                     InputProps={{ style: { color: '#e0e0e0' } }}
+                     sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#aaa' } } }}
+                     helperText="Describes the link BACK TO this game."
+                     FormHelperTextProps={{sx:{color:'#888'}}}
                  />
 
-                <Button variant="contained" color="secondary" onClick={handleAdd} disabled={!targetGame || !selectedOptionValue || isAdding} startIcon={isAdding ? <CircularProgress size={20} color="inherit" /> : null}> Add Relationship </Button>
+                <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={handleAdd}
+                    disabled={!targetGame || !selectedOptionValue || isAdding}
+                    startIcon={isAdding ? <CircularProgress size={20} color="inherit" /> : null}
+                >
+                    Add Relationship
+                </Button>
             </Box>
         </Box>
     );

@@ -1,4 +1,5 @@
-// src/components/Search/SearchPage.tsx
+// === File: src/components/Search/SearchPage.tsx ===
+
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Typography, CircularProgress, Grid2, useTheme } from '@mui/material';
 import { Game, gamesCollection, tagsCollection, Tag } from '../../pocketbase/pocketbase';
@@ -29,9 +30,6 @@ export default function SearchPage({
   const [tagMap, setTagMap] = useState<Map<string, Tag>>(new Map());
   const [tagsLoaded, setTagsLoaded] = useState(false);
   const initialFetchPerformedRef = useRef<boolean>(false);
-
-  // --- УДАЛЕНО СОСТОЯНИЕ sfwTagId ---
-  // const [sfwTagId, setSfwTagId] = useState<string | null>(null);
   const [nsfwTagId, setNsfwTagId] = useState<string | null>(null);
 
   const prevFiltersRef = useRef<{
@@ -41,52 +39,28 @@ export default function SearchPage({
     blocked: string[]
   } | null>(null);
 
-  // Находим ID для nsfw тега после загрузки tagMap
   useEffect(() => {
     if (tagsLoaded && tagMap.size > 0) {
-      // --- УДАЛЕНА ЛОГИКА ДЛЯ sfwTagId ---
-      // let foundSfwId: string | null = null;
       let foundNsfwId: string | null = null;
-      console.log("[Tag ID Finder] Searching in tagMap size:", tagMap.size);
       for (const [id, tag] of tagMap.entries()) {
-        // if (tag.name.toLowerCase() === 'sfw') {
-        //   foundSfwId = id;
-        //   console.log(`[Tag ID Finder] Found SFW Tag: ID=${id}, Name=${tag.name}`);
-        // } else
         if (tag.name.toLowerCase() === 'nsfw') {
           foundNsfwId = id;
-          console.log(`[Tag ID Finder] Found NSFW Tag: ID=${id}, Name=${tag.name}`);
+          break; // Found it, no need to continue
         }
       }
-      // setSfwTagId(foundSfwId);
       setNsfwTagId(foundNsfwId);
-      // if (!foundSfwId) console.warn("[Tag ID Finder] SFW tag ID not found in tagMap!");
       if (!foundNsfwId) console.warn("[Tag ID Finder] NSFW tag ID not found in tagMap!");
     }
   }, [tagsLoaded, tagMap]);
 
   const fetchGames = useCallback(
     async (pageNum = 1, isReset = false) => {
-      // Используем только nsfwTagId для проверки возможности загрузки
       const nsfwFilterActive = filterMode === 'nsfw' || filterMode === 'sfw';
       const canFetch = tagsLoaded && (!nsfwFilterActive || nsfwTagId !== null);
 
-      if (!canFetch) {
-          if (!tagsLoaded) {
-              console.log('[fetchGames] Waiting for tags to load...');
-          } else if (nsfwFilterActive && nsfwTagId === null) {
-              console.log('[fetchGames] Waiting for NSFW tag ID...');
-          } else {
-              console.log('[fetchGames] Cannot fetch, condition not met.', {tagsLoaded, nsfwFilterActive, nsfwTagId});
-          }
-          return;
-      }
-      if (!isReset && !hasMore) {
-          console.log('[fetchGames] No more games to fetch.');
-          return;
-      }
+      if (!canFetch) return;
+      // Removed the !hasMore check here, let the effect hook handle it
 
-      console.log('fetchGames called with:', { pageNum, isReset, filterMode, selectedTags });
       setLoading(true);
 
       try {
@@ -96,8 +70,6 @@ export default function SearchPage({
         const positiveSelectedTags: string[] = [];
         const negativeSelectedTagNames: string[] = [];
         selectedTags.forEach(tag => { if (tag.startsWith('-')) { const baseTagName = tag.substring(1); if (baseTagName) negativeSelectedTagNames.push(baseTagName); } else { positiveSelectedTags.push(tag); } });
-        console.log('[fetchGames] Parsed tags:', { positiveSelectedTags, negativeSelectedTagNames });
-
 
         if (positiveSelectedTags.length > 0) {
           const positiveTagIds = Array.from(tagMap.entries())
@@ -106,14 +78,12 @@ export default function SearchPage({
 
           if (positiveTagIds.length > 0) {
              if (positiveTagIds.length !== positiveSelectedTags.length) {
-                console.warn("Some selected positive tags were not found in tagMap. Search results might be incomplete or empty.");
+                console.warn("Some selected positive tags were not found in tagMap.");
              }
              const tagConditions = positiveTagIds.map(id => `tags ~ "${id}"`);
              filterConditions.push(...tagConditions);
-             console.log(`Applying POSITIVE tags filter (AND): requiring all of IDs ${positiveTagIds.join(', ')}`);
           } else {
-            console.warn("Selected positive tags not found in tagMap, filtering resulted in no matches.");
-            filterConditions.push('(1=0)');
+            filterConditions.push('(1=0)'); // No matching tags found
           }
         }
 
@@ -125,17 +95,13 @@ export default function SearchPage({
         if (filterMode === 'sfw') {
           if (nsfwTagId) {
               filterConditions.push(`tags.id != "${nsfwTagId}"`);
-              console.log(`Applying SFW filter: excluding tag ID ${nsfwTagId}`);
           } else {
-              console.error("SFW filter active, but NSFW tag ID is null! Blocking results.");
               filterConditions.push('(1=0)');
           }
         } else if (filterMode === 'nsfw') {
            if (nsfwTagId) {
               filterConditions.push(`tags ~ "${nsfwTagId}"`);
-              console.log(`Applying NSFW filter: requiring tag ID ${nsfwTagId} using '~' operator`);
            } else {
-               console.error("NSFW filter active, but NSFW tag ID is null! Blocking results.");
                filterConditions.push('(1=0)');
            }
         }
@@ -148,9 +114,6 @@ export default function SearchPage({
              if (negativeTagIds.length > 0) {
                  const negativeConditions = negativeTagIds.map(id => `tags.id != "${id}"`);
                  filterConditions.push(...negativeConditions);
-                 console.log(`Applying NEGATIVE tags filter: excluding IDs ${negativeTagIds.join(', ')}`);
-             } else {
-                 console.warn("Selected negative tags were specified, but their base names were not found in tagMap.");
              }
         }
 
@@ -161,14 +124,10 @@ export default function SearchPage({
           if (finalBlockedIds.length > 0) {
               const blockedConditions = finalBlockedIds.map(id => `tags.id != "${id}"`);
               filterConditions.push(...blockedConditions);
-              console.log(`Applying BLOCKED tags filter: excluding IDs ${finalBlockedIds.join(', ')}`);
           }
         }
 
         const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
-        console.log('[fetchGames] Final filter string:', filterString || '<no filter>');
-        console.log('[fetchGames] Requesting page:', pageNum);
-
         const fieldsToFetch = 'id,collectionId,title,description,image,image_base64,tags,expand.authors_via_games.name,upvotes_count,comments_count';
 
         const fetchedGamesResult = await gamesCollection.getList(pageNum, ITEMS_PER_PAGE, {
@@ -178,8 +137,6 @@ export default function SearchPage({
           fields: fieldsToFetch,
         });
 
-        console.log(`[fetchGames] RAW response (page ${pageNum}):`, fetchedGamesResult.items.length, 'items received.');
-
         const enrichedGames = fetchedGamesResult.items.map((game) => {
           const gameTags = Array.isArray(game.tags) ? game.tags : [];
           const enrichedTags = gameTags
@@ -188,54 +145,29 @@ export default function SearchPage({
           return { ...game, expand: { ...game.expand, tags: enrichedTags }, };
         });
 
-        if (negativeSelectedTagNames.length > 0) {
-           const negativeTagIds = Array.from(tagMap.entries())
-               .filter(([_, tag]) => negativeSelectedTagNames.includes(tag.name))
-               .map(([id, _]) => id);
-           const gamesWithNegativeTags = enrichedGames.filter(g =>
-               g.expand?.tags?.some(t => negativeTagIds.includes(t.id))
-           );
-            if (gamesWithNegativeTags.length > 0) {
-              console.warn(`[POST-CHECK] Negative tags filter applied, but ${gamesWithNegativeTags.length} games with excluded tags found AFTER enrichment! IDs:`, gamesWithNegativeTags.map(g => g.id));
-            }
-        }
-
-        if (filterMode === 'nsfw' && nsfwTagId) {
-           const gamesWithNsfw = enrichedGames.filter(g => g.expand?.tags?.some(t => t.id === nsfwTagId));
-            if (enrichedGames.length > 0 && gamesWithNsfw.length === 0) {
-               console.warn(`[POST-CHECK] WARNING: NSFW filter active, games received (${enrichedGames.length}), but NONE seem to have the NSFW tag after enrichment.`);
-           }
-        }
-
-        console.log(`[fetchGames] Enriched ${enrichedGames.length} games (page ${pageNum}/${fetchedGamesResult.totalPages})`);
-
         setGames((prevGames) => {
           const newGames = isReset ? enrichedGames : [...prevGames, ...enrichedGames];
-          const uniqueGames = Array.from(new Map(newGames.map((game) => [game.id, game])).values());
-          console.log(`[setGames] Total unique games: ${uniqueGames.length}`);
-          return uniqueGames;
+          // Deduplicate
+          return Array.from(new Map(newGames.map((game) => [game.id, game])).values());
         });
 
+        // Update hasMore based on the *current* fetch
         setHasMore(fetchedGamesResult.items.length === ITEMS_PER_PAGE);
-        console.log(`[fetchGames] hasMore set to: ${fetchedGamesResult.items.length === ITEMS_PER_PAGE} (based on items received)`);
 
       } catch (error: any) {
         console.error('[fetchGames] Error fetching games:', error);
-        if (error.isAbort) { console.warn('[fetchGames] Request was aborted.'); }
-        else { console.error('[fetchGames] PocketBase error details:', error.data); }
-        setHasMore(false);
+        setHasMore(false); // Assume no more on error
       } finally {
         setLoading(false);
-        console.log('[fetchGames] Loading set to false');
       }
     },
-    [tagsLoaded, hasMore, selectedTags, selectedAuthors, tagMap, filterMode, blockedTags, nsfwTagId]
+    // Removed `hasMore` from dependencies
+    [tagsLoaded, selectedTags, selectedAuthors, tagMap, filterMode, blockedTags, nsfwTagId]
   );
 
   // 1. Загрузка тегов
   useEffect(() => {
     let isMounted = true;
-    console.log("[useEffect tags] Starting tags load...");
     setLoading(true);
     (async () => {
       try {
@@ -245,10 +177,8 @@ export default function SearchPage({
         let newTagMap: Map<string, Tag>;
 
         if (cachedTags && lastUpdated && now - parseInt(lastUpdated) < ONE_DAY_IN_MS) {
-            console.log("[useEffect tags] Using cached tags.");
             newTagMap = new Map(JSON.parse(cachedTags));
         } else {
-            console.log("[useEffect tags] Fetching tags from server...");
             const fetchedTags = await tagsCollection.getFullList(500, {
               fields: 'id,name',
               sort: 'name'
@@ -257,116 +187,108 @@ export default function SearchPage({
             newTagMap = new Map(tagsTyped.map((tag) => [tag.id, tag]));
             localStorage.setItem('tagMap', JSON.stringify([...newTagMap]));
             localStorage.setItem('tagMapLastUpdated', now.toString());
-            console.log("[useEffect tags] Tags fetched and cached. Map size:", newTagMap.size);
         }
 
         if (isMounted) {
             setTagMap(newTagMap);
             setTagsLoaded(true);
-            console.log("[useEffect tags] Tags state updated, tagsLoaded set to true.");
         }
-
       } catch (error) {
         console.error('[useEffect tags] Error loading tags:', error);
         if (isMounted) {
-            setTagsLoaded(true);
+            setTagsLoaded(true); // Still allow fetching games even if tags failed
             setLoading(false);
-            console.log("[useEffect tags] Error loading tags, setting tagsLoaded=true, loading=false.");
         }
       }
+      // Removed setLoading(false) from successful path, let fetchGames handle it
     })();
-
     return () => { isMounted = false; };
   }, []);
 
-  // 2. Начальная загрузка игр
+  // 2. Начальная загрузка игр (вызывает fetchGames напрямую)
   useEffect(() => {
     const nsfwFilterActive = filterMode === 'nsfw' || filterMode === 'sfw';
-    // Используем только nsfwTagId для проверки
     const readyToFetch = tagsLoaded && (filterMode === 'all' || (nsfwFilterActive && nsfwTagId !== null));
 
-    console.log("[useEffect initial load] Checking conditions:", { tagsLoaded, filterMode, nsfwFilterActive, nsfwTagIdExists: nsfwTagId !== null, initialFetchPerformed: initialFetchPerformedRef.current });
-
     if (readyToFetch && !initialFetchPerformedRef.current) {
-      console.log("[useEffect initial load] Conditions met. Fetching initial games...");
-      initialFetchPerformedRef.current = true;
+      initialFetchPerformedRef.current = true; // Set ref BEFORE fetch
       fetchGames(1, true);
     } else if (tagsLoaded && nsfwFilterActive && nsfwTagId === null && !initialFetchPerformedRef.current) {
-      console.log("[useEffect initial load] Waiting for NSFW tag ID...");
-      setLoading(true);
+      setLoading(true); // Show loading while waiting for tag ID
     } else if (!tagsLoaded && !initialFetchPerformedRef.current) {
-        console.log("[useEffect initial load] Waiting for tags...");
-        setLoading(true);
+        setLoading(true); // Show loading while waiting for tags
     }
-  }, [tagsLoaded, filterMode, nsfwTagId, fetchGames]);
+    // Removed fetchGames dependency
+  }, [tagsLoaded, filterMode, nsfwTagId]);
 
-  // 3. Обработка изменения фильтров
+  // 3. Обработка изменения фильтров (вызывает fetchGames напрямую)
   useEffect(() => {
-    if (!initialFetchPerformedRef.current) {
-      return;
-    }
-     if (!tagsLoaded) {
-        return;
+    if (!initialFetchPerformedRef.current || !tagsLoaded) {
+      return; // Don't run filter changes before initial load or tag load
     }
 
     const currentBlockedIds = blockedTags.map(t => t.id).sort();
+    const sortedSelectedTags = [...selectedTags].sort();
+    const sortedSelectedAuthors = [...selectedAuthors].sort();
 
+    const currentFilters = {
+      tags: sortedSelectedTags,
+      authors: sortedSelectedAuthors,
+      mode: filterMode,
+      blocked: currentBlockedIds,
+    };
+
+    // Initialize ref on first run *after* initial load and tag load
     if (prevFiltersRef.current === null) {
-      console.log("[useEffect filters] Initializing prevFiltersRef.");
-      prevFiltersRef.current = {
-        tags: [...selectedTags],
-        authors: [...selectedAuthors],
-        mode: filterMode,
-        blocked: currentBlockedIds,
-      };
-      return;
+       prevFiltersRef.current = currentFilters;
+       return;
     }
 
-    const tagsChanged = JSON.stringify(selectedTags.sort()) !== JSON.stringify(prevFiltersRef.current.tags.sort());
-    const authorsChanged = JSON.stringify(selectedAuthors.sort()) !== JSON.stringify(prevFiltersRef.current.authors.sort());
+    const tagsChanged = JSON.stringify(sortedSelectedTags) !== JSON.stringify(prevFiltersRef.current.tags);
+    const authorsChanged = JSON.stringify(sortedSelectedAuthors) !== JSON.stringify(prevFiltersRef.current.authors);
     const modeChanged = filterMode !== prevFiltersRef.current.mode;
     const blockedChanged = JSON.stringify(currentBlockedIds) !== JSON.stringify(prevFiltersRef.current.blocked);
 
     const hasMeaningfulChange = tagsChanged || authorsChanged || modeChanged || blockedChanged;
 
     if (hasMeaningfulChange) {
-      console.log('[useEffect filters] Filters changed, fetching...', { tagsChanged, authorsChanged, modeChanged, blockedChanged });
-      prevFiltersRef.current = {
-        tags: [...selectedTags],
-        authors: [...selectedAuthors],
-        mode: filterMode,
-        blocked: currentBlockedIds,
-      };
+      prevFiltersRef.current = currentFilters; // Update ref
       setPage(1);
       setHasMore(true);
-      setGames([]);
+      setGames([]); // Clear games immediately
       fetchGames(1, true);
     }
-  }, [selectedTags, selectedAuthors, filterMode, blockedTags, tagsLoaded, fetchGames]);
+    // Removed fetchGames dependency
+  }, [selectedTags, selectedAuthors, filterMode, blockedTags, tagsLoaded]);
 
-  // 4. Бесконечная прокрутка
+  // 4. Бесконечная прокрутка (вызывает fetchGames напрямую)
   useEffect(() => {
+    // Fetch next page only if page number increased, there might be more, not currently loading, and initial load happened
     if (page > 1 && hasMore && !loading && initialFetchPerformedRef.current) {
-      console.log('[useEffect pagination] Loading next page:', page);
       fetchGames(page, false);
     }
-  }, [page, hasMore, loading, fetchGames]);
+    // Removed fetchGames dependency
+  }, [page, hasMore, loading]); // Depends on page, hasMore, loading
 
   // Intersection Observer
   const observer = useRef<IntersectionObserver | null>(null);
   const lastGameElementRef = useCallback(
     (node: HTMLElement | null) => {
-      if (loading || !hasMore) return;
+      if (loading || !hasMore) return; // Don't attach if loading or no more items
       if (observer.current) observer.current.disconnect();
+
       observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) {
-          console.log('[Observer] Last element visible, requesting next page');
-          setPage((prevPage) => prevPage + 1);
+          // Only setPage if not loading and hasMore is true
+          if (!loading && hasMore) {
+             setPage((prevPage) => prevPage + 1);
+          }
         }
       });
+
       if (node) observer.current.observe(node);
     },
-    [loading, hasMore],
+    [loading, hasMore], // Depends only on loading and hasMore
   );
 
   const memoizedGames = useMemo(() => games, [games]);
@@ -388,37 +310,44 @@ export default function SearchPage({
         {isSearchActive ? 'Search Results' : 'Recent Uploads'}
       </Typography>
 
-      {loading && (games.length === 0 || (initialFetchPerformedRef.current && page === 1)) && (
+      {/* Initial loading indicator */}
+      {loading && games.length === 0 && (
          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
             <CircularProgress />
          </Box>
       )}
 
+      {/* Game grid */}
       {games.length > 0 && (
         <Grid2 container spacing={2} justifyContent="center">
             {memoizedGames.map((game, index) => (
                 <Grid2
                     size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}
-                    key={`search-${game.id}-${index}`}
-                    ref={index === memoizedGames.length - 1 && hasMore ? lastGameElementRef : null}
+                    key={`search-${game.id}-${index}`} // Use index for potential duplicates during loading, though deduplication should prevent this
+                    ref={index === memoizedGames.length - 1 ? lastGameElementRef : null} // Attach ref to the last element
                 >
-                    <GameCard game={game} key={game.id} variant="standard"/>
+                    <GameCard game={game} variant="standard"/>
                 </Grid2>
             ))}
         </Grid2>
       )}
 
-      {loading && games.length > 0 && page > 1 && (
-          <CircularProgress sx={{ mt: 2, display: 'block', margin: 'auto' }} />
+      {/* Loading indicator for subsequent pages */}
+      {loading && games.length > 0 && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, height: 40 }}>
+             <CircularProgress size={30} />
+          </Box>
       )}
 
-      {initialFetchPerformedRef.current && !loading && !hasMore && games.length > 0 && (
+      {/* End of results message */}
+      {!loading && !hasMore && games.length > 0 && initialFetchPerformedRef.current && (
         <Typography sx={{ mt: 2, textAlign: 'center', color: 'text.secondary' }}>
             No more games to load
         </Typography>
       )}
 
-      {initialFetchPerformedRef.current && !loading && games.length === 0 && (
+      {/* No results message */}
+      {!loading && games.length === 0 && initialFetchPerformedRef.current && (
         <Typography sx={{ mt: 2, textAlign: 'center', color: 'text.secondary' }}>
           {isSearchActive || isFilterActive
               ? 'No games found matching your criteria'

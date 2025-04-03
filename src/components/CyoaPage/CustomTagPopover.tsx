@@ -1,15 +1,14 @@
-// src/components/CyoaPage/CustomTagPopover.tsx
 import React, { useState, KeyboardEvent, ChangeEvent, useEffect } from 'react';
-import { 
-  Box, 
-  TextField, 
-  Button, 
-  Typography, 
-  Popover, 
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Popover,
   Chip,
   CircularProgress,
   Divider,
-  Tooltip
+  // Tooltip removed
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Tag, GameTagVote } from '../../pocketbase/pocketbase';
@@ -63,7 +62,7 @@ function levenshteinDistance(a: string, b: string, maxDistance: number = 3): num
 // Find similar tags based on input
 function findSimilarTags(input: string, availableTags: Tag[], maxResults: number = 3): Tag[] {
   if (!input.trim()) return [];
-  
+
   const normalizedInput = input.toLowerCase().trim();
 
   const tagDistances = availableTags.map((tag) => ({
@@ -93,55 +92,18 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
   const [suggestions, setSuggestions] = useState<Tag[]>([]);
   const [localIsCreating, setLocalIsCreating] = useState<boolean>(false);
   const [proposedTags, setProposedTags] = useState<Tag[]>([]);
- 
-  // Функция для рендеринга тега с всплывающей подсказкой
-  const renderTagWithTooltip = (
-    tag: Tag, 
-    onClick: () => void, 
-    disabled: boolean = false, 
-    extraLabel: string = '',
-    customStyle: React.CSSProperties = {}
-  ) => (
-    <Tooltip 
-      key={tag.id} 
-      title={tag.description || 'No description available'} 
-      arrow 
-      placement="top"
-      enterDelay={500}
-      leaveDelay={200}
-    >
-      <div> {/* Wrapper div needed because disabled Chip can't receive events */}
-        <Chip
-          label={extraLabel ? `${tag.name} ${extraLabel}` : tag.name}
-          size="small"
-          onClick={onClick}
-          disabled={disabled}
-          sx={{
-            backgroundColor: customStyle.backgroundColor || theme.palette.grey[700],
-            color: theme.palette.grey[100],
-            cursor: disabled ? 'default' : 'pointer',
-            '&:hover': {
-              backgroundColor: disabled 
-                ? (customStyle.backgroundColor || theme.palette.grey[700])
-                : theme.palette.grey[600],
-              color: 'white',
-            },
-            ...customStyle
-          }}
-        />
-      </div>
-    </Tooltip>
-  );
+
+  // renderTagWithTooltip function removed
 
   // Находим все предложенные кастомные теги, которые еще не прошли порог активации
   useEffect(() => {
     if (open) {
       // Фильтруем теги, которые имеют votes равное PROPOSED_TAG_VOTE_VALUE и относятся к текущей игре
-      const proposedTagIds = Object.keys(tagVotes).filter(tagId => 
-        tagVotes[tagId].votes === PROPOSED_TAG_VOTE_VALUE && 
+      const proposedTagIds = Object.keys(tagVotes).filter(tagId =>
+        tagVotes[tagId].votes === PROPOSED_TAG_VOTE_VALUE &&
         tagVotes[tagId].gameId === gameId
       );
-      
+
       // Находим информацию о тегах из доступных тегов
       const proposedTagsList = proposedTagIds
         .map(tagId => {
@@ -158,10 +120,10 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
           return null;
         })
         .filter((tag): tag is Tag & { voteCount: number, userVoted: boolean } => tag !== null);
-      
+
       // Сортируем по количеству голосов (по убыванию)
       proposedTagsList.sort((a, b) => b.voteCount - a.voteCount);
-      
+
       setProposedTags(proposedTagsList);
     }
   }, [open, tagVotes, gameId, availableTags, userId]);
@@ -169,13 +131,13 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const newValue = event.target.value;
     setInputValue(newValue);
-    
+
     // Find suggestions based on input
     if (newValue.trim()) {
       const autoSuggestions = availableTags
         .filter((tag) => tag.name.toLowerCase().includes(newValue.toLowerCase()))
         .slice(0, 5);
-      
+
       if (autoSuggestions.length > 0) {
         setSuggestions(autoSuggestions);
       } else {
@@ -196,7 +158,7 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
 
   const handleCreateTag = async () => {
     if (inputValue.trim() === '' || isCreating || localIsCreating) return;
-    
+
     try {
       setLocalIsCreating(true);
       await onTagCreate(inputValue.trim());
@@ -209,7 +171,7 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
 
   const handleSuggestionClick = async (tag: Tag) => {
     if (isCreating || localIsCreating) return;
-    
+
     try {
       setLocalIsCreating(true);
       // Here we're using the existing tag instead of creating a new one
@@ -223,7 +185,7 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
 
   const handleProposedTagClick = async (tag: Tag) => {
     if (isCreating || localIsCreating) return;
-    
+
     try {
       setLocalIsCreating(true);
       // Используем существующий предложенный тег вместо создания нового
@@ -236,7 +198,7 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
   };
 
   // Check if the input represents a new tag
-  const isNewTag = inputValue.trim() !== '' && 
+  const isNewTag = inputValue.trim() !== '' &&
     !availableTags.some((tag) => tag.name.toLowerCase() === inputValue.trim().toLowerCase());
 
   // When the popover closes, reset the state
@@ -303,38 +265,52 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
             },
           }}
         />
-        
+
         {isNewTag && (
-          <Button 
-            variant="contained" 
-            color="primary" 
-            onClick={handleCreateTag} 
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleCreateTag}
             disabled={isCreating || localIsCreating || !inputValue.trim()}
             sx={{ mt: 1 }}
           >
-            {isCreating || localIsCreating ? 
-              <CircularProgress size={24} /> : 
+            {isCreating || localIsCreating ?
+              <CircularProgress size={24} /> :
               `Create Tag: ${inputValue}`}
           </Button>
         )}
-        
+
         {suggestions.length > 0 && (
           <Box sx={{ mt: 1 }}>
             <Typography variant="subtitle2" sx={{ color: theme.palette.grey[300], mb: 1 }}>
               Suggestions:
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-              {suggestions.map((suggestion) => 
-                renderTagWithTooltip(
-                  suggestion, 
-                  () => handleSuggestionClick(suggestion), 
-                  isCreating || localIsCreating
-                )
+              {suggestions.map((suggestion) =>
+                // Replaced renderTagWithTooltip with Chip
+                <Chip
+                  key={suggestion.id}
+                  label={suggestion.name}
+                  size="small"
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  disabled={isCreating || localIsCreating}
+                  sx={{
+                    backgroundColor: theme.palette.grey[700],
+                    color: theme.palette.grey[100],
+                    cursor: (isCreating || localIsCreating) ? 'default' : 'pointer',
+                    '&:hover': {
+                      backgroundColor: (isCreating || localIsCreating)
+                        ? theme.palette.grey[700]
+                        : theme.palette.grey[600],
+                      color: 'white',
+                    },
+                  }}
+                />
               )}
             </Box>
           </Box>
         )}
-        
+
         {/* Раздел с предложенными тегами */}
         {proposedTags.length > 0 && (
           <Box sx={{ mt: 2 }}>
@@ -343,19 +319,36 @@ const CustomTagPopover: React.FC<CustomTagPopoverProps> = ({
               Proposed Custom Tags:
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-              {proposedTags.map((tag: any) => 
-                renderTagWithTooltip(
-                  tag,
-                  () => handleProposedTagClick(tag),
-                  isCreating || localIsCreating || tag.userVoted,
-                  `(${tag.voteCount}/${ACTIVATION_THRESHOLD})`,
-                  {
-                    backgroundColor: tag.userVoted 
-                      ? theme.palette.primary.dark 
-                      : theme.palette.grey[700]
-                  }
-                )
-              )}
+              {proposedTags.map((tag: any) => {
+                  const extraLabel = `(${tag.voteCount}/${ACTIVATION_THRESHOLD})`;
+                  const disabled = isCreating || localIsCreating || tag.userVoted;
+                  const customStyle = {
+                      backgroundColor: tag.userVoted
+                        ? theme.palette.primary.dark
+                        : theme.palette.grey[700]
+                  };
+                  return (
+                    // Replaced renderTagWithTooltip with Chip
+                    <Chip
+                      key={tag.id}
+                      label={`${tag.name} ${extraLabel}`}
+                      size="small"
+                      onClick={() => handleProposedTagClick(tag)}
+                      disabled={disabled}
+                      sx={{
+                        backgroundColor: customStyle.backgroundColor,
+                        color: theme.palette.grey[100],
+                        cursor: disabled ? 'default' : 'pointer',
+                        '&:hover': {
+                          backgroundColor: disabled
+                            ? customStyle.backgroundColor
+                            : theme.palette.grey[600],
+                          color: 'white',
+                        },
+                      }}
+                    />
+                  );
+              })}
             </Box>
             <Typography variant="caption" sx={{ color: theme.palette.grey[400], mt: 0.5, display: 'block' }}>
               Tags need {ACTIVATION_THRESHOLD} votes to become visible to all users

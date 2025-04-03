@@ -41,13 +41,81 @@ export default function GameDetails() {
       setGame(null);
       setRelatedGames([]);
 
+
+
+
+
+
+      const requestedFields = [
+        // --- Поля основной записи 'game' ---
+        'id',                            // Идентификатор игры (нужен почти всегда, для ключей, запросов)
+        'collectionId',                  // ID коллекции (нужен для формирования URL файлов/изображений)
+        'title',                         // Заголовок игры (отображается в GameDetails)
+        'description',                   // Описание игры (отображается в GameDetails после sanitization)
+        'image',                         // Имя файла основного изображения игры (для GameDetails)
+        'image_base64',                  // Base64 превью основного изображения (для GameDetails, если используется)
+        'upvotes',                       // Массив ID пользователей, лайкнувших игру (для GameAdditionalInfo, возможно можно заменить на upvotes_count)
+        'img_or_link',                   // Тип контента: 'img' или 'link' (для GameContent)
+        'iframe_url',                    // URL для iframe, если img_or_link === 'link' (для GameContent)
+        'cyoa_pages',                    // Массив имен файлов страниц/изображений игры (для GameContent)
+        'cyoa_pages_preview',            // Массив имен файлов превью страниц/изображений (для GameContent)
+        // 'created',                    // Дата создания (если нужна где-то)
+        // 'updated',                    // Дата обновления (если нужна где-то)
+        // 'uploader',                   // ID пользователя, загрузившего игру (если нужно)
+        // 'comments_count',             // Счетчик комментариев (если не нужны сами комменты сразу)
+        // 'upvotes_count',              // Счетчик лайков (если не нужны ID лайкнувших)
+      
+        // --- Поля из 'expand.authors_via_games' (связь с авторами) ---
+        'expand.authors_via_games.id',   // ID автора (может понадобиться для ключей или ссылок)
+        'expand.authors_via_games.name', // Имя автора (отображается в GameDetails)
+        // 'expand.authors_via_games.username', // Имя пользователя автора (если имя не задано)
+      
+        // --- Поля из 'expand.tags' (связь с тегами) ---
+        'expand.tags.id',                // ID тега (нужен для ключей, возможно для TagDisplay)
+        'expand.tags.name',              // Имя тега (отображается в TagDisplay)
+        // 'expand.tags.description',    // Описание тега (если TagDisplay показывает подсказки)
+      
+        // --- Поля из 'expand.tags.expand.tag_categories_via_tags' (связь тега с его категориями) ---
+        // Эти поля КЛЮЧЕВЫЕ для разделения тегов по категориям в TagDisplay
+        'expand.tags.expand.tag_categories_via_tags.id',    // ID категории тега
+        'expand.tags.expand.tag_categories_via_tags.name',  // Имя категории тега (для группировки/отображения в TagDisplay)
+        // 'expand.tags.expand.tag_categories_via_tags.description', // Описание категории (если нужно)
+      
+        // --- Поля из 'expand.comments' (связь с комментариями) ---
+        'expand.comments.id',            // ID комментария (для ключей, ответов, редактирования в SimpleComments)
+        'expand.comments.author',        // ID автора комментария (для SimpleComments, проверки прав)
+        'expand.comments.content',       // Текст комментария (для SimpleComments)
+        'expand.comments.children',      // Массив ID дочерних комментариев (для построения дерева в SimpleComments)
+        'expand.comments.parent',        // ID родительского комментария (для построения дерева в SimpleComments)
+        // 'expand.comments.created',    // Дата создания комментария (если нужно отображать)
+      
+        // --- Поля из 'expand.comments.expand.author' (связь комментария с его автором) ---
+        'expand.comments.expand.author.id',       // ID автора комментария (дублирует expand.comments.author, но может быть удобно)
+        'expand.comments.expand.author.name',     // Имя автора комментария (для SimpleComments)
+        'expand.comments.expand.author.username', // Имя пользователя автора (если имя не задано, для SimpleComments)
+        'expand.comments.expand.author.avatar',   // Аватар автора комментария (для SimpleComments)
+      
+      ].join(','); // Собираем все строки в одну через запятую
+
+
+
+
+
+
       try {
         const gamePromise = gamesCollection.getOne(id, {
-          expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
+          expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author', // Оставляем expand!
+          fields: requestedFields
         });
 
         // Запрос связей. Новые поля (source_language, target_language)
         // будут получены автоматически, так как они часть самой записи relationship.
+
+
+
+
+
+        
         const outgoingRelationshipsPromise = gameRelationshipsCollection.getFullList({
           filter: `source_game = "${id}"`,
           expand: 'target_game', // Expand остается тем же
@@ -55,6 +123,12 @@ export default function GameDetails() {
             console.error("Failed to fetch outgoing relationships:", err); 
             return [];
         });
+
+
+
+
+
+        
 
         const incomingRelationshipsPromise = gameRelationshipsCollection.getFullList({
           filter: `target_game = "${id}"`,

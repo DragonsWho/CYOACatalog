@@ -1,5 +1,7 @@
+// src/components/CyoaPage/TagChip.tsx
+
 import React from 'react';
-import { Chip, Tooltip } from '@mui/material';
+import { Chip } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Tag, GameTagVote } from '../../pocketbase/pocketbase';
 import { PROPOSED_TAG_VOTE_VALUE, HIDDEN_TAG_THRESHOLD } from './TagDisplay';
@@ -19,16 +21,16 @@ interface TagChipProps {
 
 export default function TagChip({ tag, vote, isUpdating, user, onClick }: TagChipProps) {
   const theme = useTheme();
-   
-  
+
+
   const getTagStyle = () => {
     // Проверяем, есть ли данные о голосах
     const votes = vote?.votes || 0;
-    
+
     // Определяем голосование пользователя только если пользователь авторизован
     const isUserVoted = user ? vote?.upVoters?.includes(user.id || '') : false;
     const isUserDownVoted = user ? vote?.downVoters?.includes(user.id || '') : false;
-    
+
     let style: React.CSSProperties = {
       height: CHIP_HEIGHT,
       borderRadius: CHIP_BORDER_RADIUS,
@@ -78,45 +80,14 @@ export default function TagChip({ tag, vote, isUpdating, user, onClick }: TagChi
   // Применяем стили независимо от состояния пользователя
   const styles = getTagStyle();
 
-  // Обрабатываем случай, когда компонент отключен (isUpdating=true)
-  // В этом случае нужен дополнительный div-обертка для Tooltip
-  if (isUpdating) {
-    return (
-      <Tooltip
-        title={tag.description || 'No description available'}
-        arrow
-        placement="top"
-        enterDelay={1500}
-        leaveDelay={200}
-      >
-        <div> {/* Wrapper div needed because disabled Chip can't receive events */}
-          <Chip
-            label={tag.name}
-            size="small"
-            sx={styles}
-            disabled={true}
-          />
-        </div>
-      </Tooltip>
-    );
-  }
-
-  // Для обычного случая (не отключен)
+  // Просто возвращаем Chip без Tooltip
   return (
-    <Tooltip
-      title={tag.description || 'No description available'}
-      arrow
-      placement="top"
-      enterDelay={1500}
-      leaveDelay={200}
-    >
-      <Chip
-        label={tag.name}
-        size="small"
-        onClick={user ? onClick : undefined}
-        sx={styles}
-        disabled={isUpdating}
-      />
-    </Tooltip>
+    <Chip
+      label={tag.name}
+      size="small"
+      onClick={user ? onClick : undefined}
+      sx={styles}
+      disabled={isUpdating}
+    />
   );
 }

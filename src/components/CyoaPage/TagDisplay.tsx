@@ -2,7 +2,7 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import { Box } from '@mui/material';
-import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, tagsCollection, pb } from '../../pocketbase/pocketbase';
+import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, tagsCollection } from '../../pocketbase/pocketbase';
 import AddTagPopover from './AddTagPopover';
 import TagCategoryComponent from './TagCategory';
 import CustomTagPopover from './CustomTagPopover';
@@ -56,57 +56,77 @@ export default function TagDisplay({
 
   // Загрузка всех доступных тегов и категорий
   useEffect(() => {
+
+
     const loadAllData = async () => {
-      try {
-        const categoriesResponse = await tagCategoriesCollection.getFullList();
-        const categoryNames = categoriesResponse.map(category => category.name);
-        setAllCategories(categoryNames);
-        
-        const tagsResponse = await pb.collection('tags').getFullList({
-          expand: 'tag_categories(tags),tag_categories_via_tags'
-        });
-        
-        const tagsMap: Record<string, Tag> = {};
-        tagsResponse.forEach(tag => {
-          const tagCopy = { ...tag } as any as Tag;
-          tagsMap[tag.id] = tagCopy;
-        });
-        setAllAvailableTags(tagsMap);
-        
-        const categoriesWithTagsResponse = await tagCategoriesCollection.getFullList({
-          expand: 'tags',
-        });
-        
-        const catTags: Record<string, Tag[]> = {};
-        categoriesWithTagsResponse.forEach((category) => {
-          if (category.expand?.tags) {
-            const tagsWithCategory = category.expand.tags.map(tag => {
-              const tagWithCategory = structuredClone(tag) as any;
-              if (!tagWithCategory.expand) tagWithCategory.expand = {};
-              
-              const categoryInfo = {
-                id: category.id,
-                name: category.name
-              };
-              
-              tagWithCategory.expand.tag_categories_via_tags = [categoryInfo as any];
-              
-              return tagWithCategory as Tag;
-            });
-            catTags[category.name] = tagsWithCategory;
-          } else {
-            catTags[category.name] = [];
-          }
-        });
-        
-        setCategoryTags(catTags);
-      } catch (error) {
-        console.error('Ошибка при загрузке данных:', error);
-      }
-    };
-    
-    loadAllData();
+        try {
+          // --- ЕДИНЫЙ ЗАПРОС ---
+          const combinedResponse = await tagCategoriesCollection.getFullList({
+            fields: 'id,name,expand.tags.id,expand.tags.name', 
+            expand: 'tags'
+          });
+      
+          // --- Обработка для получения всех трех состояний ---
+          const categoryNames: string[] = [];
+          const catTags: Record<string, Tag[]> = {};
+          const tagsMap: Record<string, Tag> = {}; // Для allAvailableTags
+      
+          combinedResponse.forEach((category) => {
+            // 1. Получаем имена категорий (для allCategories)
+            categoryNames.push(category.name);
+      
+            const currentCategoryProcessedTags: Tag[] = [];
+            if (category.expand?.tags) {
+              // 2. Обрабатываем теги для categoryTags и allAvailableTags
+              category.expand.tags.forEach(tagFromExpand => {
+                // Создаем объект тега, который пойдет в оба состояния
+                // Важно: Воссоздаем структуру expand, которую ожидает остальной код!
+                const processedTag: Tag = {
+                  id: tagFromExpand.id,
+                  name: tagFromExpand.name, 
+                  // Добавляем expand с информацией о ЕГО категории
+                  expand: {
+                    tag_categories_via_tags: [
+                      {
+                        // Можно добавить category.id если где-то нужно, но имя точно нужно
+                        name: category.name
+                      }
+                    ]
+                  }
+                  // Важно: Не копируем системные поля типа created/updated из tagFromExpand
+                } as any; // Используем 'as any' или создаем полноценный тип
+      
+                currentCategoryProcessedTags.push(processedTag); // Добавляем в список тегов этой категории
+      
+                // Добавляем тег в общую карту allAvailableTags
+                // Если тег мог бы теоретически быть в нескольких категориях,
+                // здесь он будет перезаписан последней встреченной. Обычно у тега одна основная категория.
+                if (!tagsMap[processedTag.id]) {
+                   tagsMap[processedTag.id] = processedTag;
+                }
+              });
+            }
+            // Сохраняем обработанные теги для данной категории (для categoryTags)
+            catTags[category.name] = currentCategoryProcessedTags;
+          });
+      
+          // Устанавливаем все состояния
+          setAllCategories(categoryNames);
+          setAllAvailableTags(tagsMap);
+          setCategoryTags(catTags);
+      
+        } catch (error) {
+          console.error('Ошибка при загрузке данных:', error);
+        }
+      };
+      
+      loadAllData();
   }, []);
+
+
+
+
+
 
   // Загрузка голосов и восстановление выбранных пользователем тегов
   useEffect(() => {
@@ -114,25 +134,32 @@ export default function TagDisplay({
       if (Object.keys(categoryTags).length === 0 || Object.keys(allAvailableTags).length === 0) return;
       
       try {
-        const votes = await gameTagVotesCollection.getFullList({
+        // Оптимизированный запрос
+        const votes = await gameTagVotesCollection.getFullList<GameTagVote>({ // Добавляем Generic тип для лучшей типизации
           filter: `gameId = "${gameId}"`,
+          // Запрашиваем только нужные поля
+          fields: 'id,tagId,gameId,votes,upVoters,downVoters'
         });
-        
+
         const voteMap: Record<string, GameTagVote> = {};
         const userSelectedTagIds: string[] = [];
-        
+
         votes.forEach((vote) => {
+          // Теперь vote содержит только запрошенные поля, но этого достаточно
           voteMap[vote.tagId] = vote;
-          
+
           if (user && vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters?.includes(user.id)) {
             userSelectedTagIds.push(vote.tagId);
           }
-          
+
+          // Проверяем активацию предложенных тегов
+          // Убедимся, что upVoters существует перед проверкой длины
           if (vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters && vote.upVoters.length >= ACTIVATION_THRESHOLD) {
+             // Передаем объект vote как есть, он содержит нужные поля (id, gameId, tagId)
             activateProposedTag(vote);
           }
         });
-        
+
         setTagVotes(voteMap);
         
         if (user && userSelectedTagIds.length > 0) {

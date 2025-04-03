@@ -143,32 +143,68 @@ export default function SearchPage({
         }
         // --- End of Filter logic ---
 
+
+
+
+
+
+        // ... (filter logic) ...
         const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
 
-        // *** Expand parameter that works for GameCard display ***
-        const expandRelations = 'tags.tag_categories_via_tags,authors_via_games';
+        // Указываем expand для разрешения доступа к полям
+        const expandRelations = 'authors_via_games,tags,tags.tag_categories_via_tags';
 
-        // Fetch games using the filter and necessary expand
+        // *** Оставляем ТОЛЬКО используемые поля, согласно вашему тесту ***
+        const fieldsToFetch = [
+            // Базовые поля игры
+            'id',
+            'title',
+            'description', // Оставляем, вероятно нужно на странице игры
+            'image',
+            'image_base64',
+            'upvotes_count',
+            'comments_count',
+            'authors', // ID авторов для связи с expand
+
+            // Поля из развернутых авторов
+            'expand.authors_via_games.name', // Имя автора
+
+            // Поля из развернутых тегов
+            'expand.tags.name', // Имя тега
+
+            // Поля из развернутых категорий ВНУТРИ тегов
+            'expand.tags.expand.tag_categories_via_tags.name', // Имя категории
+        ].join(',');
+
+        // Fetch games
         const fetchedGamesResult = await gamesCollection.getList(pageNum, ITEMS_PER_PAGE, {
           sort: '-created',
           expand: expandRelations,
           filter: filterString,
+          fields: fieldsToFetch, // Используем уточненный список полей
         });
 
-        // Ensure expand data structure consistency (arrays)
+        // Пост-обработка для гарантии структуры массивов (остается)
         const gamesFromApi = fetchedGamesResult.items.map(game => {
             const expandData = game.expand || {};
+            // Явно проверяем наличие tags и authors_via_games в expandData после запроса с fields
             const tagsData = expandData.tags;
             const authorsData = expandData.authors_via_games;
             return {
                 ...game,
                 expand: {
-                    ...expandData,
-                    tags: Array.isArray(tagsData) ? tagsData : (tagsData ? [tagsData] : []),
-                    authors_via_games: Array.isArray(authorsData) ? authorsData : (authorsData ? [authorsData] : []),
+                    // Копируем только то, что есть в expandData
+                    ...(expandData.authors_via_games && { authors_via_games: Array.isArray(authorsData) ? authorsData : (authorsData ? [authorsData] : []) }),
+                    ...(expandData.tags && { tags: Array.isArray(tagsData) ? tagsData : (tagsData ? [tagsData] : []) }),
                 }
             };
         });
+
+
+
+
+
+
 
         // Update game state
         setGames((prevGames) => {

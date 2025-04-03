@@ -1,282 +1,288 @@
 // src/components/GameCard.tsx
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Card, CardContent, Typography, Chip, Box } from '@mui/material';
+// v4.0
+// Improved responsiveness: dynamic description height and larger font on wide screens
+
+import { Card, CardContent, Typography, Chip, Box, useTheme } from '@mui/material';
 import { Link } from 'react-router-dom';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import CommentIcon from '@mui/icons-material/Comment';
 import { Game } from '../pocketbase/pocketbase';
 import DOMPurify from 'dompurify';
-
-import { useTheme } from '@mui/material/styles';
+import { useMemo } from 'react';
 
 // Design variables
-const CARD_ASPECT_RATIO = '133.33%'; // 4:3 aspect ratio
-const DESCRIPTION_TOP = '60%'; // <<< ВОЗВРАЩЕНО ИЗ СТАРОЙ ВЕРСИИ
+const CARD_ASPECT_RATIO = '133.33%'; // 3:4 aspect ratio 
+const DESCRIPTION_TOP = '60%'; // Базовая позиция для описания
 const TAG_SECTION_HEIGHT = '80px';
 const TAG_DISPLAY_LIMIT = 12;
 const OVERLAY_OPACITY = 0.5;
 
 // Spacing variables
 const CARD_PADDING = 16;
-const TITLE_MARGIN_BOTTOM = 8; 
-const BOTTOM_INFO_MARGIN_TOP = 8; // Используется в расчетах bottom
-const BOTTOM_INFO_MARGIN_BOTTOM = 0; // <<< ДОБАВЛЕНО ИЗ СТАРОЙ ВЕРСИИ (хотя = 0, для точности расчета)
+const TITLE_MARGIN_BOTTOM = 8;
+const TAGS_MARGIN_TOP = 8; 
+const BOTTOM_INFO_MARGIN_TOP = 8;
+const BOTTOM_INFO_MARGIN_BOTTOM = 0;
 
 const CATEGORY_ORDER = [
-  'Rating', 'Interactivity', 'POV', 'Player Sexual Role', 'Playtime',
-  'Status', 'Genre', 'Setting', 'Tone', 'Extra', 'Kinks',
+  'Rating',
+  'Interactivity',
+  'POV',
+  'Player Sexual Role',
+  'Playtime',
+  'Status',
+  'Genre',
+  'Setting',
+  'Tone',
+  'Extra',
+  'Kinks',
 ];
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Rating: 'rgba(0, 0, 0, 0.4)', Interactivity: 'rgba(0, 0, 0, 0.4)',
-  POV: 'rgba(0, 0, 0, 0.4)', 'Player Sexual Role': 'rgba(0, 0, 0, 0.4)',
-  Playtime: 'rgba(255, 140, 0, 0.4)', Status: 'rgba(0, 0, 0, 0.4)',
-  Genre: 'rgba(138, 43, 226, 0.4)', Setting: 'rgba(0, 0, 0, 0.4)',
-  Tone: 'rgba(0, 0, 0, 0.4)', Extra: 'rgba(0, 0, 0, 0.4)',
+const CATEGORY_COLORS = {
+  Rating: 'rgba(0, 0, 0, 0.4)',
+  Interactivity: 'rgba(0, 0, 0, 0.4)',
+  POV: 'rgba(0, 0, 0, 0.4)',
+  'Player Sexual Role': 'rgba(0, 0, 0, 0.4)',
+  Playtime: 'rgba(255, 140, 0, 0.4)',
+  Status: 'rgba(0, 0, 0, 0.4)',
+  Genre: 'rgba(138, 43, 226, 0.4)',
+  Setting: 'rgba(0, 0, 0, 0.4)',
+  Tone: 'rgba(0, 0, 0, 0.4)',
+  Extra: 'rgba(0, 0, 0, 0.4)',
   Kinks: 'rgba(255, 69, 0, 0.4)',
 };
 
-// Global image cache
-const imageCache = new Map<string, string>();
-
-interface GameCardProps {
+export default function GameCard({
+  game,
+  variant = 'standard',
+}: {
   game: Game;
   variant?: 'standard' | 'simplified';
-}
-
-function GameCard({ game, variant = 'standard' }: GameCardProps) {
+}) {
   const theme = useTheme();
-  const cardRef = useRef<HTMLDivElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
-
-  const collectionId = game.collectionId || '5kxdvx071c10s2t';
-
-  const imageURL = game.image
-    ? `/api/files/${collectionId}/${game.id}/${game.image}`
-    : 'public/placeholder.jpg';
-
-  const [imageSrc, setImageSrc] = useState<string>(
-    game.image_base64
-      ? game.image_base64.startsWith('data:')
-        ? game.image_base64
-        : `data:image/jpeg;base64,${game.image_base64}`
-      : imageURL
-  );
-  const [isBase64, setIsBase64] = useState<boolean>(!!game.image_base64);
-
-  const loadImage = useCallback(() => {
-    if ((!isBase64 && imageSrc === imageURL) || !imageURL || imageURL === 'public/placeholder.jpg') return;
-
-    if (imageCache.has(imageURL)) {
-      if (cardRef.current) {
-        setImageSrc(imageCache.get(imageURL) as string);
-        setIsBase64(false);
-      }
-    } else {
-      const img = new Image();
-      img.onload = () => {
-        imageCache.set(imageURL, imageURL);
-        if (cardRef.current) {
-             setImageSrc(imageURL);
-             setIsBase64(false);
-        }
-      };
-      img.onerror = () => {
-         console.error(`Failed to load image ${imageURL}, keeping base64/placeholder.`);
-         if (!game.image_base64 && cardRef.current) {
-             setImageSrc('public/placeholder.jpg');
-             setIsBase64(false);
-         }
-      };
-      img.src = imageURL;
-    }
-  }, [game.image_base64, imageURL, imageSrc, isBase64]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          loadImage();
-          if (cardRef.current) observer.unobserve(cardRef.current);
-        }
-      },
-      { rootMargin: '200px', threshold: 0.01 }
-    );
-
-    const currentCardRef = cardRef.current;
-    if (currentCardRef) {
-      observer.observe(currentCardRef);
-    }
-
-    return () => {
-      if (currentCardRef) observer.unobserve(currentCardRef);
-      observer.disconnect();
-    };
-  }, [loadImage]);
-
-  const sortedTags = useMemo(() => {
-     const tagsToSort = game.expand?.tags ?? [];
-     const validTags = tagsToSort.filter(tag => tag?.expand?.tag_categories_via_tags?.[0]?.name);
-     return CATEGORY_ORDER.flatMap((categoryName) =>
-       validTags.filter((tag) => tag.expand!.tag_categories_via_tags![0].name === categoryName)
-     ).slice(0, TAG_DISPLAY_LIMIT);
-  }, [game.expand?.tags]);
-
-  const gameUpvoteCount = game.upvotes_count ?? 0;
-  const gameCommentCount = game.comments_count ?? 0;
-
-  const sanitizedDescription = useMemo(() => DOMPurify.sanitize(game.description ?? ''), [game.description]);
+  const imageURL = game.image ? `/api/files/games/${game.id}/${game.image}` : '/img/placeholder.jpg';
+  const sortedTags = CATEGORY_ORDER.flatMap((categoryName) =>
+    game.expand?.tags?.filter((tag) => tag.expand?.tag_categories_via_tags?.[0].name === categoryName) ?? []
+  ).slice(0, TAG_DISPLAY_LIMIT);
+  const gameUpvoteCount = game.upvotes.length;
+  const sanitizedDescription = useMemo(() => DOMPurify.sanitize(game.description), [game.description]);
 
   return (
     <Link to={`/game/${game.id}`} style={{ textDecoration: 'none' }}>
       <Card
-        ref={cardRef}
         sx={{
           cursor: 'pointer',
-          transition: 'transform 0.3s ease-in-out',
+          transition: '0.3s',
           '&:hover': { transform: 'scale(1.03)' },
           position: 'relative',
           overflow: 'hidden',
           backgroundColor: theme.palette.background.paper,
-          paddingTop: CARD_ASPECT_RATIO, // Задает высоту через aspect ratio
+          paddingTop: CARD_ASPECT_RATIO,
           boxShadow: theme.shadows[3],
-          height: 0, // Необходимо для работы paddingTop trick
         }}
       >
-        {/* Контейнер для всего содержимого, чтобы оно было над псевдо-элементом высоты */}
-        <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-          <img
-            ref={imgRef}
-            src={imageSrc}
-            alt={game.title || 'Game image'}
-            loading="lazy"
-            style={{
-              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-              objectFit: 'cover', objectPosition: 'center',
-              transition: 'opacity 0.3s ease-in-out, filter 0.3s ease-in-out',
-              filter: isBase64 ? 'blur(4px)' : 'none',
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundImage: `url(${imageURL})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: `rgba(0, 0, 0, ${OVERLAY_OPACITY})`,
+            },
+          }}
+        />
+        <CardContent
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            p: `${CARD_PADDING}px`,
+            boxSizing: 'border-box',
+          }}
+        >
+          {/* Заголовок с адаптивным размером шрифта */}
+          <Typography
+            variant="h3"
+            component="div"
+            align="center"
+            sx={{
+              fontWeight: 'bold',
+              fontSize: {
+                xs: '1.2rem', // Меньше на маленьких экранах
+                sm: '1.5rem', // Базовый размер
+                md: '1.8rem', // Больший размер на широких экранах
+              },
+              // @ts-expect-error custom theme property
+              ...theme.custom.cardTitle,
+              mb: `${TITLE_MARGIN_BOTTOM}px`,
             }}
-          />
-          {/* Оверлей */}
-          <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: `rgba(0, 0, 0, ${OVERLAY_OPACITY})` }} />
+          >
+            {game.title || 'Untitled'}
+          </Typography>
 
-          {/* CardContent теперь снова управляет позиционированием через абсолютные дочерние элементы */}
-          <CardContent sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', /* Убрали justifyContent: 'space-between', т.к. элементы позиционируются абсолютно */ p: 0, /* Убрали padding здесь, будем добавлять где нужно */ boxSizing: 'border-box', '&:last-child': { paddingBottom: 0 } }} >
+          {/* Описание и теги в стандартном виде */}
+          {variant === 'standard' ? (
+            <>
+              {/* Описание с текстовыми эффектами */}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: DESCRIPTION_TOP,
+                  left: CARD_PADDING,
+                  right: CARD_PADDING,
+                  bottom: `calc(${TAG_SECTION_HEIGHT} + ${BOTTOM_INFO_MARGIN_TOP + BOTTOM_INFO_MARGIN_BOTTOM + 40}px)`,
+                  overflow: 'hidden',
+                  fontSize: {
+                    xs: '0.8rem',
+                    sm: '0.9rem',
+                    md: '1rem',
+                  },
+                  // Добавляем эффект затухания текста внизу
+                  maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
+                  WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
+                  // @ts-expect-error custom theme property
+                  ...theme.custom.cardText,
+                }}
+              >
+                <div
+                  dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
+                />
+              </Box>
 
-            {/* Заголовок */}
+              {/* Секция тегов */}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: `calc(${BOTTOM_INFO_MARGIN_TOP + BOTTOM_INFO_MARGIN_BOTTOM + 30}px)`,
+                  left: CARD_PADDING,
+                  right: CARD_PADDING,
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 0.5,
+                    maxHeight: TAG_SECTION_HEIGHT,
+                    overflow: 'hidden',
+                    mt: `${TAGS_MARGIN_TOP}px`,
+                    fontSize: {
+                      xs: '0.6rem',
+                      sm: '0.7rem',
+                      md: '0.8rem',
+                    },
+                  }}
+                >
+                  {sortedTags.map((tag, index) => {
+                    const category = tag.expand?.tag_categories_via_tags?.[0].name;
+                    return (
+                      <Chip
+                        key={index}
+                        label={tag.name}
+                        size="small"
+                        sx={{
+                          backgroundColor: `${
+                            CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || 'transparent'
+                          }`,
+                          color: theme.palette.text.primary,
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
+              </Box>
+            </>
+          ) : null}
+
+          {/* Информация снизу с адаптивным размером шрифта */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              position: 'absolute',
+              bottom: CARD_PADDING,
+              left: CARD_PADDING,
+              right: CARD_PADDING,
+            }}
+          >
             <Typography
-              variant="h3"
-              component="div"
-              align="center"
+              variant="body2"
               sx={{
-                // Добавили позиционирование и паддинги сюда
-                position: 'relative', // Чтобы z-index работал, если понадобится
-                zIndex: 1, // На всякий случай поверх описания/тегов
-                pt: `${CARD_PADDING}px`,
-                pl: `${CARD_PADDING}px`,
-                pr: `${CARD_PADDING}px`,
-                fontWeight: 'bold',
-                fontSize: { xs: '1.2rem', sm: '1.5rem', md: '1.8rem' },
-                ...(theme.custom?.cardTitle ?? {}),
-                mb: `${TITLE_MARGIN_BOTTOM}px`, // Оставляем нижний отступ
-                overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                fontSize: {
+                  xs: '0.7rem', // Меньше на маленьких экранах
+                  sm: '0.8rem', // Базовый размер
+                  md: '0.9rem', // Больший размер на широких экранах
+                },
+                // @ts-expect-error custom theme property
+                ...theme.custom.cardText,
+                textShadow: '1px 1px 3px rgba(3, 3, 3, 1)',
               }}
             >
-              {game.title || 'Untitled'}
+              {game.expand?.authors_via_games && game.expand?.authors_via_games.length > 0
+                ? game.expand?.authors_via_games[0].name
+                : 'Anonymous'}
             </Typography>
-
-            {/* Описание и Теги (standard variant) - Используем старую логику позиционирования */}
-            {variant === 'standard' && (
-              <>
-                {/* Описание */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: DESCRIPTION_TOP, // <<< ВОЗВРАЩЕНО: Начинается с 60% высоты
-                    left: `${CARD_PADDING}px`, // Отступ слева
-                    right: `${CARD_PADDING}px`, // Отступ справа
-                    // <<< ВОЗВРАЩЕНО: Расчет низа из старой версии
-                    bottom: `calc(${TAG_SECTION_HEIGHT} + ${BOTTOM_INFO_MARGIN_TOP}px + ${BOTTOM_INFO_MARGIN_BOTTOM}px + 40px)`, // Оставляет место для тегов и нижней информации + небольшой запас (40px как в старой версии)
-                    overflow: 'hidden',
-                    fontSize: { xs: '0.8rem', sm: '0.9rem', md: '1rem' },
-                    maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)', // Оставляем градиент из новой версии (можно вернуть 80% если нужно)
-                    WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
-                    ...(theme.custom?.cardText ?? {}),
-                    color: theme.palette.text.primary, // Убедимся, что цвет текста установлен
-                     // zIndex: 0, // Можно добавить, если будут проблемы с перекрытием
-                  }}
-                >
-                  <div dangerouslySetInnerHTML={{ __html: sanitizedDescription }} />
-                </Box>
-
-                {/* Теги */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    // <<< ВОЗВРАЩЕНО: Расчет низа из старой версии
-                    bottom: `calc(${BOTTOM_INFO_MARGIN_TOP}px + ${BOTTOM_INFO_MARGIN_BOTTOM}px + 30px)`, // Позиция над нижней информацией + небольшой запас (30px как в старой версии)
-                    left: `${CARD_PADDING}px`, // Отступ слева
-                    right: `${CARD_PADDING}px`, // Отступ справа
-                     // zIndex: 0, // Можно добавить, если будут проблемы с перекрытием
-                  }}
-                >
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, fontSize: { xs: '0.6rem', sm: '0.7rem', md: '0.8rem' }, maxHeight: TAG_SECTION_HEIGHT, overflow: 'hidden', /* Убрали mt, т.к. позиционируется абсолютно */ }} >
-                    {sortedTags.map((tag) => {
-                      const category = tag.expand?.tag_categories_via_tags?.[0].name;
-                      return ( <Chip key={tag.id} label={tag.name} size="small" sx={{ backgroundColor: `${CATEGORY_COLORS[category ?? ''] || 'transparent'}`, color: theme.palette.text.primary, textShadow: '1px 1px 2px rgba(0,0,0,0.5)', }} /> );
-                    })}
-                  </Box>
-                </Box>
-              </>
-            )}
-
-            {/* Автор и Счетчики - Используем старую логику позиционирования */}
             <Box
               sx={{
                 display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
-                position: 'absolute', // <<< ВОЗВРАЩЕНО: Абсолютное позиционирование
-                bottom: `${CARD_PADDING}px`, // <<< ВОЗВРАЩЕНО: Отступ снизу
-                left: `${CARD_PADDING}px`, // <<< ВОЗВРАЩЕНО: Отступ слева
-                right: `${CARD_PADDING}px`, // <<< ВОЗВРАЩЕНО: Отступ справа
-                // mt не нужен при абсолютном позиционировании
-                 zIndex: 1, // На всякий случай поверх описания/тегов
               }}
             >
+              <CommentIcon sx={{ color: theme.palette.secondary.main, fontSize: { xs: '0.8rem', sm: '1rem' }, mr: 0.5 }} />
               <Typography
                 variant="body2"
                 sx={{
-                  fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.9rem' },
-                  ...(theme.custom?.cardText ?? {}),
-                  textShadow: '1px 1px 3px rgba(3, 3, 3, 1)',
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '50%', // Оставим ограничение ширины из новой версии
+                  fontSize: {
+                    xs: '0.7rem', // Меньше на маленьких экранах
+                    sm: '0.8rem', // Базовый размер
+                    md: '0.9rem', // Больший размер на широких экранах
+                  },
+                  color: 'white',
+                  fontWeight: 'bold',
+                  textShadow: '1px 1px 2px rgba(3,3,3,1)',
+                  mr: 1,
                 }}
               >
-                {game.expand?.authors_via_games?.[0]?.name || 'Anonymous'}
+                {game.comments.length}
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                <CommentIcon sx={{ color: theme.palette.secondary.main, fontSize: { xs: '0.8rem', sm: '1rem' }, mr: 0.5 }} />
-                <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.9rem' }, color: 'white', fontWeight: 'bold', textShadow: '1px 1px 2px rgba(3,3,3,1)', mr: 1, }} >
-                  {gameCommentCount}
-                </Typography>
-                <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: { xs: '0.8rem', sm: '1rem' }, mr: 0.5 }} />
-                <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.9rem' }, color: 'white', fontWeight: 'bold', textShadow: '1px 1px 2px rgba(3,3,3,1)', }} >
-                  {gameUpvoteCount}
-                </Typography>
-              </Box>
+              <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: { xs: '0.8rem', sm: '1rem' }, mr: 0.5 }} />
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: {
+                    xs: '0.7rem', // Меньше на маленьких экранах
+                    sm: '0.8rem', // Базовый размер
+                    md: '0.9rem', // Больший размер на широких экранах
+                  },
+                  color: 'white',
+                  fontWeight: 'bold',
+                  textShadow: '1px 1px 2px rgba(3,3,3,1)',
+                }}
+              >
+                {gameUpvoteCount}
+              </Typography>
             </Box>
-          </CardContent>
-        </Box>
+          </Box>
+        </CardContent>
       </Card>
     </Link>
   );
 }
-
-// Обновляем React.memo для включения comments_count
-export default React.memo(GameCard, (prevProps, nextProps) => {
-    return prevProps.game.id === nextProps.game.id &&
-           prevProps.variant === nextProps.variant &&
-           prevProps.game.upvotes_count === nextProps.game.upvotes_count &&
-           prevProps.game.comments_count === nextProps.game.comments_count;
-});

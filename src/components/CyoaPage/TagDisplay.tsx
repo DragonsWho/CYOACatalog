@@ -2,7 +2,7 @@
 
 import React, { useState, useContext, useEffect } from 'react';
 import { Box } from '@mui/material';
-import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, tagsCollection, pb } from '../../pocketbase/pocketbase';
+import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, gamesCollection, tagsCollection } from '../../pocketbase/pocketbase';
 import AddTagPopover from './AddTagPopover';
 import TagCategoryComponent from './TagCategory';
 import CustomTagPopover from './CustomTagPopover';
@@ -134,25 +134,32 @@ export default function TagDisplay({
       if (Object.keys(categoryTags).length === 0 || Object.keys(allAvailableTags).length === 0) return;
       
       try {
-        const votes = await gameTagVotesCollection.getFullList({
+        // Оптимизированный запрос
+        const votes = await gameTagVotesCollection.getFullList<GameTagVote>({ // Добавляем Generic тип для лучшей типизации
           filter: `gameId = "${gameId}"`,
+          // Запрашиваем только нужные поля
+          fields: 'id,tagId,gameId,votes,upVoters,downVoters'
         });
-        
+
         const voteMap: Record<string, GameTagVote> = {};
         const userSelectedTagIds: string[] = [];
-        
+
         votes.forEach((vote) => {
+          // Теперь vote содержит только запрошенные поля, но этого достаточно
           voteMap[vote.tagId] = vote;
-          
+
           if (user && vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters?.includes(user.id)) {
             userSelectedTagIds.push(vote.tagId);
           }
-          
+
+          // Проверяем активацию предложенных тегов
+          // Убедимся, что upVoters существует перед проверкой длины
           if (vote.votes === PROPOSED_TAG_VOTE_VALUE && vote.upVoters && vote.upVoters.length >= ACTIVATION_THRESHOLD) {
+             // Передаем объект vote как есть, он содержит нужные поля (id, gameId, tagId)
             activateProposedTag(vote);
           }
         });
-        
+
         setTagVotes(voteMap);
         
         if (user && userSelectedTagIds.length > 0) {

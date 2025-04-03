@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CYOA Cafe</title>
+    <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-G0CC5DZ5ZZ"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -11,27 +12,63 @@
       gtag('js', new Date());
       gtag('config', 'G-G0CC5DZ5ZZ');
     </script>
+    <!-- Polyfill for globalThis if needed by dependencies -->
     <script>
       const global = globalThis;
-    </script> 
+    </script>
+    <!-- Preload Initial Game Data -->
     <script>
       (async () => {
         try {
-          const response = await fetch(
-            `${window.location.origin}/api/collections/games/records?page=1&perPage=25&sort=-created&expand=authors_via_games&filter=&fields=id%2CcollectionId%2Ctitle%2Cdescription%2Cimage%2Cimage_base64%2Ctags%2Cexpand.authors_via_games.name%2Cupvotes_count%2Ccomments_count`
-          );
+          // Параметры запроса, соответствующие начальной загрузке в SearchPage.tsx
+          const page = 1;
+          const perPage = 25; // Убедитесь, что это значение совпадает с ITEMS_PER_PAGE в SearchPage
+          const sort = '-created';
+          const filter = ''; // Без фильтра при начальной загрузке
+          // expand, необходимый для отображения (включая теги и категории)
+          const expandRelations = 'authors_via_games,tags,tags.tag_categories_via_tags';
+          // fields, необходимые для отображения и базовой информации
+          const fieldsToFetch = [
+            'id', 'title', 'description', 'image', 'image_base64',
+            'upvotes_count', 'comments_count',
+            'authors', // ID авторов для связи
+            'expand.authors_via_games.name', // Имя автора
+            'expand.tags.id', 
+            'expand.tags.name', // Имя тега
+            'expand.tags.expand.tag_categories_via_tags.name' // Имя категории тега
+          ].join(',');
+
+          // Формируем URL с кодированием параметров
+          const params = new URLSearchParams({
+            page: page.toString(),
+            perPage: perPage.toString(),
+            sort: sort,
+            filter: filter,
+            expand: expandRelations,
+            fields: fieldsToFetch
+          });
+
+          const apiUrl = `${window.location.origin}/api/collections/games/records?${params.toString()}`;
+          // console.log('Preloading data from:', apiUrl); // Для дебаггинга
+
+          const response = await fetch(apiUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+          }
           const data = await response.json();
+          // Сохраняем данные для использования React-компонентом
           window.__INITIAL_DATA__ = data;
+          // console.log('Preloaded data:', window.__INITIAL_DATA__); // Для дебаггинга
         } catch (error) {
           console.error('Failed to preload data:', error);
-          window.__INITIAL_DATA__ = null;
+          window.__INITIAL_DATA__ = null; // Устанавливаем в null при ошибке
         }
       })();
     </script>
   </head>
   <body>
     <div id="root"></div>
+    <!-- Основной скрипт приложения -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
- 

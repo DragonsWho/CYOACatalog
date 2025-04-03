@@ -75,20 +75,18 @@ export default function GameDetails() {
             expand.comments.author,
             expand.comments.${commentContentField},
             expand.comments.children,
-            expand.comments.expand.author.id,
-            expand.comments.expand.author.${userNameField},
-            expand.comments.expand.author.${userUsernameField},
-            expand.comments.expand.author.${userAvatarField}
+            expand.comments.expand.author.id, // Keep author ID for potential fetching later
+            // Removed expansion of author details (username, name, avatar)
           `.replace(/\s/g, ''), // Убираем пробелы и переносы для API
 
           // Оставляем те же expand, чтобы Pocketbase знал, что разворачивать
-          expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author',
+          expand: `tags.tag_categories_via_tags,authors_via_games,comments.author(id,${userNameField},${userUsernameField},${userAvatarField})`, // Expand author but only fetch needed fields
         });
 
         // --- Запросы связей остаются без изменений ---
         const outgoingRelationshipsPromise = gameRelationshipsCollection.getFullList({
           filter: `source_game = "${id}"`,
-          expand: 'target_game', // Здесь можно тоже оптимизировать fields, если нужно
+          expand: 'target_game(id,title)', // Оптимизация: Загружаем только ID и title связанной игры
         }).catch(err => {
             console.error("Failed to fetch outgoing relationships:", err);
             return [];
@@ -96,7 +94,7 @@ export default function GameDetails() {
 
         const incomingRelationshipsPromise = gameRelationshipsCollection.getFullList({
           filter: `target_game = "${id}"`,
-          expand: 'source_game', // Здесь можно тоже оптимизировать fields, если нужно
+          expand: 'source_game(id,title)', // Оптимизация: Загружаем только ID и title связанной игры
         }).catch(err => {
             console.error("Failed to fetch incoming relationships:", err);
             return [];
@@ -131,7 +129,7 @@ export default function GameDetails() {
 
     const collectionId = game.collectionId || '5kxdvx071c10s2t'; // collectionId теперь должен быть в game
     const imageURL = game.image
-      ? `/api/files/${collectionId}/${game.id}/${game.image}`
+      ? `/api/files/${collectionId}/${game.id}/${game.image}?thumb=600x0` // Request 600px wide thumbnail
       : '';
 
     if (game.image_base64) {

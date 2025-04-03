@@ -113,7 +113,7 @@ export function ImageCompressor({
             onImageChange(compressedFile);
           }
         },
-        'image/jpeg',
+        'image/webp', // Changed from image/jpeg for better compression
         quality,
       );
     }

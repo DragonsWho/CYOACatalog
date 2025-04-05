@@ -16,55 +16,7 @@
     <script>
       const global = globalThis;
     </script>
-    <!-- Preload Initial Game Data -->
-    <script>
-      (async () => {
-        try {
-          // Параметры запроса, соответствующие начальной загрузке в SearchPage.tsx
-          const page = 1;
-          const perPage = 25; // Убедитесь, что это значение совпадает с ITEMS_PER_PAGE в SearchPage
-          const sort = '-created';
-          const filter = ''; // Без фильтра при начальной загрузке
-          // expand, необходимый для отображения (включая теги и категории)
-          const expandRelations = 'authors_via_games,tags,tags.tag_categories_via_tags';
-          // fields, необходимые для отображения и базовой информации
-          const fieldsToFetch = [
-            'id', 'title', 'description', 'image', 'image_base64',
-            'upvotes_count', 'comments_count',
-            'authors', // ID авторов для связи
-            'expand.authors_via_games.name', // Имя автора
-            'expand.tags.id', 
-            'expand.tags.name', // Имя тега
-            'expand.tags.expand.tag_categories_via_tags.name' // Имя категории тега
-          ].join(',');
-
-          // Формируем URL с кодированием параметров
-          const params = new URLSearchParams({
-            page: page.toString(),
-            perPage: perPage.toString(),
-            sort: sort,
-            filter: filter,
-            expand: expandRelations,
-            fields: fieldsToFetch
-          });
-
-          const apiUrl = `${window.location.origin}/api/collections/games/records?${params.toString()}`;
-          // console.log('Preloading data from:', apiUrl); // Для дебаггинга
-
-          const response = await fetch(apiUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
-          }
-          const data = await response.json();
-          // Сохраняем данные для использования React-компонентом
-          window.__INITIAL_DATA__ = data;
-          // console.log('Preloaded data:', window.__INITIAL_DATA__); // Для дебаггинга
-        } catch (error) {
-          console.error('Failed to preload data:', error);
-          window.__INITIAL_DATA__ = null; // Устанавливаем в null при ошибке
-        }
-      })();
-    </script>
+ 
   </head>
   <body>
     <div id="root"></div>

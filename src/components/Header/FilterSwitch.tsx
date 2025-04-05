@@ -1,7 +1,7 @@
 // src/components/Header/FilterSwitch.tsx
 import React from 'react';
 import { Box, Typography, ToggleButtonGroup, ToggleButton, useTheme } from '@mui/material';
-import type { FilterMode } from '../../App'; // Убедись, что тип FilterMode экспортируется из App.tsx или другого общего места
+import type { FilterMode } from '../../types'; // Убедись, что тип FilterMode экспортируется из App.tsx или другого общего места
 
 // Константы, специфичные для этого компонента
 const sfwColor = '#43a047';

@@ -8,7 +8,7 @@ import Login from './Login';
 import Button from '@mui/material/Button';
 import FilterSwitch from './FilterSwitch'; // <-- Импортируем новый компонент
 import { AuthContext } from '../../pocketbase/pocketbase';
-import type { FilterMode } from '../../App'; // Убедись, что тип импортируется
+import type { FilterMode } from '../../types'; // Убедись, что тип импортируется
 
 // Константы (можно убрать константы, связанные с переключателем, если они не нужны больше нигде)
 const SITE_TITLE = 'CYOA.CAFE';

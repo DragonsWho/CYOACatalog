@@ -17,6 +17,7 @@
     "@lottiefiles/dotlottie-react": "^0.13.0",
     "@mui/icons-material": "^6.4.7",
     "@mui/material": "^6.4.7",
+    "caniuse-lite": "^1.0.30001711",
     "dompurify": "^3.1.6",
     "js-cookie": "^3.0.5",
     "pocketbase": "^0.21.5",

@@ -12,6 +12,7 @@ const ModeratorPanel = lazy(() => import('./components/ModeratorPanel/ModeratorP
 const VectorSearchPage = lazy(() => import('./components/Search/VectorSearchPage'));
 import Login from './components/Header/Login';
 import { AuthContext, pb, User, Tag, tagsCollection, authorsCollection, usersCollection } from './pocketbase/pocketbase';
+import type { FilterMode } from './types';
 
 const ModeratorRoute = ({ children }: { children: JSX.Element }) => {
   const { signedIn, isModerator } = useContext(AuthContext);
@@ -33,7 +34,7 @@ const PrivateRoute = ({ children }: { children: JSX.Element }) => {
     return children;
 }
 
-export type FilterMode = 'sfw' | 'all' | 'nsfw';
+
 
 // --- 2. Константы для cookie ---
 const FILTER_MODE_COOKIE = 'cyoa_filter_mode';

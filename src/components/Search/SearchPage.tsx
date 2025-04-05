@@ -1,15 +1,13 @@
 // === File: src/components/Search/SearchPage.tsx ===
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Box, Typography, CircularProgress, Grid2, useTheme } from '@mui/material';
+import { Box, Typography, CircularProgress, Grid, useTheme } from '@mui/material'; // Use Grid instead of Grid2 if Grid2 isn't explicitly needed/installed
 import { Game, gamesCollection, tagsCollection, Tag } from '../../pocketbase/pocketbase';
 import type { FilterMode } from '../../types';
-import GameCard from '../GameCard';
+import GameCard from '../GameCard'; // Ensure this import path is correct
 
 const ITEMS_PER_PAGE = 25;
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
-
-// REMOVED: declare global block for __INITIAL_DATA__
 
 interface SearchPageProps {
   selectedTags: string[];
@@ -24,20 +22,18 @@ export default function SearchPage({
   filterMode,
   blockedTags,
 }: SearchPageProps) {
-  const theme = useTheme();
+  const theme = useTheme(); // Now used in JSX potentially (e.g., sx props)
   const [games, setGames] = useState<Game[]>([]);
-  // Start loading initially, as there's no preload anymore
   const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [tagMap, setTagMap] = useState<Map<string, Tag>>(new Map());
   const [tagsLoaded, setTagsLoaded] = useState(false);
-  // Tracks if the *very first* fetch has been initiated or completed
+  const [tagIdsProcessed, setTagIdsProcessed] = useState(false);
   const initialFetchInitiatedRef = useRef<boolean>(false);
   const [nsfwTagId, setNsfwTagId] = useState<string | null>(null);
   const [extremeTagId, setExtremeTagId] = useState<string | null>(null);
 
-  // Stores the previous filters to compare against for refetching
   const prevFiltersRef = useRef<{
     tags: string[],
     authors: string[],
@@ -48,7 +44,6 @@ export default function SearchPage({
   } | null>(null);
 
   // --- Data Processing Function ---
-  // (No changes needed in this function)
   const processGameData = (items: any[]): Game[] => {
       return items.map(game => {
           const expandData = game.expand || {};
@@ -65,7 +60,6 @@ export default function SearchPage({
   };
 
   // --- Effect to find NSFW and Extreme tag IDs ---
-  // (No changes needed in this effect)
   useEffect(() => {
       if (tagsLoaded && tagMap.size > 0) {
           let foundNsfwId: string | null = null;
@@ -78,23 +72,25 @@ export default function SearchPage({
           }
           setNsfwTagId(foundNsfwId);
           setExtremeTagId(foundExtremeId);
+          setTagIdsProcessed(true);
+      } else if (tagsLoaded) {
+           setTagIdsProcessed(true);
       }
   }, [tagsLoaded, tagMap]);
 
   // --- Game Fetching Function ---
-  // (No changes needed in this function itself)
   const fetchGames = useCallback(
     async (pageNum = 1, isReset = false) => {
         if (!tagsLoaded) {
-            console.warn("[fetchGames] Attempted fetch before tags loaded.");
-            setLoading(true); // Keep loading state if called prematurely
-            return;
+             console.warn("[fetchGames] Attempted fetch before tags loaded.");
+             setLoading(true);
+             return;
         }
         console.log(`[fetchGames] Fetching page ${pageNum}, Reset: ${isReset}`);
         setLoading(true);
 
         try {
-            // --- Filter logic (Server-side) ---
+            // --- Filter logic ---
             const filterConditions: string[] = [];
             const blockedTagIds = blockedTags.map(tag => tag.id);
             const positiveSelectedTags: string[] = [];
@@ -158,8 +154,6 @@ export default function SearchPage({
             setHasMore(false);
         } finally {
             setLoading(false);
-             // Mark initial fetch as done *after* the first fetch completes (or fails)
-             // if (isReset) initialFetchPerformedRef.current = true; // Moved this logic
         }
     },
     [tagsLoaded, selectedTags, selectedAuthors, filterMode, blockedTags, nsfwTagId, extremeTagId, tagMap]
@@ -168,9 +162,9 @@ export default function SearchPage({
   // --- useEffect Hooks ---
 
   // 1. Fetch and Cache Tags on Mount
-  // (No changes needed in this effect)
   useEffect(() => {
       let isMounted = true;
+      setTagIdsProcessed(false);
       (async () => {
         try {
           const cachedTags = localStorage.getItem('tagMap');
@@ -185,31 +179,30 @@ export default function SearchPage({
               localStorage.setItem('tagMap', JSON.stringify([...newTagMap]));
               localStorage.setItem('tagMapLastUpdated', now.toString());
           }
+
           if (isMounted) {
               setTagMap(newTagMap);
-              setTagsLoaded(true); // Set tagsLoaded here
+              setTagsLoaded(true);
           }
         } catch (error) {
             console.error('[Tags Effect] Error fetching/caching tags:', error);
              if(isMounted){
-                setTagsLoaded(true); // Still set loaded on error to unblock other effects
-                // Keep loading true if tags fail, initial fetch won't run
+                setTagsLoaded(true);
+                setTagIdsProcessed(true);
              }
         }
       })();
       return () => { isMounted = false; };
   }, []);
 
-  // 2. Initial Fetch Trigger (Replaces Initial Data Handling)
+  // 2. Initial Fetch Trigger
   useEffect(() => {
-      // Conditions: Tags must be loaded AND the initial fetch hasn't been initiated yet.
-      if (tagsLoaded && !initialFetchInitiatedRef.current) {
-          console.log("[Initial Fetch] Tags loaded, initiating first fetch.");
-          initialFetchInitiatedRef.current = true; // Mark as initiated to prevent re-triggering
-          setPage(1); // Ensure we fetch page 1
-          fetchGames(1, true); // Fetch the first page with reset flag
+      if (tagsLoaded && tagIdsProcessed && !initialFetchInitiatedRef.current) {
+          console.log("[Initial Fetch] Tags and IDs processed, initiating first fetch.");
+          initialFetchInitiatedRef.current = true;
+          setPage(1);
+          fetchGames(1, true);
 
-          // Store initial filters when the first fetch is triggered
           const currentBlockedIds = blockedTags.map(t => t.id).sort();
           const sortedTags = [...selectedTags].sort();
           const sortedAuthors = [...selectedAuthors].sort();
@@ -218,25 +211,16 @@ export default function SearchPage({
               blocked: currentBlockedIds, nsfwId: nsfwTagId, extremeId: extremeTagId
            }));
       } else if (!tagsLoaded && !initialFetchInitiatedRef.current) {
-          // Optional: Keep loading indicator true while waiting for tags
           setLoading(true);
       }
-  // Dependencies: Run when tagsLoaded changes, or potentially filterMode/IDs change *before* the first fetch is initiated
-  // fetchGames is included because it's called inside.
-  }, [tagsLoaded, filterMode, nsfwTagId, extremeTagId, blockedTags, selectedTags, selectedAuthors, fetchGames]);
-
+  }, [tagsLoaded, tagIdsProcessed, fetchGames]);
 
   // 3. Handle Filter Changes (After Initial Load)
   useEffect(() => {
-      // Wait for the initial fetch to have been *initiated* and tags to be ready.
-      // We use initialFetchInitiatedRef instead of checking games.length to handle cases
-      // where the first fetch might return 0 results but still needs subsequent filters applied.
-      if (!initialFetchInitiatedRef.current || !tagsLoaded) {
-           // console.log("[Filter Change] Skipping, initial fetch not initiated or tags not loaded.");
+      if (!initialFetchInitiatedRef.current) {
           return;
       }
 
-      // Prepare current filter state for comparison
       const currentBlockedIds = blockedTags.map(t => t.id).sort();
       const sortedTags = [...selectedTags].sort();
       const sortedAuthors = [...selectedAuthors].sort();
@@ -246,54 +230,41 @@ export default function SearchPage({
       };
       const currentFiltersString = JSON.stringify(currentFilters);
 
-      // If prevFiltersRef is still null here, it means the initial fetch effect hasn't stored it yet
-      // (or is in progress), so we wait.
       if (prevFiltersRef.current === null) {
-           // console.log("[Filter Change] Skipping, prevFiltersRef is null (initial fetch likely in progress).");
           return;
       }
 
-      // If filters haven't changed since the last fetch (initial or subsequent), do nothing
       if (currentFiltersString === JSON.stringify(prevFiltersRef.current)) {
-           // console.log("[Filter Change] Skipping, filters haven't changed.");
           return;
       }
 
-      // Filters HAVE changed: update ref, reset page, and fetch page 1
       console.log("[Filter Change] Filters changed, fetching page 1.");
       prevFiltersRef.current = JSON.parse(currentFiltersString);
       setPage(1);
-      setHasMore(true); // Assume new filters might have more results
-      fetchGames(1, true); // Fetch with reset flag
+      setHasMore(true);
+      fetchGames(1, true);
 
-  // Dependencies: React to changes in any filter input or resolved tag IDs.
-  // fetchGames is included because it's called inside. tagsLoaded ensures tagMap is ready.
-  }, [selectedTags, selectedAuthors, filterMode, blockedTags, tagsLoaded, fetchGames, nsfwTagId, extremeTagId]);
-
+  }, [selectedTags, selectedAuthors, filterMode, blockedTags, nsfwTagId, extremeTagId, fetchGames]);
 
   // 4. Infinite Scroll - Fetch More Games when page number increases
   useEffect(() => {
-    // Fetch more only if page > 1, hasMore is true, not currently loading, and initial fetch was initiated.
     if (page > 1 && hasMore && !loading && initialFetchInitiatedRef.current) {
       console.log(`[Infinite Scroll] Fetching page ${page}`);
-      fetchGames(page, false); // Fetch with append flag
+      fetchGames(page, false);
     }
-  // Only trigger explicitly on 'page' changes for subsequent pages.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]); // Dependencies: fetchGames, hasMore, loading, initialFetchInitiatedRef are checked inside
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   // --- Intersection Observer for Infinite Scroll Trigger ---
-  // (No changes needed in this callback)
   const observer = useRef<IntersectionObserver | null>(null);
-  const lastGameElementRef = useCallback((node: HTMLElement | null) => {
+  const lastGameElementRef = useCallback((node: HTMLElement | null) => { // Now used in JSX
      if (loading || !hasMore) {
          if (observer.current) observer.current.disconnect();
          return;
      }
     if (observer.current) observer.current.disconnect();
     observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && !loading) { // Add !loading check here too
+      if (entries[0].isIntersecting && !loading) {
         setPage(p => p + 1);
       }
     }, { threshold: 0.1 });
@@ -303,43 +274,58 @@ export default function SearchPage({
   }, [loading, hasMore]);
 
   // Memoize games array for performance
-  const memoizedGames = useMemo(() => games, [games]);
+  const memoizedGames = useMemo(() => games, [games]); // Now used in JSX
   const isSearchActive = selectedTags.length > 0 || selectedAuthors.length > 0;
   const isFilterActive = filterMode !== 'all' || blockedTags.length > 0;
 
-  // --- Render Component ---
-  // (No changes needed in the JSX return)
+  // --- Render Component --- // <-- THIS WAS MISSING BEFORE
   return (
       <Box sx={{ width: '100%', p: { xs: 1, sm: 2, md: 3 } }}>
-          <Typography variant="h3" component="h1" sx={{ mt: -4, mb: 3, textAlign: 'center', fontSize: { xs: '1.8rem', sm: '2.2rem', md: '2.5rem' },   ...(theme.custom?.cardTitle || { fontWeight: 'bold' }), }} >
+          <Typography
+              variant="h3" component="h1"
+              sx={{
+                mt: -4, mb: 3, textAlign: 'center',
+                fontSize: { xs: '1.8rem', sm: '2.2rem', md: '2.5rem' },
+                // Example of using theme directly or custom properties if defined
+                 ...(theme.custom?.cardTitle || { fontWeight: 'bold' }),
+              }} >
               {isSearchActive ? 'Search Results' : 'Recent Uploads'}
           </Typography>
-          {/* Show spinner initially OR when loading more games */}
+
+          {/* Initial Loading Spinner */}
           {loading && games.length === 0 && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}><CircularProgress /></Box>
           )}
+
+          {/* Games Grid */}
           {games.length > 0 && (
-              <Grid2 container spacing={{ xs: 1, sm: 2 }} justifyContent="center">
+              // Using MUI Grid v1 syntax here. If you use v2 (Grid2), replace Grid with Grid2
+              <Grid container spacing={{ xs: 1, sm: 2 }} justifyContent="center">
                   {memoizedGames.map((game, index) => (
-                     <Grid2
-                       size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}
-                       key={`search-${game.id}-${index}`} // Use stable key if possible
+                     // Adjust column sizes as needed (xs, sm, md, lg)
+                     // Example: 5 columns on lg, 4 on md, 3 on sm, 1 on xs
+                     <Grid item xs={12} sm={6} md={4} lg={2.4} // lg={2.4} means 5 columns (12 / 2.4 = 5)
+                       key={`search-${game.id}-${index}`} // Make sure key is stable and unique
+                       // Assign ref to the last element for infinite scroll trigger
                        ref={index === memoizedGames.length - 1 ? lastGameElementRef : null}
                      >
-                       <GameCard game={game} variant="standard"/>
-                     </Grid2>
+                       <GameCard game={game} variant="standard"/> {/* Using GameCard */}
+                     </Grid>
                    ))}
-              </Grid2>
+              </Grid>
           )}
-           {/* Spinner shown at bottom only when loading more pages (loading=true AND games already exist) */}
+
+           {/* Infinite Scroll Loading Spinner (at the bottom) */}
           {loading && games.length > 0 && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, height: 40, mb: 2 }}><CircularProgress size={30} /></Box>
           )}
-          {/* End of List Message: Show only if not loading, there's no more data, and initial fetch *was* initiated */}
+
+          {/* End of List Message */}
           {!loading && !hasMore && initialFetchInitiatedRef.current && (
               <Typography sx={{ mt: 3, mb: 2, textAlign: 'center', color: 'text.secondary' }}> You've reached the end! </Typography>
           )}
-          {/* No Results Message: Show if not loading, no games rendered, and initial fetch *was* initiated */}
+
+          {/* No Results Message */}
           {!loading && games.length === 0 && initialFetchInitiatedRef.current && (
               <Typography sx={{ mt: 4, textAlign: 'center', color: 'text.secondary' }}>
                   {isSearchActive || isFilterActive ? 'No games found matching your criteria.' : 'No games available.'}

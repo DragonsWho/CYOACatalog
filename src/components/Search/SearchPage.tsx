@@ -3,17 +3,16 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Typography, CircularProgress, Grid2, useTheme } from '@mui/material';
 import { Game, gamesCollection, tagsCollection, Tag } from '../../pocketbase/pocketbase';
-import type { FilterMode } from '../../App';
+import type { FilterMode } from '../../types';
 import GameCard from '../GameCard';
 
-const ITEMS_PER_PAGE = 25; // Убедитесь, что совпадает со значением в index.html
+const ITEMS_PER_PAGE = 25;
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
-// Расширяем интерфейс Window для __INITIAL_DATA__
 declare global {
     interface Window {
         __INITIAL_DATA__?: {
-            items: any[]; // Используем any[], так как структура может быть неполной до обработки
+            items: any[];
             page: number;
             perPage: number;
             totalItems: number;
@@ -37,8 +36,6 @@ export default function SearchPage({
 }: SearchPageProps) {
   const theme = useTheme();
   const [games, setGames] = useState<Game[]>([]);
-  // Инициализируем loading в false, если ожидаем предзагруженные данные,
-  // но установим в true, если придется их фетчить
   const [loading, setLoading] = useState<boolean>(!window.__INITIAL_DATA__);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -54,49 +51,47 @@ export default function SearchPage({
     blocked: string[]
   } | null>(null);
 
-  // --- Функция обработки данных (вынесена для переиспользования) ---
   const processGameData = (items: any[]): Game[] => {
       return items.map(game => {
           const expandData = game.expand || {};
           const tagsData = expandData.tags;
           const authorsData = expandData.authors_via_games;
-          // Важно: Возвращаем полную структуру Game, даже если в fields были только нужные
-          // Недостающие поля будут undefined, что обычно нормально для JS/TS
           return {
-              ...game, // Копируем все поля, что пришли (id, title, image и т.д.)
+              ...game,
               expand: {
-                  // Восстанавливаем структуру expand с гарантированными массивами
                   ...(expandData.authors_via_games && { authors_via_games: Array.isArray(authorsData) ? authorsData : (authorsData ? [authorsData] : []) }),
                   ...(expandData.tags && { tags: Array.isArray(tagsData) ? tagsData : (tagsData ? [tagsData] : []) }),
               }
-          } as Game; // Утверждаем тип как Game
+          } as Game;
       });
   };
 
-
-  // Effect to find NSFW tag ID (без изменений)
   useEffect(() => {
     if (tagsLoaded && tagMap.size > 0) {
       let foundNsfwId: string | null = null;
       for (const [id, tag] of tagMap.entries()) { if (tag.name.toLowerCase() === 'nsfw') { foundNsfwId = id; break; } }
       setNsfwTagId(foundNsfwId);
-      if (!foundNsfwId && tagsLoaded) console.warn("[Tag ID Finder] NSFW tag ID not found in loaded tagMap!");
+      // if (!foundNsfwId && tagsLoaded) console.warn("[Tag ID Finder] NSFW tag ID not found in loaded tagMap!");
     }
   }, [tagsLoaded, tagMap]);
 
-  // --- fetchGames Function (без изменений в логике запроса) ---
   const fetchGames = useCallback(
     async (pageNum = 1, isReset = false) => {
       const nsfwFilterActive = filterMode === 'nsfw' || filterMode === 'sfw';
       const canFetch = tagsLoaded && (filterMode === 'all' || (nsfwFilterActive && nsfwTagId !== null) || (!nsfwFilterActive));
 
       if (!canFetch) {
+        console.warn(`[fetchGames] Cannot fetch page ${pageNum}. Conditions not met: tagsLoaded=${tagsLoaded}, nsfwFilterActive=${nsfwFilterActive}, nsfwTagId=${nsfwTagId}`);
+        // Если ждем NSFW ID, оставляем лоадер
         if (tagsLoaded && nsfwFilterActive && nsfwTagId === null) { setLoading(true); }
         return;
       }
-      console.log(`[fetchGames] Fetching page ${pageNum}. Reset: ${isReset}`); // Добавим лог
-      setLoading(true);
+
+      console.log(`[fetchGames] Attempting to fetch page ${pageNum}. Reset: ${isReset}. Current loading state: ${loading}`); // Убрали 'Current loading state' из лога, т.к. он сразу станет true
+      setLoading(true); // Устанавливаем загрузку ПЕРЕД запросом
+
       try {
+        console.log(`[fetchGames] Starting API call for page ${pageNum}...`);
         // --- Filter logic ---
         const filterConditions: string[] = [];
         const blockedTagIds = blockedTags.map(tag => tag.id);
@@ -105,8 +100,8 @@ export default function SearchPage({
         selectedTags.forEach(tag => { if (tag.startsWith('-')) { const n = tag.substring(1); if(n) negativeSelectedTagNames.push(n); } else { positiveSelectedTags.push(tag); } });
         if (positiveSelectedTags.length > 0) { const ids = Array.from(tagMap.entries()).filter(([_,t])=>positiveSelectedTags.includes(t.name)).map(([id,_])=>id); if (ids.length===positiveSelectedTags.length) { filterConditions.push(...ids.map(id=>`tags ~ "${id}"`)); } else { console.warn("Pos tags mismatch"); filterConditions.push('(1=0)'); }}
         if (selectedAuthors.length > 0) { filterConditions.push(`(${selectedAuthors.map(a => `authors_via_games.name ?~ "${a.replace(/"/g, '\\"')}"`).join(' || ')})`); }
-        if (filterMode === 'sfw') { if (nsfwTagId) filterConditions.push(`tags.id != "${nsfwTagId}"`); else console.warn("SFW no id"); }
-        else if (filterMode === 'nsfw') { if (nsfwTagId) filterConditions.push(`tags ~ "${nsfwTagId}"`); else { console.warn("NSFW no id"); filterConditions.push('(1=0)'); } }
+        if (filterMode === 'sfw') { if (nsfwTagId) filterConditions.push(`tags.id != "${nsfwTagId}"`); else console.warn("SFW filter needs NSFW tag ID, which is null."); } // Улучшил лог
+        else if (filterMode === 'nsfw') { if (nsfwTagId) filterConditions.push(`tags ~ "${nsfwTagId}"`); else { console.warn("NSFW filter needs NSFW tag ID, which is null. Blocking results."); filterConditions.push('(1=0)'); } } // Улучшил лог
         if (negativeSelectedTagNames.length > 0) { const ids = Array.from(tagMap.entries()).filter(([_,t])=>negativeSelectedTagNames.includes(t.name)).map(([id,_])=>id); if (ids.length > 0) filterConditions.push(...ids.map(id => `tags.id != "${id}"`)); if(ids.length !== negativeSelectedTagNames.length) console.warn("Neg tags mismatch"); }
         if (blockedTagIds.length > 0) { const negIds = new Set(Array.from(tagMap.entries()).filter(([_,t])=>negativeSelectedTagNames.includes(t.name)).map(([id,_])=>id)); const finalBlocked = blockedTagIds.filter(bId => !negIds.has(bId)); if (finalBlocked.length > 0) filterConditions.push(...finalBlocked.map(id => `tags.id != "${id}"`)); }
         // --- End Filter ---
@@ -115,187 +110,233 @@ export default function SearchPage({
         const fieldsToFetch = ['id','title','description','image','image_base64','upvotes_count','comments_count','authors','expand.authors_via_games.name','expand.tags.id','expand.tags.name','expand.tags.expand.tag_categories_via_tags.name'].join(',');
 
         const fetchedGamesResult = await gamesCollection.getList(pageNum, ITEMS_PER_PAGE, { sort: '-created', expand: expandRelations, filter: filterString, fields: fieldsToFetch });
-        // Используем общую функцию обработки
+        console.log(`[fetchGames] API call SUCCESS for page ${pageNum}. Received ${fetchedGamesResult.items.length} items.`);
+
         const gamesFromApi = processGameData(fetchedGamesResult.items);
 
         setGames((prevGames) => {
              const newGames = isReset ? gamesFromApi : [...prevGames, ...gamesFromApi];
-             // Убираем дубликаты на случай повторного запроса той же страницы
              const uniqueGames = Array.from(new Map(newGames.map(g => [g.id, g])).values());
-             console.log(`[fetchGames] Done page ${pageNum}. Prev: ${prevGames.length}, New: ${gamesFromApi.length}, Total Unique: ${uniqueGames.length}`);
+            // console.log(`[fetchGames] Updating games state for page ${pageNum}. Prev: ${prevGames.length}, New raw: ${gamesFromApi.length}, Total Unique: ${uniqueGames.length}`);
              return uniqueGames;
          });
-        setHasMore(fetchedGamesResult.items.length === ITEMS_PER_PAGE);
+        const newHasMore = fetchedGamesResult.items.length === ITEMS_PER_PAGE;
+        setHasMore(newHasMore);
+        console.log(`[fetchGames] State updated for page ${pageNum}. HasMore set to: ${newHasMore}`);
+
       } catch (error: any) {
-          console.error(`[fetchGames] Error fetching page ${pageNum}:`, error);
-          // Важно: Установить hasMore в false при ошибке, чтобы остановить попытки
-          setHasMore(false);
+          // Важно логировать ошибку ПОДРОБНО
+          console.error(`[fetchGames] API call FAILED for page ${pageNum}:`, error);
+          // Можно проверить тип ошибки, если нужно
+          // if (error instanceof ClientResponseError) { console.error('PocketBase Error Details:', error.data); }
+          setHasMore(false); // Останавливаем дальнейшие попытки при ошибке
+          console.log(`[fetchGames] Error occurred. HasMore set to false.`);
       } finally {
+          // Этот блок ДОЛЖЕН выполниться всегда после try или catch
           setLoading(false);
+          console.log(`[fetchGames] FINALLY block executed for page ${pageNum}. Loading set to false.`);
       }
     },
-    [tagsLoaded, selectedTags, selectedAuthors, filterMode, blockedTags, nsfwTagId, tagMap] // Добавил tagMap т.к. он используется в фильтрах
+    [tagsLoaded, selectedTags, selectedAuthors, filterMode, blockedTags, nsfwTagId, tagMap, loading] // Добавил loading в зависимости useCallback, т.к. мы его читаем в логе в начале
   );
 
   // --- useEffect Hooks ---
 
-  // 1. Fetch and Cache Tags on Mount (без изменений)
+  // 1. Fetch and Cache Tags on Mount
   useEffect(() => {
     let isMounted = true;
-    // setLoading(true); // Не устанавливаем loading здесь, если данные могут быть предзагружены
+    console.log("[Effect #1: Tags] Mounting. Fetching tags...");
     (async () => {
       try {
         const cachedTags = localStorage.getItem('tagMap'); const lastUpdated = localStorage.getItem('tagMapLastUpdated'); const now = Date.now(); let newTagMap: Map<string, Tag>;
-        if (cachedTags && lastUpdated && now - parseInt(lastUpdated) < ONE_DAY_IN_MS) { newTagMap = new Map(JSON.parse(cachedTags)); }
-        else { const ft = await tagsCollection.getFullList(500,{fields:'id,name',sort:'name'}); newTagMap = new Map((ft as Tag[]).map(t=>[t.id,t])); localStorage.setItem('tagMap',JSON.stringify([...newTagMap])); localStorage.setItem('tagMapLastUpdated',now.toString()); }
-        if (isMounted) { setTagMap(newTagMap); setTagsLoaded(true); }
-      } catch (error) { console.error('[Tags Effect] Error:', error); if(isMounted){ setTagsLoaded(true); setLoading(false); }}
+        if (cachedTags && lastUpdated && now - parseInt(lastUpdated) < ONE_DAY_IN_MS) { newTagMap = new Map(JSON.parse(cachedTags)); console.log("[Effect #1: Tags] Using cached tags."); }
+        else { const ft = await tagsCollection.getFullList(500,{fields:'id,name',sort:'name'}); newTagMap = new Map((ft as Tag[]).map(t=>[t.id,t])); localStorage.setItem('tagMap',JSON.stringify([...newTagMap])); localStorage.setItem('tagMapLastUpdated',now.toString()); console.log("[Effect #1: Tags] Fetched and cached new tags."); }
+        if (isMounted) { setTagMap(newTagMap); setTagsLoaded(true); console.log("[Effect #1: Tags] Tags loaded into state.");}
+      } catch (error) { console.error('[Effect #1: Tags] Error:', error); if(isMounted){ setTagsLoaded(true); setLoading(false); console.log("[Effect #1: Tags] Error occurred, setting tagsLoaded=true, loading=false.");}} // Устанавливаем tagsLoaded в true и setLoading(false) даже при ошибке, чтобы не блокировать вечно
     })();
-    return () => { isMounted = false; };
+    return () => { isMounted = false; console.log("[Effect #1: Tags] Unmounting.");};
   }, []);
 
-  // 2. Initial Data Handling (Check Preload THEN Fetch) - ЛОГИКА НЕ ИЗМЕНЕНА
+  // 2. Initial Data Handling (Check Preload THEN Fetch)
   useEffect(() => {
-    // Выполняем только если начальная загрузка еще не произошла
+    console.log(`[Effect #2: Initial Load] Running. Initial fetch performed: ${initialFetchPerformedRef.current}`);
     if (!initialFetchPerformedRef.current) {
-
-      // Проверяем наличие предзагруженных данных
       if (window.__INITIAL_DATA__ && Array.isArray(window.__INITIAL_DATA__.items)) {
-          console.log("Using preloaded data for initial load.");
+          console.log("[Effect #2: Initial Load] Using preloaded data.");
           const preloadedItems = window.__INITIAL_DATA__.items;
           const gamesFromPreload = processGameData(preloadedItems);
-
           setGames(gamesFromPreload);
           setHasMore(preloadedItems.length === ITEMS_PER_PAGE);
-          setLoading(false); // Данные загружены
-          setPage(1); // Убедимся, что страница 1
-          initialFetchPerformedRef.current = true; // Помечаем, что начальная загрузка выполнена
+          setLoading(false);
+          setPage(1);
+          initialFetchPerformedRef.current = true;
+          console.log("[Effect #2: Initial Load] Preloaded data processed. initialFetchPerformed=true, loading=false, page=1.");
           window.__INITIAL_DATA__ = null;
-
       } else {
-          // Предзагруженных данных нет или они невалидны, выполняем обычную логику fetch
-          console.log("Preloaded data not found or invalid. Will fetch when ready.");
+          console.log("[Effect #2: Initial Load] Preloaded data not found. Checking readiness for fetch...");
           const nsfwFilterActive = filterMode === 'nsfw' || filterMode === 'sfw';
           const readyToFetch = tagsLoaded && (filterMode === 'all' || (nsfwFilterActive && nsfwTagId !== null) || (!nsfwFilterActive));
 
           if (readyToFetch) {
-              console.log("Ready to fetch initial data (Page 1).");
-              initialFetchPerformedRef.current = true; // Помечаем *перед* вызовом fetch
-              setLoading(true); // Убедимся, что есть индикатор загрузки
+              console.log("[Effect #2: Initial Load] Ready to fetch initial data (Page 1). Setting initialFetchPerformed=true and calling fetchGames.");
+              initialFetchPerformedRef.current = true;
               setPage(1); // Убедимся, что страница 1
-              fetchGames(1, true); // Выполняем первый fetch
+              // Вызываем fetchGames здесь, он сам установит setLoading(true)
+              fetchGames(1, true);
           } else {
                if (!tagsLoaded || (nsfwFilterActive && nsfwTagId === null)) {
-                    setLoading(true); // Показываем загрузку, пока ждем зависимости
+                    console.log("[Effect #2: Initial Load] Waiting for dependencies (tags/nsfwId). Setting loading=true.");
+                    setLoading(true);
+               } else {
+                   console.log("[Effect #2: Initial Load] Not ready to fetch yet, but dependencies seem met? Waiting cycle.");
                }
-               console.log("Waiting for dependencies before initial fetch. Tags loaded:", tagsLoaded, "NSFW ID needed/found:", nsfwFilterActive, nsfwTagId);
+               // console.log("Waiting for dependencies before initial fetch. Tags loaded:", tagsLoaded, "NSFW ID needed/found:", nsfwFilterActive, nsfwTagId);
           }
       }
+    } else {
+        console.log("[Effect #2: Initial Load] Skipped, initial fetch already performed.");
     }
-  }, [tagsLoaded, filterMode, nsfwTagId, fetchGames]); // Зависимости остаются теми же
+  }, [tagsLoaded, filterMode, nsfwTagId, fetchGames]); // fetchGames добавлена как зависимость
 
-
-  // 3. Handle Filter Changes (после initial load) - логика без изменений
+  // 3. Handle Filter Changes (после initial load) --- ИСПРАВЛЕННАЯ ЛОГИКА ---
   useEffect(() => {
+    console.log(`[Effect #3: Filter Change] Running. Initial fetch performed: ${initialFetchPerformedRef.current}, Tags loaded: ${tagsLoaded}`);
+    // Ждем инициализации и загрузки тегов
     if (!initialFetchPerformedRef.current || !tagsLoaded) {
-        // console.log("Filter change effect skipped: initial fetch not performed or tags not loaded.");
+        console.log("[Effect #3: Filter Change] Skipped: Waiting for initial fetch and tags.");
         return;
-    } // Ждем завершения начальной загрузки/загрузки тегов
-    const currentBlockedIds = blockedTags.map(t => t.id).sort(); const sortedTags = [...selectedTags].sort(); const sortedAuthors = [...selectedAuthors].sort();
-    const currentFilters = { tags: sortedTags, authors: sortedAuthors, mode: filterMode, blocked: currentBlockedIds };
-    // Сравниваем с предыдущими фильтрами только если они уже были установлены
-    if (prevFiltersRef.current !== null && JSON.stringify(currentFilters) === JSON.stringify(prevFiltersRef.current)) {
-      // console.log("Filter change effect skipped: filters haven't changed.");
-      return; // Фильтры не изменились
     }
-    // Обновляем предыдущие фильтры *перед* сбросом и запросом
-    console.log("Filters changed, refetching page 1.", { prev: prevFiltersRef.current, current: currentFilters });
-    prevFiltersRef.current = currentFilters;
-    setPage(1); // Сбрасываем на первую страницу
-    setHasMore(true); // Предполагаем, что с новыми фильтрами есть данные
-    // setGames([]); // Можно очистить игры для мгновенной обратной связи, но setLoading(true) в fetchGames уже скроет старые
-    fetchGames(1, true); // Reset and fetch page 1
-  }, [selectedTags, selectedAuthors, filterMode, blockedTags, tagsLoaded, fetchGames]); // Добавили tagsLoaded и fetchGames
 
-  // 4. Infinite Scroll - Fetch More Games - логика без изменений
+    const currentBlockedIds = blockedTags.map(t => t.id).sort();
+    const sortedTags = [...selectedTags].sort();
+    const sortedAuthors = [...selectedAuthors].sort();
+    const currentFilters = { tags: sortedTags, authors: sortedAuthors, mode: filterMode, blocked: currentBlockedIds };
+
+    // --- НАЧАЛО ИЗМЕНЕНИЯ ---
+    // Если это первый запуск эффекта после инициализации (prevFiltersRef еще null)
+    if (prevFiltersRef.current === null) {
+        console.log("[Effect #3: Filter Change] First run after init. Storing initial filters, NO refetch triggered.");
+        prevFiltersRef.current = currentFilters; // Просто сохраняем текущие (начальные) фильтры
+        return; // НЕ вызываем fetchGames
+    }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+    // Если фильтры не изменились по сравнению с предыдущими
+    if (JSON.stringify(currentFilters) === JSON.stringify(prevFiltersRef.current)) {
+      console.log("[Effect #3: Filter Change] Skipped: Filters haven't changed since last check.");
+      return;
+    }
+
+    // Фильтры ИЗМЕНИЛИСЬ
+    console.log("[Effect #3: Filter Change] Filters CHANGED, refetching page 1.", { prev: prevFiltersRef.current, current: currentFilters });
+    prevFiltersRef.current = currentFilters; // Обновляем сохраненные фильтры
+    setPage(1); // Сбрасываем на первую страницу
+    setHasMore(true); // Предполагаем, что есть данные
+    // fetchGames сам установит loading=true
+    fetchGames(1, true); // Сбрасываем и запрашиваем первую страницу с НОВЫМИ фильтрами
+
+  // Зависимости остаются те же, но логика внутри изменилась
+  }, [selectedTags, selectedAuthors, filterMode, blockedTags, tagsLoaded, fetchGames]);
+
+
+  // 4. Infinite Scroll - Fetch More Games
   useEffect(() => {
-    // Выполняем только если:
-    // - Это не первая страница (page > 1)
-    // - Есть еще данные (hasMore)
-    // - Не идет загрузка в данный момент (!loading)
-    // - Начальная загрузка уже была выполнена (initialFetchPerformedRef.current)
+    console.log(`[Effect #4: Infinite Scroll] Checking conditions for page ${page}. hasMore=${hasMore}, loading=${loading}, initialFetchDone=${initialFetchPerformedRef.current}`);
     if (page > 1 && hasMore && !loading && initialFetchPerformedRef.current) {
-      console.log(`Infinite scroll effect triggered: fetching page ${page}.`);
+      console.log(`[Effect #4: Infinite Scroll] Conditions met! Calling fetchGames for page ${page}.`);
       fetchGames(page, false); // Append results for the current 'page' state
     } else {
-        // console.log(`Infinite scroll effect skipped for page ${page}. Conditions: hasMore=${hasMore}, loading=${loading}, initialFetchDone=${initialFetchPerformedRef.current}`);
+        console.log(`[Effect #4: Infinite Scroll] Conditions NOT met or page is 1. Skipping fetch.`);
     }
   }, [page, hasMore, loading, initialFetchPerformedRef, fetchGames]); // Зависимости те же
+
 
   // --- Intersection Observer ---
   const observer = useRef<IntersectionObserver | null>(null);
   const lastGameElementRef = useCallback((node: HTMLElement | null) => {
-    // Не создаем observer если уже идет загрузка или если больше нет данных
-    if (loading || !hasMore) return;
+    // console.log(`[Observer Callback] Running. Loading: ${loading}, HasMore: ${hasMore}`); // Убрал loading из лога, т.к. он не в зависимостях
+     if (loading) {
+         // console.log("[Observer Callback] Loading is true, detaching observer temporarily.");
+         if (observer.current) observer.current.disconnect(); // Отключаем, пока грузится
+         return;
+     }
+    if (!hasMore) {
+        // console.log("[Observer Callback] No more items, disconnecting observer.");
+        if (observer.current) observer.current.disconnect(); // Отключаем навсегда
+        return;
+    }
 
-    // Отключаем предыдущий observer, если он был
-    if (observer.current) observer.current.disconnect();
+    if (observer.current) observer.current.disconnect(); // Отключаем старый перед созданием нового
 
-    // Создаем новый observer
     observer.current = new IntersectionObserver(entries => {
-      // Если элемент пересекает viewport
+      // console.log(`[Observer Internal Callback] Fired. isIntersecting: ${entries[0].isIntersecting}`);
       if (entries[0].isIntersecting) {
-        // Увеличиваем номер страницы, чтобы запросить следующую порцию
-        console.log("Intersection Observer triggered: isIntersecting=true. Incrementing page.");
-        setPage(p => p + 1);
+        console.log("[Observer Internal Callback] Element is intersecting! Incrementing page.");
+        setPage(p => {
+            console.log(`[Observer setPage] Current page: ${p}, New page: ${p + 1}`);
+            return p + 1;
+            });
       }
-    });
+    }/*, { threshold: 0.1 } */); // Можно добавить threshold, если нужно срабатывание чуть раньше
 
-    // Начинаем наблюдение за новым элементом, если он есть
-    if (node) observer.current.observe(node);
+    if (node) {
+        // console.log("[Observer Callback] Attaching observer to new node.");
+        observer.current.observe(node);
+    } else {
+        // console.log("[Observer Callback] Node is null.");
+    }
 
-  // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
-  // Убираем `loading` из зависимостей useCallback.
-  // Функция callback все равно получит актуальное значение `loading` через замыкание
-  // при проверке `if (loading || !hasMore) return;` в начале.
-  // Это предотвращает пересоздание callback и observer'а при каждом изменении `loading`,
-  // что могло вызывать повторное срабатывание observer'а сразу после завершения загрузки.
-  }, [hasMore]); // Зависит только от hasMore
+  // Зависимости useCallback: `loading` убрали, `hasMore` оставили. Добавим `page` на всякий случай, если он влияет на логику (хотя он используется только в setPage)
+  }, [hasMore]); // Убрали loading, оставили hasMore
 
   // Memoize games
   const memoizedGames = useMemo(() => games, [games]);
   const isSearchActive = selectedTags.length > 0 || selectedAuthors.length > 0;
   const isFilterActive = filterMode !== 'all' || blockedTags.length > 0;
 
-  // --- Render Component (без изменений) ---
+  // --- Render Component ---
   return (
     <Box sx={{ width: '100%', p: { xs: 1, sm: 2, md: 3 } }}>
       <Typography variant="h3" component="h1" sx={{ mt: -4, mb: 3, textAlign: 'center', fontSize: { xs: '1.8rem', sm: '2.2rem', md: '2.5rem' },   ...(theme.custom?.cardTitle || { fontWeight: 'bold' }), }} >
         {isSearchActive ? 'Search Results' : 'Recent Uploads'}
       </Typography>
-      {/* Показываем главный лоадер только если идет загрузка И игр еще нет */}
-      {loading && games.length === 0 && ( <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}> <CircularProgress /> </Box> )}
-      {/* Отображаем игры */}
+
+      {/* Главный лоадер (только при первой загрузке) */}
+      {loading && games.length === 0 && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}><CircularProgress /></Box>
+      )}
+
+      {/* Список игр */}
       {games.length > 0 && (
         <Grid2 container spacing={{ xs: 1, sm: 2 }} justifyContent="center">
             {memoizedGames.map((game, index) => (
                <Grid2
                  size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}
-                 key={`search-${game.id}-${index}`}
-                 // Устанавливаем ref на последний элемент для Intersection Observer
-                 ref={index === memoizedGames.length - 1 ? lastGameElementRef : null}
+                 key={`search-${game.id}-${index}`} // Ключ должен быть стабильным и уникальным
+                 ref={index === memoizedGames.length - 1 ? lastGameElementRef : null} // Вешаем ref на последний элемент
                >
                  <GameCard game={game} variant="standard"/>
                </Grid2>
              ))}
         </Grid2>
       )}
-       {/* Показываем маленький лоадер внизу, если идет загрузка И уже есть какие-то игры */}
-      {loading && games.length > 0 && ( <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, height: 40, mb: 2 }}> <CircularProgress size={30} /> </Box> )}
+
+       {/* Лоадер для подгрузки (появляется внизу при загрузке следующих страниц) */}
+      {loading && games.length > 0 && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, height: 40, mb: 2 }}><CircularProgress size={30} /></Box>
+      )}
+
       {/* Сообщение о конце списка */}
-      {!loading && !hasMore && games.length > 0 && initialFetchPerformedRef.current && ( <Typography sx={{ mt: 3, mb: 2, textAlign: 'center', color: 'text.secondary' }}> You've reached the end! </Typography> )}
-      {/* Сообщение, если ничего не найдено (после того как первая загрузка была) */}
-      {!loading && games.length === 0 && initialFetchPerformedRef.current && ( <Typography sx={{ mt: 4, textAlign: 'center', color: 'text.secondary' }}> {isSearchActive || isFilterActive ? 'No games found matching your criteria.' : 'No games available.'} </Typography> )}
+      {!loading && !hasMore && games.length > 0 && initialFetchPerformedRef.current && (
+          <Typography sx={{ mt: 3, mb: 2, textAlign: 'center', color: 'text.secondary' }}> You've reached the end! </Typography>
+      )}
+
+      {/* Сообщение, если ничего не найдено */}
+      {!loading && games.length === 0 && initialFetchPerformedRef.current && (
+          <Typography sx={{ mt: 4, textAlign: 'center', color: 'text.secondary' }}>
+              {isSearchActive || isFilterActive ? 'No games found matching your criteria.' : 'No games available.'}
+          </Typography>
+      )}
     </Box>
   );
 }

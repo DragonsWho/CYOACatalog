@@ -1,18 +1,19 @@
+// ... другие импорты ...
 package main
 
 import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"io" // Добавлен импорт io
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
-
-	// "slices" // Больше не нужен для upvotes
 	"strings"
+	"time" // <<< ДОБАВЛЕНО
 
+	"github.com/golang-jwt/jwt/v5" // <<< ДОБАВЛЕНО
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -21,9 +22,8 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
-	"github.com/pocketbase/pocketbase/plugins/jsvm" // Убедись, что импорт jsvm есть
+	"github.com/pocketbase/pocketbase/plugins/jsvm"
 	"github.com/pocketbase/pocketbase/tools/security"
-	// "github.com/pocketbase/pocketbase/tools/list" // импорт list для проверки среза (если понадобится)
 )
 
 //go:embed dist/*
@@ -35,6 +35,7 @@ type TurnstileResponse struct {
 }
 
 func verifyTurnstile(token string) (bool, error) {
+	// ... ваш код ...
 	secretKey := os.Getenv("TURNSTILE_SECRET_KEY")
 	if secretKey == "" {
 		return false, fmt.Errorf("TURNSTILE_SECRET_KEY is not set")
@@ -50,7 +51,7 @@ func verifyTurnstile(token string) (bool, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body) // ИЗМЕНЕНО: ioutil.ReadAll -> io.ReadAll
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, err
 	}
@@ -77,24 +78,104 @@ func main() {
 
 	app := pocketbase.New()
 
-	// Регистрация JS хуков (код без изменений)
+	// Удаляем предыдущий хук app.OnRecordAuthRequest(), если он был добавлен для SSO
+	// Он нам больше не нужен в том виде для модификации JWT.
+
 	hooksDir := "pb_hooks"
 	if _, err := os.Stat(hooksDir); os.IsNotExist(err) {
 		log.Printf("Hooks directory '%s' not found, skipping JS hooks loading.", hooksDir)
 	} else {
 		jsvm.MustRegister(app, jsvm.Config{
 			HooksDir: hooksDir,
-			// Watch: true, // Раскомментируй для разработки, если нужно автообновление хуков
 		})
 		log.Printf("Registered JS hooks from directory: %s", hooksDir)
 	}
 
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-		apiGroup := e.Router.Group("/api/custom")
+		// Внутри app.OnBeforeServe().Add(func(e *core.ServeEvent) error { ... })
 
-		// Эндпоинт верификации Turnstile (без изменений)
+		// --- НАЧАЛО: Определение или получение apiGroup ---
+		// ИЩИТЕ В ВАШЕМ КОДЕ СТРОКУ, ПОХОЖУЮ НА ЭТУ, ГДЕ СОЗДАЕТСЯ ГРУППА /api/custom
+		// Если она уже есть, используйте ту же переменную.
+		// Если ее нет (что маловероятно, если у вас есть эндпоинты /verify-turnstile и т.д.),
+		// то раскомментируйте и используйте следующую строку:
+		var apiGroup *echo.Group // Объявляем переменную здесь
+
+		// Попытка найти существующее определение apiGroup в вашем коде выше этого блока.
+		// Если вы уже объявляете `apiGroup := e.Router.Group("/api/custom")` где-то выше в этой функции,
+		// то эта переменная `apiGroup` уже будет доступна, и следующая строка не нужна (или ее нужно адаптировать).
+		// Для чистоты, лучше всего объявить `apiGroup` один раз в начале этой функции OnBeforeServe.
+
+		// Если вы НЕ МОЖЕТЕ найти, где `apiGroup` создается для ваших других эндпоинтов /api/custom/*,
+		// тогда создайте его здесь:
+		if apiGroup == nil { // Эта проверка сработает, если apiGroup не был присвоен ранее в этой функции
+			apiGroup = e.Router.Group("/api/custom")
+			// Если вы уверены, что `apiGroup` уже создан выше, эту строку можно удалить,
+			// и компилятор подскажет, если переменная `apiGroup` не определена.
+		}
+		// --- КОНЕЦ: Определение или получение apiGroup ---
+
+		// --- НАЧАЛО: Кастомный эндпоинт для генерации Flarum SSO JWT ---
+		// Теперь используем `apiGroup` для добавления нового маршрута
+		apiGroup.GET("/sso/flarum-token", func(c echo.Context) error {
+			requestInfo := apis.RequestInfo(c)
+			if requestInfo == nil || requestInfo.AuthRecord == nil {
+				return apis.NewUnauthorizedError("User not authenticated to generate Flarum token.", nil)
+			}
+
+			authRecord := requestInfo.AuthRecord
+
+			jwtSecret := os.Getenv("POCKETBASE_TOKEN_SIGN_KEY") // Используйте вашу переменную для JWT секрета
+			if jwtSecret == "" {
+				log.Println("ERROR: POCKETBASE_TOKEN_SIGN_KEY (or your JWT secret env var) is not set for Flarum SSO token generation.")
+				return apis.NewApiError(http.StatusInternalServerError, "SSO configuration error.", nil)
+			}
+
+			flarumUserAttrs := map[string]interface{}{
+				"email":            authRecord.Email(),
+				"username":         authRecord.Username(),
+				"isEmailConfirmed": authRecord.Verified(),
+			}
+
+			avatarFilename := authRecord.GetString("avatar")
+			if avatarFilename != "" {
+				baseUrl := "https://cyoa.cafe"
+				flarumUserAttrs["avatarUrl"] = fmt.Sprintf("%s/api/files/%s/%s/%s", baseUrl, authRecord.Collection().Id, authRecord.Id, avatarFilename)
+			} else {
+				flarumUserAttrs["avatarUrl"] = ""
+			}
+
+			claims := jwt.MapClaims{
+				"iss": "https://cyoa.cafe",
+				"aud": "https://forum.cyoa.cafe",
+				"iat": time.Now().Unix(),
+				"exp": time.Now().Add(time.Hour * 1).Unix(),
+				"sub": authRecord.Id,
+				"user": map[string]interface{}{
+					"id":         authRecord.Id,
+					"attributes": flarumUserAttrs,
+				},
+			}
+
+			token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+			signedToken, err := token.SignedString([]byte(jwtSecret))
+			if err != nil {
+				log.Printf("Error signing Flarum SSO token: %v", err)
+				return apis.NewApiError(http.StatusInternalServerError, "Failed to generate SSO token.", err)
+			}
+
+			return c.JSON(http.StatusOK, map[string]string{
+				"flarum_sso_token": signedToken,
+			})
+		}, apis.RequireRecordAuth())
+		// --- КОНЕЦ: Кастомный эндпоинт ---
+
+		// --- Ваш существующий код для /api/custom/verify-turnstile, /comments, /upvotes ---
+		// Убедитесь, что он находится в правильном месте относительно `apiGroup`
+		// Если вы определяли `apiGroup` ранее в этой функции, он должен быть здесь.
+		// Например:
 		apiGroup.POST("/verify-turnstile", func(c echo.Context) error {
-			// ... (код без изменений) ...
+			// ... ваш код ...
 			token := c.FormValue("token")
 			if token == "" {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": "Token required"})
@@ -109,141 +190,102 @@ func main() {
 			return c.JSON(http.StatusOK, map[string]bool{"success": true})
 		})
 
-		// --- Эндпоинт комментариев ---
 		commentGroup := apiGroup.Group("/comments")
-
-		type CommentPayload struct { // Переименовал для ясности
+		type CommentPayload struct {
 			GameID   string  `json:"game_id"`
-			ParentID *string `json:"parent_id"` // Указатель, может быть nil
+			ParentID *string `json:"parent_id"`
 			Content  string  `json:"content"`
 		}
-
 		commentGroup.POST("", func(c echo.Context) error {
-			// Получаем пользователя
+			// ... ваш код ...
 			info := apis.RequestInfo(c)
 			if info == nil || info.AuthRecord == nil {
 				return apis.NewUnauthorizedError("User not authenticated", nil)
 			}
 			userID := info.AuthRecord.Id
-
-			// Парсим тело запроса
 			payload := new(CommentPayload)
 			if err := c.Bind(payload); err != nil {
 				return apis.NewBadRequestError("Invalid request body", err)
 			}
-			// Простая валидация
 			if payload.GameID == "" || payload.Content == "" {
 				return apis.NewBadRequestError("Missing game_id or content", nil)
 			}
-
 			commentID := security.RandomStringWithAlphabet(models.DefaultIdLength, models.DefaultIdAlphabet)
-			var gameRecord *models.Record // Объявляем заранее для доступа к счетчику
-
+			var gameRecord *models.Record
 			err := app.Dao().RunInTransaction(func(txDao *daos.Dao) error {
-				// 1. Находим коллекцию комментариев
 				commentsCollection, err := txDao.FindCollectionByNameOrId("comments")
 				if err != nil {
 					log.Printf("Error finding comments collection: %v", err)
 					return apis.NewApiError(500, "Internal error finding collection", err)
 				}
-
-				// 2. Создаем новую запись комментария
 				commentRecord := models.NewRecord(commentsCollection)
-				commentRecord.Set("id", commentID) // Устанавливаем сгенерированный ID
+				commentRecord.Set("id", commentID)
 				commentRecord.Set("content", payload.Content)
 				commentRecord.Set("author", userID)
-				commentRecord.Set("children", []string{}) // Инициализируем пустым срезом
-				commentRecord.Set("game", payload.GameID) // --- ДОБАВЛЕНО: Устанавливаем связь с игрой ---
-
-				// Устанавливаем родителя, если он есть
+				commentRecord.Set("children", []string{})
+				commentRecord.Set("game", payload.GameID)
 				if payload.ParentID != nil && *payload.ParentID != "" {
 					commentRecord.Set("parent", *payload.ParentID)
 				}
-
-				// 3. Сохраняем комментарий
 				if err := txDao.SaveRecord(commentRecord); err != nil {
 					log.Printf("Error saving comment record: %v", err)
 					return apis.NewApiError(500, "Failed to save comment", err)
 				}
 				log.Printf("Saved new comment %s for game %s", commentID, payload.GameID)
-
-				// 4. Обновляем запись игры (только если это не ответ на другой коммент)
 				isTopLevelComment := payload.ParentID == nil || *payload.ParentID == ""
 				if isTopLevelComment {
 					gameRecord, err = txDao.FindRecordById("games", payload.GameID)
 					if err != nil {
 						log.Printf("Error finding game record %s: %v", payload.GameID, err)
-						// Не прерываем транзакцию из-за этого, но логируем
-						return nil // Комментарий создан, но игра не обновилась
+						return nil
 					}
-
-					// Получаем текущий массив и счетчик
 					commentsSlice := gameRecord.GetStringSlice("comments")
-					currentCount := gameRecord.GetInt("comments_count") // Текущий счетчик
-
-					// Добавляем новый ID и обновляем счетчик
+					currentCount := gameRecord.GetInt("comments_count")
 					commentsSlice = append(commentsSlice, commentID)
-					newCount := currentCount + 1 // Просто инкрементируем
-
+					newCount := currentCount + 1
 					gameRecord.Set("comments", commentsSlice)
-					gameRecord.Set("comments_count", newCount) // Обновляем счетчик
-
+					gameRecord.Set("comments_count", newCount)
 					if err := txDao.SaveRecord(gameRecord); err != nil {
 						log.Printf("Error saving game record %s after adding comment: %v", payload.GameID, err)
-						// Опять же, не прерываем транзакцию, но логируем
 						return nil
 					}
 					log.Printf("Updated game %s comment count to %d", payload.GameID, newCount)
 				} else {
 					log.Printf("Comment %s is a reply, not updating game count.", commentID)
 				}
-
-				// 5. Обновляем родительский комментарий, если это ответ
 				if payload.ParentID != nil && *payload.ParentID != "" {
 					parentCommentRecord, err := txDao.FindRecordById("comments", *payload.ParentID)
 					if err != nil {
 						log.Printf("Error finding parent comment %s: %v", *payload.ParentID, err)
-						// Не прерываем, но логируем
 						return nil
 					}
 					childrenSlice := parentCommentRecord.GetStringSlice("children")
 					childrenSlice = append(childrenSlice, commentID)
 					parentCommentRecord.Set("children", childrenSlice)
-
 					if err := txDao.SaveRecord(parentCommentRecord); err != nil {
 						log.Printf("Error saving parent comment %s after adding child: %v", *payload.ParentID, err)
-						// Не прерываем, но логируем
 						return nil
 					}
 					log.Printf("Updated parent comment %s children array", *payload.ParentID)
 				}
-
-				return nil // Транзакция успешна
+				return nil
 			})
-
-			// Обработка ошибки транзакции
 			if err != nil {
-				// Ошибка уже должна быть залогирована внутри
-				return err // Возвращаем ошибку клиенту
+				return err
 			}
-
-			// Получаем итоговый счетчик, если игра обновлялась
 			finalCommentCount := 0
 			if gameRecord != nil {
 				finalCommentCount = gameRecord.GetInt("comments_count")
 			}
-
-			// Возвращаем ID созданного комментария и итоговый счетчик (если есть)
 			return c.JSON(http.StatusOK, map[string]any{
 				"id":             commentID,
-				"comments_count": finalCommentCount, // Добавляем счетчик в ответ
+				"comments_count": finalCommentCount,
 			})
-		}, apis.RequireRecordAuth()) // Требуем аутентификацию
+		}, apis.RequireRecordAuth())
 
-		// --- Эндпоинт лайков (код без изменений, но проверим, что он тут) ---
 		upvoteGroup := apiGroup.Group("/upvotes")
 		upvoteGroup.POST("/:id", func(c echo.Context) error {
-			// ... (весь код для лайков, как в предыдущем шаге) ...
+			// ... ваш код ...
 			info := apis.RequestInfo(c)
 			if info == nil || info.AuthRecord == nil {
 				return apis.NewUnauthorizedError("User not authenticated", nil)
@@ -291,12 +333,11 @@ func main() {
 				return err
 			}
 			return c.JSON(http.StatusOK, map[string]any{"id": gameID, "state": finalState, "count": finalCount})
-		}, apis.RequireRecordAuth()) // Требуем аутентификацию
-
+		}, apis.RequireRecordAuth())
+		// ---------------------------------------------------------------------------------
 		return nil
-	}) // Конец OnBeforeServe
+	})
 
-	// Настройка статики и прокси (без изменений)
 	if isDevelopment {
 		proxyURL, err := url.Parse("http://localhost:8091")
 		if err != nil {
@@ -312,14 +353,16 @@ func main() {
 	} else {
 		app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
 			e.Router.Use(middleware.StaticWithConfig(middleware.StaticConfig{
-				Skipper: skipper, Root: "dist", Filesystem: assets,
-				Index: "index.html", HTML5: true, Browse: false,
-				IgnoreBase: false, DisablePathUnescaping: false,
-			},
-			))
+				Skipper:    skipper,
+				Root:       "dist",
+				Filesystem: assets,
+				Index:      "index.html",
+				HTML5:      true,
+				Browse:     false,
+			}))
 			return nil
 		})
 	}
 
-	log.Fatal(app.Start()) // Запуск сервера
-} // Конец main
+	log.Fatal(app.Start())
+}

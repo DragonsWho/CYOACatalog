@@ -1,14 +1,13 @@
 // src/components/Sso/SsoLoginPage.tsx
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Container, Typography, Box, CircularProgress } from '@mui/material';
 import Login from '../Header/Login'; // Импортируем ваш существующий компонент Login
 import { syncFlarumSession } from '../../utils/sso-utils'; // Путь к вашим SSO утилитам
 import { pb } from '../../pocketbase/pocketbase';
 
 const SsoLoginPage: React.FC = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location = useLocation(); 
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 

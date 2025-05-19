@@ -1,7 +1,7 @@
 // src/components/Header/UserMenu.tsx
 import { useState, useContext } from 'react';
 import { Button, Menu, MenuItem, Avatar } from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie'; // <<< НАШ НОВЫЙ ИМПОРТ
 import { pb, User } from '../../pocketbase/pocketbase'; // Убедитесь, что User импортируется, если он нужен для currentUser типа
 import { AuthContext } from '../../pocketbase/pocketbase';

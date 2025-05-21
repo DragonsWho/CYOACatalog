@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import { useState, useEffect, lazy, Suspense, useContext, useCallback } from 'react';
 import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { Container, Box, CircularProgress, GlobalStyles } from '@mui/material';
@@ -11,6 +13,10 @@ const Profile = lazy(() => import('./components/Profile/Profile'));
 const ModeratorPanel = lazy(() => import('./components/ModeratorPanel/ModeratorPanel'));
 const VectorSearchPage = lazy(() => import('./components/Search/VectorSearchPage'));
 import Login from './components/Header/Login';
+
+const SsoLoginPage = lazy(() => import('./components/Sso/SsoLoginPage'));
+const SsoSignupPage = lazy(() => import('./components/Sso/SsoSignupPage'));
+const SsoLogoutPage = lazy(() => import('./components/Sso/SsoLogoutPage'));
 import { AuthContext, pb, User, Tag, tagsCollection, authorsCollection, usersCollection } from './pocketbase/pocketbase';
 import type { FilterMode } from './types';
 
@@ -168,6 +174,9 @@ export default function App() {
               <Route path="/game/:id" element={<GameDetails />} />
               <Route path="/create" element={<PrivateRoute><CreateGame /></PrivateRoute>} />
               <Route path="/login" element={<Login />} />
+              <Route path="/sso-login" element={<SsoLoginPage />} /> 
+              <Route path="/sso-signup" element={<SsoSignupPage />} />
+              <Route path="/sso-logout" element={<SsoLogoutPage />} />
               <Route path="/profile" element={<PrivateRoute><Profile blockedTags={blockedTags} onBlockedTagsUpdate={handleBlockedTagsUpdate} allTags={tags} /></PrivateRoute>} />
               <Route path="/moderator" element={<ModeratorRoute><ModeratorPanel /></ModeratorRoute>} />
               <Route path="/vector-search" element={<ModeratorRoute><VectorSearchPage /></ModeratorRoute>} />

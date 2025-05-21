@@ -12,7 +12,8 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SvgIcon from '@mui/material/SvgIcon';
-import { AuthContext, login, pb } from '../../pocketbase/pocketbase';
+import { AuthContext, login, pb } from '../../pocketbase/pocketbase'; // Путь к вашему pb
+import { syncFlarumSession } from '../../utils/sso-utils'; // <<< НАШ НОВЫЙ ИМПОРТ
 
 // Интерфейс для обработки ошибок
 interface ErrorResponse {
@@ -28,7 +29,7 @@ interface ErrorResponse {
 // Интерфейс для ответа Turnstile
 interface TurnstileResponse {
   success: boolean;
-  error?: string; // Добавлено для обработки ошибок от эндпоинта
+  error?: string;
 }
 
 // Компонент иконки Discord
@@ -38,7 +39,6 @@ const DiscordIcon = () => (
   </SvgIcon>
 );
 
-// Стили для текстовых полей
 const StyledTextField = styled(TextField)(() => ({
   '& .MuiInputBase-input': {
     backgroundColor: '#1e1e1e',
@@ -46,7 +46,6 @@ const StyledTextField = styled(TextField)(() => ({
   },
 }));
 
-// Стили для кнопки Discord
 const DiscordButton = styled(Button)(({ theme }) => ({
   backgroundColor: theme.palette.discord.main,
   color: theme.palette.common.white,
@@ -67,33 +66,20 @@ const DiscordButton = styled(Button)(({ theme }) => ({
   textTransform: 'none',
 }));
 
-// Валидация email
 const validateEmail = (email: string) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return 'Invalid email format';
-  }
-  if (email.length > 255) {
-    return 'Email must be less than 255 characters';
-  }
+  if (!emailRegex.test(email)) return 'Invalid email format';
+  if (email.length > 255) return 'Email must be less than 255 characters';
   return null;
 };
 
-// Валидация пароля
 const validatePassword = (password: string) => {
-  if (password.length < 8) {
-    return 'Password must be at least 8 characters';
-  }
-  if (password.length > 72) {
-    return 'Password must be less than 72 characters';
-  }
-  if (!/^[\x20-\x7E]+$/.test(password)) {
-    return 'Password contains invalid characters';
-  }
+  if (password.length < 8) return 'Password must be at least 8 characters';
+  if (password.length > 72) return 'Password must be less than 72 characters';
+  if (!/^[\x20-\x7E]+$/.test(password)) return 'Password contains invalid characters';
   return null;
 };
 
-// Основной компонент Login
 interface LoginProps {
   open?: boolean;
   onClose?: () => void;
@@ -114,13 +100,15 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
   const handleClose = useCallback(() => {
     setIdentifier('');
     setPassword('');
+    setUsername(''); // Очищаем и username/email при закрытии
+    setEmail('');
     setError('');
     setIsLoading(false);
+    setIsRegistering(false); // Сбрасываем режим регистрации
     setIsResettingPassword(false);
     onClose();
   }, [onClose]);
 
-  // Динамическая загрузка Turnstile скрипта
   useEffect(() => {
     if (isRegistering) {
       const script = document.createElement('script');
@@ -128,34 +116,22 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
       script.async = true;
       script.defer = true;
       document.body.appendChild(script);
-
-      return () => {
-        document.body.removeChild(script);
-      };
+      return () => { document.body.removeChild(script); };
     }
   }, [isRegistering]);
 
   async function handlePasswordReset(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!email) {
-      setError('Please enter your email');
-      return;
-    }
-
+    if (!email) { setError('Please enter your email'); return; }
     const emailError = validateEmail(email);
-    if (emailError) {
-      setError(emailError);
-      return;
-    }
+    if (emailError) { setError(emailError); return; }
 
     setIsLoading(true);
     setError('');
     try {
       await pb.collection('users').requestPasswordReset(email);
       setError('Password reset instructions have been sent to your email');
-      const timer = setTimeout(() => {
-        handleClose();
-      }, 3000);
+      const timer = setTimeout(() => { handleClose(); }, 3000);
       return () => clearTimeout(timer);
     } catch (err) {
       console.error('Password reset error:', err);
@@ -168,14 +144,26 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!identifier || !password) {
-      setError('Please fill in all fields');
-      return;
-    }
+    if (!identifier || !password) { setError('Please fill in all fields'); return; }
     setIsLoading(true);
     setError('');
     try {
       await login({ usernameOrEmail: identifier, password });
+      
+      // --- НАЧАЛО: SSO Интеграция ---
+      if (pb.authStore.isValid) {
+        console.log('Login.tsx: PocketBase login successful. Attempting Flarum session sync...');
+        const syncResult = await syncFlarumSession();
+        if (!syncResult.success) {
+          console.warn("Login.tsx: Flarum session sync failed after login:", syncResult.error);
+          // Можно показать некритичное сообщение об ошибке, например:
+          // setError(`Logged in, but Flarum sync failed: ${syncResult.error}. Please try logging into the forum manually.`);
+        } else {
+          console.log('Login.tsx: Flarum session sync successful after login.');
+        }
+      }
+      // --- КОНЕЦ: SSO Интеграция ---
+
       onLoginSuccess();
       handleClose();
     } catch (err) {
@@ -191,7 +179,30 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     setIsLoading(true);
     setError('');
     try {
+      // `login` с провайдером обычно инициирует редирект.
+      // Код после `await login` может не выполниться сразу, если был редирект.
+      // PocketBase SDK обработает коллбэк от Discord при возвращении пользователя.
       await login({ provider: 'discord' });
+
+      // Этот блок выполнится, если login не сделал редирект или после возврата,
+      // и pb.authStore.isValid уже true.
+      // Более надежно было бы вызывать syncFlarumSession в useEffect, который слушает pb.authStore.isValid,
+      // но только если изменение состояния было результатом логина, а не просто обновления токена.
+      // Пока оставляем так, как основной механизм - useEffect[signedIn] в App.tsx для закрытия диалога.
+      // Мы можем перенести логику синхронизации в AuthContext или в useEffect в App.tsx
+      // который срабатывает при изменении pb.authStore.isValid с false на true.
+      // Для простоты, сейчас делаем так:
+      if (pb.authStore.isValid) { 
+        console.log('Login.tsx: Discord login process resulted in valid session. Attempting Flarum session sync...');
+        const syncResult = await syncFlarumSession();
+        if (!syncResult.success) {
+          console.warn("Login.tsx: Flarum session sync failed after Discord login:", syncResult.error);
+        } else {
+          console.log('Login.tsx: Flarum session sync successful after Discord login.');
+        }
+      }
+      // onLoginSuccess(); // Обычно вызывается через AuthContext и useEffect[signedIn]
+      // handleClose();    // Также
     } catch (err) {
       console.error('Discord login error:', err);
       const error = err as ErrorResponse;
@@ -203,69 +214,39 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
 
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
-    if (!username || !email || !password) {
-      setError('Please fill in all fields');
-      return;
-    }
-
-    const emailError = validateEmail(email);
-    if (emailError) {
-      setError(emailError);
-      return;
-    }
-
-    const passwordError = validatePassword(password);
-    if (passwordError) {
-      setError(passwordError);
-      return;
-    }
-
+    if (!username || !email || !password) { setError('Please fill in all fields'); return; }
+    const emailError = validateEmail(email); if (emailError) { setError(emailError); return; }
+    const passwordError = validatePassword(password); if (passwordError) { setError(passwordError); return; }
     const formData = new FormData(e.currentTarget);
     const turnstileToken = formData.get('cf-turnstile-response') as string;
-
-    if (!turnstileToken) {
-      setError('Please complete the verification');
-      return;
-    }
+    if (!turnstileToken) { setError('Please complete the verification'); return; }
 
     setIsLoading(true);
     setError('');
-
     try {
-      // Проверка токена через эндпоинт PocketBase
       const verifyResponse = await fetch('/api/custom/verify-turnstile', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          token: turnstileToken,
-        }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ token: turnstileToken }),
       });
-
       if (!verifyResponse.ok) {
-        const errorData: TurnstileResponse = await verifyResponse.json(); // Используем TurnstileResponse для типизации
+        const errorData: TurnstileResponse = await verifyResponse.json();
         setError(errorData.error || 'Verification failed. Are you a bot?');
-        setIsLoading(false);
-        return;
+        setIsLoading(false); return;
       }
 
-      // Если токен валиден, продолжаем регистрацию
       await pb.collection('users').create({
-        username,
-        email,
-        password,
-        passwordConfirm: password,
-        emailVisibility: true,
+        username, email, password, passwordConfirm: password, emailVisibility: true,
       });
-
       await pb.collection('users').requestVerification(email);
 
-      setError('Please check your email to verify your account');
+      setError('Please check your email to verify your account. You can now log in.');
+      // Не закрываем диалог и не логиним автоматически.
+      // Пользователь должен будет сам залогиниться, и тогда сработает syncFlarumSession из handleLogin.
       const timer = setTimeout(() => {
-        handleClose();
-      }, 3000);
+        setIsRegistering(false); // Переключаем на форму логина
+        setError(''); // Очищаем сообщение о верификации
+      }, 5000);
       return () => clearTimeout(timer);
     } catch (err) {
       console.error('Registration error:', err);
@@ -276,163 +257,80 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     }
   }
 
+  // Этот useEffect закроет диалог, если пользователь успешно залогинился
+  // (например, через OAuth, когда он возвращается на сайт и pb.authStore обновляется)
   useEffect(() => {
-    if (signedIn) handleClose();
+    if (signedIn) {
+        // Если пользователь залогинился (например, через OAuth) И ЕЩЕ НЕ БЫЛО ПОПЫТКИ СИНХРОНИЗАЦИИ
+        // (нужен флаг, чтобы избежать повторных вызовов), то можно вызвать syncFlarumSession здесь.
+        // Однако, если `handleDiscordLogin` успешно вызывает syncFlarumSession, то здесь это может быть излишне.
+        // Для простоты, пока основной вызов sync для OAuth остается в handleDiscordLogin.
+        // Если pb.authStore.isValid становится true из-за другого механизма (например, обновление токена),
+        // нам не нужна синхронизация. Только при первичном логине.
+        handleClose();
+    }
   }, [signedIn, handleClose]);
 
   return (
-    <Dialog open={open} onClose={handleClose}>
-      <DialogTitle>
+    <Dialog open={open} onClose={handleClose} PaperProps={{sx: {backgroundImage: 'none' }}}> {/* Добавил PaperProps для консистентности с другими Dialog */}
+      <DialogTitle sx={{ textAlign: 'center' }}>
         {isResettingPassword ? 'Reset Password' : isRegistering ? 'Register' : 'Login'}
       </DialogTitle>
       <DialogContent>
         {isResettingPassword ? (
-          <form onSubmit={(e) => handlePasswordReset(e)}>
-            <StyledTextField
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-              fullWidth
-              margin="normal"
-              disabled={isLoading}
-              required
-            />
-            <Button
-              type="submit"
-              color="primary"
-              variant="contained"
-              fullWidth
-              style={{ marginTop: '20px' }}
-              disabled={isLoading}
-            >
+          <form onSubmit={handlePasswordReset}>
+            <StyledTextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth margin="normal" disabled={isLoading} required />
+            <Button type="submit" color="primary" variant="contained" fullWidth style={{ marginTop: '20px' }} disabled={isLoading}>
               {isLoading ? <CircularProgress size={24} /> : 'Reset Password'}
             </Button>
           </form>
         ) : isRegistering ? (
-          <form onSubmit={(e) => handleRegister(e)}>
-            <StyledTextField
-              label="Username"
-              value={username}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
-              fullWidth
-              margin="normal"
-              disabled={isLoading}
-              required
-            />
-            <StyledTextField
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-              fullWidth
-              margin="normal"
-              disabled={isLoading}
-              required
-            />
-            <StyledTextField
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-              fullWidth
-              margin="normal"
-              disabled={isLoading}
-              required
-            />
-            <div
-              className="cf-turnstile"
-              data-sitekey="0x4AAAAAAA9kgpL5L0h777U9"  
-              style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}
-            />
-            <Button
-              type="submit"
-              color="primary"
-              variant="contained"
-              fullWidth
-              style={{ marginTop: '20px' }}
-              disabled={isLoading}
-            >
+          <form onSubmit={handleRegister}>
+            <StyledTextField label="Username" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth margin="normal" disabled={isLoading} required />
+            <StyledTextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth margin="normal" disabled={isLoading} required />
+            <StyledTextField label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth margin="normal" disabled={isLoading} required />
+            <div className="cf-turnstile" data-sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY || "0x4AAAAAAA9kgpL5L0h777U9"} style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }} />
+            <Button type="submit" color="primary" variant="contained" fullWidth style={{ marginTop: '20px' }} disabled={isLoading}>
               {isLoading ? <CircularProgress size={24} /> : 'Register'}
             </Button>
           </form>
         ) : (
-          <form onSubmit={(e) => handleLogin(e)}>
-            <StyledTextField
-              label="Email or username"
-              value={identifier}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIdentifier(e.target.value)}
-              fullWidth
-              margin="normal"
-              disabled={isLoading}
-              required
-            />
-            <StyledTextField
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-              fullWidth
-              margin="normal"
-              disabled={isLoading}
-              required
-            />
-            <Button
-              type="submit"
-              color="primary"
-              variant="contained"
-              fullWidth
-              style={{ marginTop: '20px' }}
-              disabled={isLoading}
-            >
+          <form onSubmit={handleLogin}>
+            <StyledTextField label="Email or username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} fullWidth margin="normal" disabled={isLoading} required />
+            <StyledTextField label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth margin="normal" disabled={isLoading} required />
+            <Button type="submit" color="primary" variant="contained" fullWidth style={{ marginTop: '20px' }} disabled={isLoading}>
               {isLoading ? <CircularProgress size={24} /> : 'Login'}
             </Button>
-            <Button
-              color="secondary"
-              fullWidth
-              style={{ marginTop: '10px' }}
-              onClick={() => setIsResettingPassword(true)}
-              disabled={isLoading}
-            >
+            <Button color="secondary" fullWidth style={{ marginTop: '10px' }} onClick={() => { setIsResettingPassword(true); setEmail(identifier.includes('@') ? identifier : ''); /* Предзаполняем email если он в identifier */ }} disabled={isLoading}>
               Forgot password?
             </Button>
           </form>
         )}
-        <Divider style={{ margin: '20px 0' }}>
-          <Typography variant="body2" color="textSecondary">
-            OR
-          </Typography>
-        </Divider>
-        <DiscordButton onClick={handleDiscordLogin} disabled={isLoading} startIcon={<DiscordIcon />}>
-          {isLoading ? <CircularProgress size={24} /> : 'Sign in with Discord'}
-        </DiscordButton>
+        {!isResettingPassword && ( // Не показываем "OR" и кнопку Discord при сбросе пароля
+          <>
+            <Divider style={{ margin: '20px 0' }}>
+              <Typography variant="body2" color="textSecondary">OR</Typography>
+            </Divider>
+            <DiscordButton onClick={handleDiscordLogin} disabled={isLoading} startIcon={<DiscordIcon />}>
+              {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Sign in with Discord'}
+            </DiscordButton>
+          </>
+        )}
         {error && (
-          <Typography color="error" style={{ marginTop: '10px', textAlign: 'center' }}>
+          <Typography color="error" style={{ marginTop: '20px', textAlign: 'center' }}>
             {error}
           </Typography>
         )}
       </DialogContent>
       <DialogActions>
         {isResettingPassword ? (
-          <Button
-            onClick={() => setIsResettingPassword(false)}
-            color="primary"
-            disabled={isLoading}
-          >
-            Back to Login
-          </Button>
+          <Button onClick={() => { setIsResettingPassword(false); setError(''); }} color="primary" disabled={isLoading}>Back to Login</Button>
         ) : (
-          <Button
-            onClick={() => setIsRegistering(!isRegistering)}
-            color="primary"
-            disabled={isLoading}
-          >
+          <Button onClick={() => { setIsRegistering(!isRegistering); setError(''); setUsername(''); setEmail(''); setPassword(''); /* Очищаем поля при переключении */ }} color="primary" disabled={isLoading}>
             {isRegistering ? 'Back to Login' : 'Register'}
           </Button>
         )}
-        <Button onClick={handleClose} color="primary" disabled={isLoading}>
-          Cancel
-        </Button>
+        <Button onClick={handleClose} color="primary" disabled={isLoading}>Cancel</Button>
       </DialogActions>
     </Dialog>
   );

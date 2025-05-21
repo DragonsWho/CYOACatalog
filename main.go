@@ -155,6 +155,7 @@ func main() {
 					"id":         authRecord.Id,
 					"attributes": flarumUserAttrs,
 				},
+				"remember": false,
 			}
 
 			token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

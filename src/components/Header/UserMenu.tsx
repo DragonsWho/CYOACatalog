@@ -1,30 +1,32 @@
 // src/components/Header/UserMenu.tsx
 import { useState, useContext } from 'react';
-import { Button, Menu, MenuItem, Avatar } from '@mui/material';
+import { Button, Menu, MenuItem, Avatar, Box, useTheme, useMediaQuery } from '@mui/material'; // Import Box
 import { useNavigate } from 'react-router-dom';
-import Cookies from 'js-cookie'; // <<< НАШ НОВЫЙ ИМПОРТ
-import { pb, User } from '../../pocketbase/pocketbase'; // Убедитесь, что User импортируется, если он нужен для currentUser типа
+import Cookies from 'js-cookie';
+import { pb, User } from '../../pocketbase/pocketbase';
 import { AuthContext } from '../../pocketbase/pocketbase';
 
 export default function UserMenu({ currentUser }: { currentUser: User | null }) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
-  const { isModerator } = useContext(AuthContext);  
+  const { isModerator } = useContext(AuthContext);
+
+  // Alternative using useMediaQuery hook (more explicit control)
+  // const theme = useTheme();
+  // const isMobile = useMediaQuery(theme.breakpoints.down('sm')); // 'sm' is default breakpoint for 600px
 
   const handleLogout = () => {
-    // 1. Очистить сессию PocketBase
     pb.authStore.clear();
     console.log('UserMenu: PocketBase session cleared.');
-
-    // --- НАЧАЛО: SSO Интеграция - Очистка Flarum Cookies ---
     Cookies.remove('flarum_token', { domain: '.cyoa.cafe', path: '/' });
-    Cookies.remove('flarum_remember', { domain: '.cyoa.cafe', path: '/' }); // На всякий случай
+    Cookies.remove('flarum_remember', { domain: '.cyoa.cafe', path: '/' });
     console.log('UserMenu: Flarum cookies removed.');
-    // --- КОНЕЦ: SSO Интеграция ---
-
     setAnchorEl(null);
-    navigate('/'); // Перенаправляем на главную страницу
+    navigate('/');
   };
+
+  const userInitial = currentUser?.username?.charAt(0).toUpperCase();
+  const userAvatarUrl = currentUser?.avatar ? pb.getFileUrl(currentUser, currentUser.avatar, { thumb: '50x50' }) : undefined;
 
   return (
     <>
@@ -32,36 +34,49 @@ export default function UserMenu({ currentUser }: { currentUser: User | null }) 
         color="inherit"
         onClick={(e) => setAnchorEl(e.currentTarget)}
         sx={{
-          textTransform: 'none', // Чтобы "Account" не было капсом, если не хотите
-          // width: '100%', // Возможно, это не нужно, если кнопка в AppBar
-          // justifyContent: 'center',
+          textTransform: 'none',
+          // Adjust padding for icon-only state on mobile
+          // Default Button padding is '6px 16px'. For an icon, '8px' or '6px' might be better.
+          padding: { xs: '8px', sm: '6px 16px' }, // Example: more square padding on mobile
+          minWidth: { xs: 'auto', sm: '64px' },    // Allow button to shrink to icon size on mobile
+
           '& .MuiButton-startIcon': {
-            marginRight: '8px',
-            // marginLeft: 0, // По умолчанию и так 0
+            // No margin for icon on mobile, 8px on larger screens
+            marginRight: { xs: 0, sm: '8px' },
+            // Ensure icon is not affected by button's internal padding differently
+            // marginLeft: 0, // Usually default
           },
         }}
         startIcon={
-          currentUser?.avatar ? ( // Если есть URL аватара у пользователя
-            <Avatar 
-              src={currentUser.avatar ? pb.getFileUrl(currentUser, currentUser.avatar, { thumb: '50x50' }) : undefined} 
-              alt={currentUser.username}
+          userAvatarUrl ? (
+            <Avatar
+              src={userAvatarUrl}
+              alt={currentUser?.username || 'User Avatar'} // Provide a fallback alt text
               sx={{ width: 24, height: 24 }}
             />
-          ) : ( // Если нет URL аватара, показываем первую букву имени
-            <Avatar sx={{ width: 24, height: 24, fontSize: '0.8rem' /* можно настроить размер шрифта */ }}>
-              {currentUser?.username?.charAt(0).toUpperCase()}
+          ) : (
+            <Avatar sx={{ width: 24, height: 24, fontSize: '0.8rem' }}>
+              {userInitial || '?'} {/* Fallback if no username */}
             </Avatar>
           )
         }
       >
-        {/* Можно отображать имя пользователя вместо "Account" */}
-        {currentUser?.username || 'Account'} 
+        {/* Text part: Show only on 'sm' breakpoint and up */}
+        <Box
+          component="span" // Render as a span
+          sx={{
+            display: { xs: 'none', sm: 'inline' }, // Hide on xs, show on sm and up
+            // marginLeft: { xs: 0, sm: 0.5 } // Optional: if you want a slight gap handled by the text itself
+          }}
+        >
+          {currentUser?.username || 'Account'}
+        </Box>
       </Button>
-      <Menu 
-        anchorEl={anchorEl} 
-        open={Boolean(anchorEl)} 
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ // Опционально: для лучшего позиционирования меню
+        anchorOrigin={{
           vertical: 'bottom',
           horizontal: 'right',
         }}
@@ -70,7 +85,7 @@ export default function UserMenu({ currentUser }: { currentUser: User | null }) 
           horizontal: 'right',
         }}
       >
-        <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }}> {/* Используем navigate для Link-подобного поведения */}
+        <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }}>
           Profile
         </MenuItem>
         {isModerator && (
@@ -83,7 +98,7 @@ export default function UserMenu({ currentUser }: { currentUser: User | null }) 
             </MenuItem>
           </>
         )}
-        <MenuItem onClick={handleLogout}> {/* Используем новую функцию handleLogout */}
+        <MenuItem onClick={handleLogout}>
           Logout
         </MenuItem>
       </Menu>

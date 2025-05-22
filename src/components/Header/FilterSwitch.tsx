@@ -1,17 +1,27 @@
 // src/components/Header/FilterSwitch.tsx
 import React from 'react';
-import { Box, Typography, ToggleButtonGroup, ToggleButton, useTheme } from '@mui/material';
-import type { FilterMode } from '../../types'; // Убедись, что тип FilterMode экспортируется из App.tsx или другого общего места
+import { Box, Typography, ToggleButtonGroup, ToggleButton, useTheme, useMediaQuery } from '@mui/material';
+import type { FilterMode } from '../../types';
 
-// Константы, специфичные для этого компонента
+// Константы цветов
 const sfwColor = '#43a047';
 const nsfwColor = '#d32f2f';
-const allColor = '#bdbdbd';
-const trackColor = '#616161';
-const trackHeight = 28;
-const trackWidth = 70;
-const thumbSize = 20;
-const visualThumbHorizontalPadding = 3;
+const allColor = '#bdbdbd'; // Цвет бегунка в состоянии "all"
+const trackBorderColor = '#616161'; // Цвет рамки переключателя
+
+// Размеры для десктопа
+const DESKTOP_TRACK_HEIGHT = 28;
+const DESKTOP_TRACK_WIDTH = 70;
+const DESKTOP_THUMB_SIZE = 20;
+const DESKTOP_VISUAL_THUMB_HORIZONTAL_PADDING = 3;
+
+// Размеры для мобильных
+const MOBILE_TRACK_HEIGHT = 26;
+const MOBILE_TRACK_WIDTH = 70;
+const MOBILE_THUMB_SIZE = 18;
+const MOBILE_VISUAL_THUMB_HORIZONTAL_PADDING = 3;
+const MOBILE_INNER_LABEL_FONT_SIZE = '0.6rem';
+const MOBILE_INNER_LABEL_PADDING = 4; // Отступ текста от краев внутри переключателя
 
 interface FilterSwitchProps {
     filterMode: FilterMode;
@@ -20,12 +30,24 @@ interface FilterSwitchProps {
 
 const FilterSwitch: React.FC<FilterSwitchProps> = ({ filterMode, onFilterModeChange }) => {
     const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+    const trackHeight = isMobile ? MOBILE_TRACK_HEIGHT : DESKTOP_TRACK_HEIGHT;
+    const trackWidth = isMobile ? MOBILE_TRACK_WIDTH : DESKTOP_TRACK_WIDTH;
+    const thumbSize = isMobile ? MOBILE_THUMB_SIZE : DESKTOP_THUMB_SIZE;
+    const visualThumbHorizontalPadding = isMobile ? MOBILE_VISUAL_THUMB_HORIZONTAL_PADDING : DESKTOP_VISUAL_THUMB_HORIZONTAL_PADDING;
+
+    // Цвет для внутренних мобильных надписей.
+    // theme.palette.text.secondary должен дать подходящий контраст на фоне родителя (если он темный)
+    const mobileInnerLabelColor = theme.palette.text.secondary;
+    // Альтернатива, если text.secondary не подходит:
+    // const mobileInnerLabelColor = theme.palette.mode === 'dark' ? theme.palette.grey[500] : theme.palette.grey[600];
+
 
     const handleFilterChange = (
         _event: React.MouseEvent<HTMLElement>,
-        newMode: FilterMode | null, // ToggleButton может вернуть null, если кликнуть по уже выбранной кнопке (хотя exclusive должен это предотвращать)
+        newMode: FilterMode | null,
     ) => {
-        // Проверяем, что newMode не null и отличается от текущего
         if (newMode !== null && newMode !== filterMode) {
             onFilterModeChange(newMode);
         }
@@ -33,7 +55,7 @@ const FilterSwitch: React.FC<FilterSwitchProps> = ({ filterMode, onFilterModeCha
 
     const getThumbStyles = (mode: FilterMode) => {
         let left: number;
-        let backgroundColor = sfwColor; // По умолчанию SFW
+        let backgroundColor = sfwColor;
         switch (mode) {
             case 'sfw':
                 left = visualThumbHorizontalPadding;
@@ -41,14 +63,13 @@ const FilterSwitch: React.FC<FilterSwitchProps> = ({ filterMode, onFilterModeCha
                 break;
             case 'all':
                 left = (trackWidth / 2) - (thumbSize / 2);
-                backgroundColor = allColor;
+                backgroundColor = allColor; // Бегунок для "all" будет этим цветом
                 break;
             case 'nsfw':
-                // Небольшая корректировка для правого края из-за border
-                left = trackWidth - thumbSize - visualThumbHorizontalPadding - 2;
+                left = trackWidth - thumbSize - visualThumbHorizontalPadding - (isMobile ? 1 : 2); // Корректировка для border
                 backgroundColor = nsfwColor;
                 break;
-            default: // На случай непредвиденного значения, возвращаемся к SFW
+            default:
                 left = visualThumbHorizontalPadding;
                 backgroundColor = sfwColor;
         }
@@ -59,14 +80,15 @@ const FilterSwitch: React.FC<FilterSwitchProps> = ({ filterMode, onFilterModeCha
         <Box sx={{
             display: 'flex',
             alignItems: 'center',
-            gap: 0.8,
+            gap: { xs: 0.5, sm: 0.8 },
             flexShrink: 0,
-            minWidth: 120, // Можно настроить или убрать, если нужно
             contain: 'layout',
         }}>
+            {/* Внешняя SFW надпись, скрыта на мобильных */}
             <Typography
                 variant="caption"
                 sx={{
+                    display: { xs: 'none', sm: 'block' },
                     color: theme.palette.grey[500],
                     fontWeight: 'medium',
                     userSelect: 'none',
@@ -78,7 +100,7 @@ const FilterSwitch: React.FC<FilterSwitchProps> = ({ filterMode, onFilterModeCha
 
             <ToggleButtonGroup
                 value={filterMode}
-                exclusive // Важно для предотвращения null значения при клике на активную кнопку
+                exclusive
                 onChange={handleFilterChange}
                 aria-label="Content filter"
                 sx={{
@@ -86,28 +108,49 @@ const FilterSwitch: React.FC<FilterSwitchProps> = ({ filterMode, onFilterModeCha
                     width: `${trackWidth}px`,
                     height: `${trackHeight}px`,
                     borderRadius: `${trackHeight / 2}px`,
-                    border: `1px solid ${trackColor}`, // Тонкая граница трека
-                    backgroundColor: 'transparent', // Фон трека прозрачный
+                    border: `1px solid ${trackBorderColor}`, // Только рамка
+                    backgroundColor: 'transparent', // <--- ФОН ТЕПЕРЬ ПРОЗРАЧНЫЙ
                     p: 0,
                     display: 'flex',
-                    overflow: 'hidden', // Скрываем все, что выходит за границы
-                    boxSizing: 'border-box', // Учитываем границу в размере
+                    overflow: 'hidden',
+                    boxSizing: 'border-box',
                 }}
             >
+                {/* Внутренняя SFW надпись для мобильных */}
+                <Typography
+                    variant="caption"
+                    sx={{
+                        display: { xs: 'block', sm: 'none' },
+                        position: 'absolute',
+                        left: `${MOBILE_INNER_LABEL_PADDING}px`,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: MOBILE_INNER_LABEL_FONT_SIZE,
+                        color: mobileInnerLabelColor, // <--- Обновленный цвет
+                        fontWeight: 'medium', // Можно 'bold' или 'normal' по вкусу
+                        userSelect: 'none',
+                        textTransform: 'uppercase',
+                        zIndex: 1,
+                        pointerEvents: 'none',
+                    }}
+                >
+                    SFW
+                </Typography>
+
                 {/* Кастомный "бегунок" */}
                 <Box
                     sx={{
                         position: 'absolute',
-                        top: '50%', // Центрируем по вертикали
-                        transform: 'translateY(-50%)', // Точное центрирование
-                        ...getThumbStyles(filterMode), // Динамические стили положения и цвета
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        ...getThumbStyles(filterMode),
                         width: `${thumbSize}px`,
                         height: `${thumbSize}px`,
-                        borderRadius: '50%', // Круглый бегунок
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.4)', // Небольшая тень для объема
-                        zIndex: 1, // Поверх кнопок
+                        borderRadius: '50%',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)', // Тень чуть мягче
+                        zIndex: 2,
                         transition: theme.transitions.create(['left', 'background-color'], {
-                            duration: theme.transitions.duration.short, // Плавный переход
+                            duration: theme.transitions.duration.short,
                             easing: theme.transitions.easing.easeInOut,
                         }),
                     }}
@@ -118,36 +161,55 @@ const FilterSwitch: React.FC<FilterSwitchProps> = ({ filterMode, onFilterModeCha
                         key={mode}
                         value={mode}
                         aria-label={mode}
-                        disableRipple // Убираем стандартный ripple-эффект
+                        disableRipple
                         sx={{
-                            flex: 1, // Растягиваем кнопки на всю ширину
-                            border: 'none !important', // Убираем границы кнопок
-                            padding: '0 !important', // Убираем паддинги кнопок
-                            margin: 0, // Убираем margin
-                            backgroundColor: 'transparent !important', // Прозрачный фон
-                            color: 'transparent', // Скрываем текст/иконки внутри (если бы они были)
-                            zIndex: 2, // Выше фона, но ниже бегунка (для кликабельности)
-                            outline: 'none !important', // Убираем outline при фокусе
-                            '&:hover': { // Убираем подсветку при наведении
+                            flex: 1,
+                            border: 'none !important',
+                            padding: '0 !important',
+                            margin: 0,
+                            backgroundColor: 'transparent !important',
+                            color: 'transparent',
+                            zIndex: 3,
+                            outline: 'none !important',
+                            '&:hover': {
                                 backgroundColor: 'transparent !important',
                             },
-                            '&.Mui-focusVisible': { // Стиль при фокусе через клавиатуру (если нужен)
+                            '&.Mui-focusVisible': {
                                 backgroundColor: 'transparent !important',
-                                // Можно добавить кастомный outline, если нужно
-                                // outline: `2px solid ${theme.palette.primary.main}`,
-                                // outlineOffset: '-2px',
                             },
                         }}
                     >
-                        {/* Скрытый текст для доступности */}
                         <span style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}>{mode}</span>
                     </ToggleButton>
                 ))}
+
+                {/* Внутренняя NSFW надпись для мобильных */}
+                <Typography
+                    variant="caption"
+                    sx={{
+                        display: { xs: 'block', sm: 'none' },
+                        position: 'absolute',
+                        right: `${MOBILE_INNER_LABEL_PADDING}px`,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: MOBILE_INNER_LABEL_FONT_SIZE,
+                        color: mobileInnerLabelColor, // <--- Обновленный цвет
+                        fontWeight: 'medium', // Можно 'bold' или 'normal' по вкусу
+                        userSelect: 'none',
+                        textTransform: 'uppercase',
+                        zIndex: 1,
+                        pointerEvents: 'none',
+                    }}
+                >
+                    NSFW
+                </Typography>
             </ToggleButtonGroup>
 
+            {/* Внешняя NSFW надпись, скрыта на мобильных */}
             <Typography
                 variant="caption"
                 sx={{
+                    display: { xs: 'none', sm: 'block' },
                     color: theme.palette.grey[500],
                     fontWeight: 'medium',
                     userSelect: 'none',
@@ -160,4 +222,4 @@ const FilterSwitch: React.FC<FilterSwitchProps> = ({ filterMode, onFilterModeCha
     );
 };
 
-export default React.memo(FilterSwitch); // Используем memo для оптимизации, если пропсы не меняются
+export default React.memo(FilterSwitch);

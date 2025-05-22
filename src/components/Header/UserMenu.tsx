@@ -1,6 +1,6 @@
 // src/components/Header/UserMenu.tsx
 import { useState, useContext } from 'react';
-import { Button, Menu, MenuItem, Avatar, Box, useTheme, useMediaQuery } from '@mui/material'; // Import Box
+import { Button, Menu, MenuItem, Avatar, Box } from '@mui/material'; // Import Box
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import { pb, User } from '../../pocketbase/pocketbase';

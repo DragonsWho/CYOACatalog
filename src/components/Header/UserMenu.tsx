@@ -1,32 +1,38 @@
-// src/components/Header/UserMenu.tsx
-import { useState, useContext } from 'react';
-import { Button, Menu, MenuItem, Avatar, Box } from '@mui/material'; // Import Box
+import React, { useState, useContext } from 'react'; // Добавлен React для FC
+import { Button, Menu, MenuItem, Avatar, Box, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
-import { pb, User } from '../../pocketbase/pocketbase';
-import { AuthContext } from '../../pocketbase/pocketbase';
+import { pb, User, AuthContext } from '../../pocketbase/pocketbase';
 
-export default function UserMenu({ currentUser }: { currentUser: User | null }) {
+interface UserMenuProps {
+  currentUser: User | null;
+  isMobile?: boolean;
+  isBelow400px?: boolean;
+  // buttonBasePadding?: string | number; // Опционально, если нужна внешняя синхронизация padding
+}
+
+const UserMenu: React.FC<UserMenuProps> = ({ currentUser, isMobile, isBelow400px }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const { isModerator } = useContext(AuthContext);
-
-  // Alternative using useMediaQuery hook (more explicit control)
-  // const theme = useTheme();
-  // const isMobile = useMediaQuery(theme.breakpoints.down('sm')); // 'sm' is default breakpoint for 600px
+  const theme = useTheme();
 
   const handleLogout = () => {
     pb.authStore.clear();
-    console.log('UserMenu: PocketBase session cleared.');
     Cookies.remove('flarum_token', { domain: '.cyoa.cafe', path: '/' });
     Cookies.remove('flarum_remember', { domain: '.cyoa.cafe', path: '/' });
-    console.log('UserMenu: Flarum cookies removed.');
     setAnchorEl(null);
     navigate('/');
   };
 
   const userInitial = currentUser?.username?.charAt(0).toUpperCase();
   const userAvatarUrl = currentUser?.avatar ? pb.getFileUrl(currentUser, currentUser.avatar, { thumb: '50x50' }) : undefined;
+
+  // Адаптивные размеры для аватара и отступов кнопки
+  const avatarSize = isMobile ? (isBelow400px ? 20 : 22) : 24;
+  const buttonPaddingValue = isMobile
+    ? (isBelow400px ? '4px' : '5px') // Используем те же значения, что и в Header для иконок
+    : '6px'; // Базовый отступ для десктопа (вертикальный)
 
   return (
     <>
@@ -35,41 +41,41 @@ export default function UserMenu({ currentUser }: { currentUser: User | null }) 
         onClick={(e) => setAnchorEl(e.currentTarget)}
         sx={{
           textTransform: 'none',
-          // Adjust padding for icon-only state on mobile
-          // Default Button padding is '6px 16px'. For an icon, '8px' or '6px' might be better.
-          padding: { xs: '8px', sm: '6px 16px' }, // Example: more square padding on mobile
-          minWidth: { xs: 'auto', sm: '64px' },    // Allow button to shrink to icon size on mobile
-
+          minWidth: 'auto',
+          padding: isMobile
+            ? buttonPaddingValue // Квадратный padding для иконки на мобильных
+            : `${buttonPaddingValue} ${theme.spacing(1)}`, // Вертикальный padding как у иконки, горизонтальный больше для текста
           '& .MuiButton-startIcon': {
-            // No margin for icon on mobile, 8px on larger screens
-            marginRight: { xs: 0, sm: '8px' },
-            // Ensure icon is not affected by button's internal padding differently
-            // marginLeft: 0, // Usually default
+            // Отступ между иконкой и текстом только на десктопе и если есть текст
+            marginRight: (isMobile || !currentUser?.username) ? 0 : theme.spacing(1),
           },
         }}
-        startIcon={
-          userAvatarUrl ? (
-            <Avatar
-              src={userAvatarUrl}
-              alt={currentUser?.username || 'User Avatar'} // Provide a fallback alt text
-              sx={{ width: 24, height: 24 }}
-            />
-          ) : (
-            <Avatar sx={{ width: 24, height: 24, fontSize: '0.8rem' }}>
-              {userInitial || '?'} {/* Fallback if no username */}
-            </Avatar>
-          )
+        startIcon={ // Отображаем иконку, только если есть аватар или инициалы
+          (userAvatarUrl || userInitial) ? (
+            userAvatarUrl ? (
+              <Avatar
+                src={userAvatarUrl}
+                alt={currentUser?.username || 'User Avatar'}
+                sx={{ width: avatarSize, height: avatarSize }}
+              />
+            ) : (
+              <Avatar sx={{ width: avatarSize, height: avatarSize, fontSize: isBelow400px ? '0.7rem' : '0.8rem' }}>
+                {userInitial || '?'}
+              </Avatar>
+            )
+          ) : null
         }
       >
-        {/* Text part: Show only on 'sm' breakpoint and up */}
+        {/* Имя пользователя, отображается только на десктопе (sm и выше) */}
         <Box
-          component="span" // Render as a span
+          component="span"
           sx={{
-            display: { xs: 'none', sm: 'inline' }, // Hide on xs, show on sm and up
-            // marginLeft: { xs: 0, sm: 0.5 } // Optional: if you want a slight gap handled by the text itself
+            display: { xs: 'none', sm: 'inline' },
+            fontSize: '0.875rem', // Стандартный размер текста кнопки
+            lineHeight: 1.5,      // Для лучшего вертикального выравнивания с иконкой
           }}
         >
-          {currentUser?.username || 'Account'}
+          {currentUser?.username}
         </Box>
       </Button>
       <Menu
@@ -104,4 +110,6 @@ export default function UserMenu({ currentUser }: { currentUser: User | null }) 
       </Menu>
     </>
   );
-}
+};
+
+export default UserMenu;

@@ -1,7 +1,5 @@
-// src/components/Header/UnifiedSearchBar.tsx
-
 import React, { useState, useEffect } from 'react';
-import { Box, TextField, Autocomplete, Chip, IconButton, Popover, useTheme, createFilterOptions } from '@mui/material'; // Вернули createFilterOptions
+import { Box, TextField, Autocomplete, Chip, IconButton, Popover, useTheme, createFilterOptions } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
 import { Game, gamesCollection } from '../../pocketbase/pocketbase';
@@ -13,6 +11,9 @@ interface UnifiedSearchBarProps {
   selectedAuthors: string[];
   onTagChange: (value: string[]) => void;
   onAuthorChange: (value: string[]) => void;
+  // Новые пропсы для консистентного размера и отступов иконки
+  currentBreakpointIconSize?: string;
+  currentBreakpointPadding?: string | number;
 }
 
 const CHIP_HEIGHT = '24px';
@@ -23,7 +24,6 @@ const positiveTagColor = 'success';
 const negativeTagColor = 'error';
 const authorTagColor = 'info';
 
-// Используем стандартный фильтр MUI как основу
 const defaultFilter = createFilterOptions<string>();
 
 export default function UnifiedSearchBar({
@@ -33,10 +33,12 @@ export default function UnifiedSearchBar({
   selectedAuthors,
   onTagChange,
   onAuthorChange,
+  currentBreakpointIconSize, // Например "1.1rem"
+  currentBreakpointPadding,  // Например "4px"
 }: UnifiedSearchBarProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [tagInputValue, setTagInputValue] = useState(''); // Отдельное состояние для поля ввода тегов
+  const [tagInputValue, setTagInputValue] = useState('');
   const [searchResults, setSearchResults] = useState<Game[]>([]);
   const navigate = useNavigate();
   const theme = useTheme();
@@ -56,7 +58,7 @@ export default function UnifiedSearchBar({
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
       if (searchQuery) {
-        (async () => { /* ... поиск заголовков ... */
+        (async () => {
             try {
                 const fetchedGames = await gamesCollection.getList(1, 10, { filter: `title ~ "${searchQuery}"`, sort: '-created', fields: 'id,title', });
                 setSearchResults(fetchedGames.items);
@@ -67,10 +69,23 @@ export default function UnifiedSearchBar({
     return () => clearTimeout(delayDebounce);
   }, [searchQuery]);
 
-  const commonStyles = { /* ... без изменений ... */ };
+  const commonStyles = {
+    backgroundColor: theme.palette.background.paper,
+    '& .MuiOutlinedInput-root': {
+      '& fieldset': {
+        // borderColor: theme.palette.divider,
+      },
+      '&:hover fieldset': {
+        // borderColor: theme.palette.primary.light,
+      },
+      '&.Mui-focused fieldset': {
+        // borderColor: theme.palette.primary.main,
+      },
+    },
+  };
 
   function renderTags( value: string[], getTagProps: (params: { index: number }) => Record<string, any>, isTag: boolean,) {
-      return value.map((option: string, index: number) => { /* ... без изменений ... */
+      return value.map((option: string, index: number) => {
         const { key, ...otherProps } = getTagProps({ index });
         const isNegative = isTag && option.startsWith('-');
         const label = isNegative ? option.substring(1) : option;
@@ -91,103 +106,85 @@ export default function UnifiedSearchBar({
       });
     }
 
-  // --- НАЧАЛО ИЗМЕНЕНИЙ: Кастомный filterOptions ---
   const filterTagOptions = (options: string[], params: { inputValue: string; getOptionLabel: (option: string) => string; }) => {
-    // Убираем минус из ввода ПЕРЕД фильтрацией
     const cleanedInput = params.inputValue.startsWith('-')
       ? params.inputValue.substring(1)
       : params.inputValue;
-
-    // Используем стандартный фильтр MUI с очищенным вводом
     const filtered = defaultFilter(options, { ...params, inputValue: cleanedInput });
-
-    // Важно: Не добавляем опцию "Create..." для freeSolo здесь,
-    // обработка ввода будет в onChange/onKeyDown
     return filtered;
   };
-  // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
-  // --- НАЧАЛО ИЗМЕНЕНИЙ: Обработка добавления тега (Enter/Выбор) ---
   const handleAddTag = (tagToAdd: string | null) => {
     if (!tagToAdd) return;
-
     const trimmedItem = tagToAdd.trim();
     if (!trimmedItem) return;
-
     const isNegative = trimmedItem.startsWith('-');
     const baseTagName = isNegative ? trimmedItem.substring(1) : trimmedItem;
-
-    // Валидация: базовое имя тега должно существовать
     if (tags.includes(baseTagName)) {
-        const newSelection = [...new Set([...selectedTags, trimmedItem])]; // Добавляем и убираем дубликаты
+        const newSelection = [...new Set([...selectedTags, trimmedItem])];
         onTagChange(newSelection);
-        console.log(`[handleAddTag] Added "${trimmedItem}". New selection:`, newSelection);
-    } else {
-       console.log(`[handleAddTag] Tag validation failed: Base tag "${baseTagName}" not found for input "${trimmedItem}". Ignoring.`);
     }
-     // Очищаем поле ввода после попытки добавления
-     setTagInputValue('');
+    setTagInputValue('');
   };
-  // --- КОНЕЦ ИЗМЕНЕНИЙ ---
-
 
   return (
     <>
-      <IconButton onClick={handleClick} color="inherit"><SearchIcon /></IconButton>
-      <Popover open={open} anchorEl={anchorEl} onClose={handleClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} PaperProps={{ sx: { p: 0 } }}>
-        <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 280 }}>
-          {/* Поиск по названию */}
-          <Autocomplete freeSolo options={searchResults} getOptionLabel={(option) => (typeof option === 'object' ? option.title : option)} inputValue={searchQuery} onInputChange={(_, v, r) => {if (r === 'input') setSearchQuery(v);}} renderInput={(params) => (<TextField {...params} variant="outlined" size="small" placeholder="Search titles..." sx={{ ...commonStyles, backgroundColor: theme.palette.grey[800] }} />)} onChange={(_, v) => { if (typeof v === 'object' && v?.id) { navigate(`/game/${v.id}`); handleClose(); } else if (typeof v === 'string') { setSearchQuery(''); }}} />
+      <IconButton
+        onClick={handleClick}
+        color="inherit"
+        sx={{
+            padding: currentBreakpointPadding // Используем переданный padding
+        }}
+        aria-label="Open search"
+      >
+        <SearchIcon sx={{
+            fontSize: currentBreakpointIconSize // Используем переданный размер иконки
+        }}/>
+      </IconButton>
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={handleClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        PaperProps={{ sx: { p: 0, mt: 0.5, borderRadius: theme.shape.borderRadius } }}
+      >
+        <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: { xs: 260, sm: 280 } }}>
+          <Autocomplete
+            freeSolo
+            options={searchResults}
+            getOptionLabel={(option) => (typeof option === 'object' ? option.title : option)}
+            inputValue={searchQuery}
+            onInputChange={(_, v, r) => {if (r === 'input') setSearchQuery(v);}}
+            renderInput={(params) => (
+                <TextField {...params} variant="outlined" size="small" placeholder="Search titles..." sx={commonStyles} />
+            )}
+            onChange={(_, v) => { if (typeof v === 'object' && v?.id) { navigate(`/game/${v.id}`); handleClose(); } else if (typeof v === 'string') { setSearchQuery(''); }}}
+            PaperComponent={(props) => <Box {...props} sx={{ bgcolor: 'background.paper' }} />}
+          />
 
-          {/* Поиск по тегам */}
           <Autocomplete
             multiple
             freeSolo
             value={selectedTags}
             options={tags}
             inputValue={tagInputValue}
-            onInputChange={(_event, newInputValue, reason) => {
-                // Всегда обновляем inputValue state
+            onInputChange={(_event, newInputValue) => {
                 setTagInputValue(newInputValue);
-                console.log("[onInputChange Tag]", { newInputValue, reason });
             }}
-            // --- НАЧАЛО ИЗМЕНЕНИЙ в onChange ---
             onChange={(_event, newValue, reason, details) => {
-                console.log("[onChange Tag]", { newValue, reason, details, currentTagInputValue: tagInputValue });
-
                 if (reason === 'selectOption' && details?.option) {
-                    // --- Логика для выбора из списка ---
-                    const selectedOption = details.option; // Базовый тег, например "Free Use"
-
-                    // Проверяем ИМЕННО tagInputValue, т.к. он содержит то, что вводил юзер ДО выбора
+                    const selectedOption = details.option;
                     const addNegative = tagInputValue.trim().startsWith('-');
-
                     const tagToAdd = addNegative ? `-${selectedOption}` : selectedOption;
-                    console.log(`[onChange selectOption] Input was: "${tagInputValue}", Selected: "${selectedOption}", addNegative: ${addNegative}, tagToAdd: "${tagToAdd}"`);
-
-                    handleAddTag(tagToAdd); // Добавляем тег и очищаем ввод
-
-                    // **Критически важно:** Предотвращаем стандартную обработку Autocomplete,
-                    // которая добавила бы `selectedOption` в `newValue`.
-                    // Возвращаем `false` или просто выходим, чтобы Autocomplete
-                    // не изменял `value` на основе своего `newValue`.
-                    // Состояние `selectedTags` обновится через `onTagChange` из `handleAddTag`.
-                    return false; // Попробуем вернуть false
-
-                } else if (reason === 'removeOption') {
-                    // Позволяем Autocomplete обновить value при удалении чипа
-                    // `newValue` будет содержать массив без удаленного элемента
+                    handleAddTag(tagToAdd);
+                    // return false; // Эта строка вызывала ошибку типов, т.к. onChange не должен возвращать boolean
+                } else if (reason === 'removeOption' || reason === 'clear') {
                      onTagChange(newValue as string[]);
-                } else if (reason === 'clear') {
-                    // Полная очистка
-                    onTagChange([]);
-                    setTagInputValue(''); // Очищаем и поле ввода
+                     if (reason === 'clear') setTagInputValue('');
                 }
-                // Для 'createOption' (Enter/Blur) ничего не делаем здесь, это в onKeyDown/onBlur
             }}
-            // --- НАЧАЛО ИЗМЕНЕНИЙ: Используем кастомный фильтр ---
             filterOptions={filterTagOptions}
-            // --- КОНЕЦ ИЗМЕНЕНИЙ ---
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -195,28 +192,35 @@ export default function UnifiedSearchBar({
                 size="small"
                 placeholder={selectedTags.length === 0 ? 'Filter tags (+/-)...' : ''}
                 sx={commonStyles}
-                 // --- НАЧАЛО ИЗМЕНЕНИЙ: Добавляем обработку Enter ---
                  onKeyDown={(event) => {
                     if (event.key === 'Enter' && tagInputValue.trim()) {
-                         // Предотвращаем стандартное поведение формы/Autocomplete
                          event.preventDefault();
                          event.stopPropagation();
-                         console.log("[onKeyDown Enter Tag]", tagInputValue);
-                         handleAddTag(tagInputValue); // Пытаемся добавить текущий ввод
+                         handleAddTag(tagInputValue);
                     }
                  }}
-                 // --- КОНЕЦ ИЗМЕНЕНИЙ ---
               />
             )}
             renderTags={(value, getTagProps) => renderTags(value, getTagProps, true)}
             disableCloseOnSelect
             limitTags={-1}
-            getOptionLabel={(option) => option} // Просто возвращаем строку
-            // --- Убрали clearOnBlur, selectOnFocus, handleHomeEndKeys, т.к. freeSolo и ручная обработка ---
+            getOptionLabel={(option) => option}
+            PaperComponent={(props) => <Box {...props} sx={{ bgcolor: 'background.paper' }} />}
           />
 
-          {/* Поиск по авторам */}
-          <Autocomplete multiple options={authors} value={selectedAuthors} onChange={(_, value) => onAuthorChange(value)} renderInput={(params) => (<TextField {...params} variant="outlined" size="small" placeholder={selectedAuthors.length === 0 ? 'Filter authors...' : ''} sx={commonStyles} />)} renderTags={(value, getTagProps) => renderTags(value, getTagProps, false)} disableCloseOnSelect limitTags={-1}/>
+          <Autocomplete
+            multiple
+            options={authors}
+            value={selectedAuthors}
+            onChange={(_, value) => onAuthorChange(value)}
+            renderInput={(params) => (
+                <TextField {...params} variant="outlined" size="small" placeholder={selectedAuthors.length === 0 ? 'Filter authors...' : ''} sx={commonStyles} />
+            )}
+            renderTags={(value, getTagProps) => renderTags(value, getTagProps, false)}
+            disableCloseOnSelect
+            limitTags={-1}
+            PaperComponent={(props) => <Box {...props} sx={{ bgcolor: 'background.paper' }} />}
+          />
         </Box>
       </Popover>
     </>

@@ -17,7 +17,7 @@ export const CARD_ASPECT_RATIO = '133.33%'; // Defines the card height relative 
 const DESCRIPTION_TOP = '60%'; // Vertical starting point for the description text
 const TAG_SECTION_HEIGHT = '80px'; // Maximum height for the tags area
 const TAG_DISPLAY_LIMIT = 12; // Max number of tags to show
-const OVERLAY_OPACITY = 0.5; // Opacity of the dark overlay on the image
+export const OVERLAY_OPACITY = 0.5; // Opacity of the dark overlay on the image
 
 // Spacing variables - Used for positioning elements inside the card
 const CARD_PADDING = 16; // General padding inside the card edges

@@ -3,7 +3,7 @@
 import { useState, useEffect, lazy, Suspense, useContext, useCallback } from 'react';
 import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { Container, Box, CircularProgress, GlobalStyles } from '@mui/material';
-import Cookies from 'js-cookie'; // <-- 1. Импорт Cookies
+import Cookies from 'js-cookie';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
 import SearchPage from './components/Search/SearchPage';
@@ -17,7 +17,7 @@ import Login from './components/Header/Login';
 const SsoLoginPage = lazy(() => import('./components/Sso/SsoLoginPage'));
 const SsoSignupPage = lazy(() => import('./components/Sso/SsoSignupPage'));
 const SsoLogoutPage = lazy(() => import('./components/Sso/SsoLogoutPage'));
-import { AuthContext, pb, User, Tag, tagsCollection, authorsCollection, usersCollection } from './pocketbase/pocketbase';
+import { AuthContext, pb, User, Tag, tagsCollection, authorsCollection } from './pocketbase/pocketbase'; // Убрал usersCollection, т.к. больше не используется напрямую
 import type { FilterMode } from './types';
 
 const ModeratorRoute = ({ children }: { children: JSX.Element }) => {
@@ -40,17 +40,14 @@ const PrivateRoute = ({ children }: { children: JSX.Element }) => {
     return children;
 }
 
-
-
-// --- 2. Константы для cookie ---
 const FILTER_MODE_COOKIE = 'cyoa_filter_mode';
 const DEFAULT_FILTER_MODE: FilterMode = 'all';
-// -----------------------------
 
 export default function App() {
   const getInitialUser = (): User | null => {
       const model = pb.authStore.model;
-      return (model && model.collectionName === 'users') ? model as User : null;
+      // Приводим модель к типу User, если она валидна
+      return (model && 'collectionName' in model && model.collectionName === 'users') ? model as User : null;
   }
   const [user, setUser] = useState<User | null>(getInitialUser);
   const [signedIn, setSignedIn] = useState<boolean>(!!user);
@@ -61,7 +58,6 @@ export default function App() {
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
   const [blockedTags, setBlockedTags] = useState<Tag[]>([]);
 
-  // --- 3. Инициализация filterMode из cookie ---
   const [filterMode, setFilterMode] = useState<FilterMode>(() => {
     const savedMode = Cookies.get(FILTER_MODE_COOKIE);
     if (savedMode === 'sfw' || savedMode === 'all' || savedMode === 'nsfw') {
@@ -69,7 +65,6 @@ export default function App() {
     }
     return DEFAULT_FILTER_MODE;
   });
-  // ------------------------------------------
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -91,31 +86,39 @@ export default function App() {
     return () => { isMounted = false; };
   }, []);
 
-  const fetchBlockedTags = async (userId: string) => {
-      try {
-          const currentUserData = await usersCollection.getOne(userId, { expand: 'blocked_tags' });
-          const userBlockedTags = currentUserData.expand?.blocked_tags || [];
-          setBlockedTags(userBlockedTags);
-      } catch (error) { console.error("Error fetching blocked tags:", error); setBlockedTags([]); }
-  };
-
+  // --- НАЧАЛО ИЗМЕНЕНИЙ: Обновленный useEffect для аутентификации ---
   useEffect(() => {
-    const handleAuthChange = (_token: string | null, model: any | null) => {
-      const currentUser = (model && model.collectionName === 'users') ? model as User : null;
-      setSignedIn(!!currentUser);
-      setUser(currentUser);
+    // Эта функция будет вызываться при логине, логауте и обновлении токена
+    const handleAuthChange = (token: string | null, model: User | null) => {
+        const currentUser = model; // model уже имеет тип User | null
 
-      if (currentUser) {
-        fetchBlockedTags(currentUser.id);
-      } else {
-        setBlockedTags([]);
-      }
+        setSignedIn(!!currentUser);
+        setUser(currentUser);
+
+        // Просто берем данные из модели, которая пришла от authStore.
+        // `expand` будет доступен после логина благодаря изменениям в `pocketbase.ts`.
+        if (currentUser && currentUser.expand?.blocked_tags) {
+            setBlockedTags(currentUser.expand.blocked_tags);
+        } else {
+            // Если пользователь не залогинен или у него нет заблокированных тегов
+            setBlockedTags([]);
+        }
     };
 
-    handleAuthChange(pb.authStore.token, pb.authStore.model);
+    // Подписываемся на изменения в хранилище аутентификации
     const unsubscribe = pb.authStore.onChange(handleAuthChange);
-    return () => { unsubscribe(); };
-  }, []);
+
+    // Вызываем один раз при загрузке, чтобы установить начальное состояние из localStorage
+    if (pb.authStore.isValid && pb.authStore.model) {
+        handleAuthChange(pb.authStore.token, pb.authStore.model as User);
+    }
+
+    // Отписываемся при размонтировании компонента, чтобы избежать утечек памяти
+    return () => {
+        unsubscribe();
+    };
+  }, []); // Пустой массив зависимостей, выполняется один раз при монтировании
+  // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
   useEffect(() => {
     if (location.pathname !== '/' && location.pathname !== '/search') {
@@ -139,17 +142,21 @@ export default function App() {
   }, [location.pathname, navigate]);
 
   const handleBlockedTagsUpdate = useCallback(() => {
+      // После сохранения в профиле, данные пользователя в pb.authStore могут обновиться,
+      // но для надежности можно инициировать перезапрос или дождаться, когда onChange сработает.
+      // В нашем новом useEffect'е, onChange должен сработать сам.
+      // Если нет, можно принудительно обновить authStore:
       if (user) {
-          fetchBlockedTags(user.id);
+         pb.collection('users').authRefresh({ expand: 'blocked_tags' }).catch(err => {
+            console.error("Failed to refresh user data after blocking tags:", err);
+         });
       }
   }, [user]);
 
-  // --- 4. Функция для обновления состояния и cookie ---
   const handleFilterModeChange = useCallback((newMode: FilterMode) => {
       setFilterMode(newMode);
-      Cookies.set(FILTER_MODE_COOKIE, newMode, { expires: 365 }); // Сохраняем на год
-  }, []); // Пустой массив зависимостей, т.к. setFilterMode стабилен
-  // ----------------------------------------------------
+      Cookies.set(FILTER_MODE_COOKIE, newMode, { expires: 365 });
+  }, []);
 
   return (
     <AuthContext.Provider value={{ signedIn, user, isModerator: user?.isModerator || false, blockedTags }}>
@@ -163,18 +170,17 @@ export default function App() {
           onTagChange={handleTagChange}
           onAuthorChange={handleAuthorChange}
           filterMode={filterMode}
-          onFilterModeChange={handleFilterModeChange} // <-- 5. Используем новую функцию
+          onFilterModeChange={handleFilterModeChange}
         />
         <Container component="main" maxWidth={false} sx={{ mt: 4, mb: 4, flex: 1, display: 'flex', flexDirection: 'column' }} >
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><CircularProgress /></Box>}>
             <Routes>
-              {/* Передаем filterMode и blockedTags в SearchPage */}
               <Route path="/" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} filterMode={filterMode} blockedTags={blockedTags} />} />
               <Route path="/search" element={<SearchPage selectedTags={selectedTags} selectedAuthors={selectedAuthors} filterMode={filterMode} blockedTags={blockedTags} />} />
               <Route path="/game/:id" element={<GameDetails />} />
               <Route path="/create" element={<PrivateRoute><CreateGame /></PrivateRoute>} />
               <Route path="/login" element={<Login />} />
-              <Route path="/sso-login" element={<SsoLoginPage />} /> 
+              <Route path="/sso-login" element={<SsoLoginPage />} />
               <Route path="/sso-signup" element={<SsoSignupPage />} />
               <Route path="/sso-logout" element={<SsoLogoutPage />} />
               <Route path="/profile" element={<PrivateRoute><Profile blockedTags={blockedTags} onBlockedTagsUpdate={handleBlockedTagsUpdate} allTags={tags} /></PrivateRoute>} />

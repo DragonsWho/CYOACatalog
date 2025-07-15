@@ -160,10 +160,11 @@ export async function register(args: { username: string; email?: string; passwor
 }
 
 export async function login(args: { usernameOrEmail: string; password: string } | { provider: Provider }) {
+  const expandOptions = { expand: 'blocked_tags' };
   if ('password' in args) {
-    await usersCollection.authWithPassword(args.usernameOrEmail, args.password);
+    await usersCollection.authWithPassword(args.usernameOrEmail, args.password, expandOptions);
   } else {
-    await usersCollection.authWithOAuth2({ provider: args.provider });
+    await usersCollection.authWithOAuth2({ provider: args.provider }, expandOptions);
   }
 }
 

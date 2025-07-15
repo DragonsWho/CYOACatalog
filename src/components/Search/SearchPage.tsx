@@ -1,15 +1,11 @@
 // === File: src/components/Search/SearchPage.tsx ===
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Box, Typography, CircularProgress, Grid, useTheme } from '@mui/material'; // Use Grid instead of Grid2 if Grid2 isn't explicitly needed/installed
+import { Box, Typography, CircularProgress, Grid, useTheme } from '@mui/material';
 import { Game, gamesCollection, tagsCollection, Tag } from '../../pocketbase/pocketbase';
 import type { FilterMode } from '../../types';
-import GameCard from '../GameCard'; // Ensure this import path is correct
-
+import GameCard from '../GameCard';
 import AdCard from '../AdCard';
-
-
-const AD_FREQUENCY = 9999; // Показывать рекламу на каждой 10-й позиции
 
 const ITEMS_PER_PAGE = 25;
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -27,7 +23,7 @@ export default function SearchPage({
   filterMode,
   blockedTags,
 }: SearchPageProps) {
-  const theme = useTheme(); // Now used in JSX potentially (e.g., sx props)
+  const theme = useTheme();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [page, setPage] = useState(1);
@@ -38,6 +34,7 @@ export default function SearchPage({
   const initialFetchInitiatedRef = useRef<boolean>(false);
   const [nsfwTagId, setNsfwTagId] = useState<string | null>(null);
   const [extremeTagId, setExtremeTagId] = useState<string | null>(null);
+  const [adPosition, setAdPosition] = useState<number>(-1);
 
   const prevFiltersRef = useRef<{
     tags: string[],
@@ -48,7 +45,6 @@ export default function SearchPage({
     extremeId: string | null
   } | null>(null);
 
-  // --- Data Processing Function ---
   const processGameData = (items: any[]): Game[] => {
       return items.map(game => {
           const expandData = game.expand || {};
@@ -64,7 +60,6 @@ export default function SearchPage({
       });
   };
 
-  // --- Effect to find NSFW and Extreme tag IDs ---
   useEffect(() => {
       if (tagsLoaded && tagMap.size > 0) {
           let foundNsfwId: string | null = null;
@@ -83,7 +78,6 @@ export default function SearchPage({
       }
   }, [tagsLoaded, tagMap]);
 
-  // --- Game Fetching Function ---
   const fetchGames = useCallback(
     async (pageNum = 1, isReset = false) => {
         if (!tagsLoaded) {
@@ -95,7 +89,6 @@ export default function SearchPage({
         setLoading(true);
 
         try {
-            // --- Filter logic ---
             const filterConditions: string[] = [];
             const blockedTagIds = blockedTags.map(tag => tag.id);
             const positiveSelectedTags: string[] = [];
@@ -139,7 +132,7 @@ export default function SearchPage({
                 const finalBlocked = blockedTagIds.filter(bId => !negativeTagIds.has(bId) && !(sfwModeActive && restrictedTagIds.has(bId)));
                 if (finalBlocked.length > 0) filterConditions.push(...finalBlocked.map(id => `tags.id != "${id}"`));
             }
-            // --- End Server Filter ---
+
             const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
             const expandRelations = 'authors,tags,tags.tag_categories_via_tags';
 
@@ -147,7 +140,6 @@ export default function SearchPage({
                 sort: '-created',
                 expand: expandRelations,
                 filter: filterString
-                // Параметр fields полностью удален
             });
             const gamesFromApi = processGameData(fetchedGamesResult.items);
 
@@ -168,9 +160,6 @@ export default function SearchPage({
     [tagsLoaded, selectedTags, selectedAuthors, filterMode, blockedTags, nsfwTagId, extremeTagId, tagMap]
   );
 
-  // --- useEffect Hooks ---
-
-  // 1. Fetch and Cache Tags on Mount
   useEffect(() => {
       let isMounted = true;
       setTagIdsProcessed(false);
@@ -204,12 +193,22 @@ export default function SearchPage({
       return () => { isMounted = false; };
   }, []);
 
-  // 2. Initial Fetch Trigger
+  const generateRandomAdPosition = () => {
+      const minIndex = 5;
+      const maxIndex = 10;
+      const randomAdIndex = Math.floor(Math.random() * (maxIndex - minIndex + 1)) + minIndex;
+      setAdPosition(randomAdIndex);
+      console.log(`[Ad] New random ad position set to index: ${randomAdIndex}`);
+  };
+
   useEffect(() => {
       if (tagsLoaded && tagIdsProcessed && !initialFetchInitiatedRef.current) {
           console.log("[Initial Fetch] Tags and IDs processed, initiating first fetch.");
           initialFetchInitiatedRef.current = true;
           setPage(1);
+          
+          generateRandomAdPosition();
+          
           fetchGames(1, true);
 
           const currentBlockedIds = blockedTags.map(t => t.id).sort();
@@ -222,9 +221,9 @@ export default function SearchPage({
       } else if (!tagsLoaded && !initialFetchInitiatedRef.current) {
           setLoading(true);
       }
-  }, [tagsLoaded, tagIdsProcessed, fetchGames]);
+      // [ИСПРАВЛЕНИЕ] Заменил `extremeId` на `extremeTagId` в массиве зависимостей
+  }, [tagsLoaded, tagIdsProcessed, fetchGames, blockedTags, extremeTagId, filterMode, nsfwTagId, selectedAuthors, selectedTags]);
 
-  // 3. Handle Filter Changes (After Initial Load)
   useEffect(() => {
       if (!initialFetchInitiatedRef.current) {
           return;
@@ -251,22 +250,22 @@ export default function SearchPage({
       prevFiltersRef.current = JSON.parse(currentFiltersString);
       setPage(1);
       setHasMore(true);
+
+      generateRandomAdPosition();
+      
       fetchGames(1, true);
 
   }, [selectedTags, selectedAuthors, filterMode, blockedTags, nsfwTagId, extremeTagId, fetchGames]);
 
-  // 4. Infinite Scroll - Fetch More Games when page number increases
   useEffect(() => {
     if (page > 1 && hasMore && !loading && initialFetchInitiatedRef.current) {
       console.log(`[Infinite Scroll] Fetching page ${page}`);
       fetchGames(page, false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, hasMore, loading, fetchGames]);
 
-  // --- Intersection Observer for Infinite Scroll Trigger ---
   const observer = useRef<IntersectionObserver | null>(null);
-  const lastGameElementRef = useCallback((node: HTMLElement | null) => { // Now used in JSX
+  const lastGameElementRef = useCallback((node: HTMLElement | null) => {
      if (loading || !hasMore) {
          if (observer.current) observer.current.disconnect();
          return;
@@ -282,13 +281,11 @@ export default function SearchPage({
     }
   }, [loading, hasMore]);
 
-  // Memoize games array for performance
-  const memoizedGames = useMemo(() => games, [games]); // Now used in JSX
+  const memoizedGames = useMemo(() => games, [games]);
   const isSearchActive = selectedTags.length > 0 || selectedAuthors.length > 0;
   const isFilterActive = filterMode !== 'all' || blockedTags.length > 0;
 
-  // --- Render Component --- // <-- ЗАМЕНИТЕ ВЕСЬ БЛОК RETURN НА ЭТОТ
-return (
+  return (
       <Box sx={{ width: '100%', p: { xs: 1, sm: 2, md: 3 } }}>
           <Typography
               variant="h3" component="h1"
@@ -300,34 +297,27 @@ return (
               {isSearchActive ? 'Search Results' : 'Recent Uploads'}
           </Typography>
 
-          {/* Initial Loading Spinner */}
           {loading && games.length === 0 && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}><CircularProgress /></Box>
           )}
 
-          {/* Games Grid */}
           {games.length > 0 && (
               <Grid container spacing={{ xs: 1, sm: 2 }} justifyContent="center">
                   {memoizedGames.map((game, index) => {
                      
-                     // --- НАША НОВАЯ ЛОГИКА ДЛЯ РЕКЛАМЫ ---
-                     const isAdSpot = (index > 0) && ((index + 1) % AD_FREQUENCY === 0);
+                     const isAdSpot = index === adPosition;
 
                      if (isAdSpot) {
                         const adId = `ad-container-${index}`;
                         return (
                           <Grid item xs={12} sm={6} md={4} lg={2.4}
                             key={adId}
-                            // Важно: ref для infinite scroll НЕ должен быть на рекламном блоке,
-                            // чтобы не сломать логику подгрузки.
                           >
                             <AdCard adId={adId} />
                           </Grid>
                         );
                      }
-                     // --- КОНЕЦ ЛОГИКИ ДЛЯ РЕКЛАМЫ ---
 
-                     // Обычный рендер карточки игры
                      return (
                        <Grid item xs={12} sm={6} md={4} lg={2.4}
                          key={`search-${game.id}-${index}`}
@@ -340,17 +330,14 @@ return (
               </Grid>
           )}
 
-           {/* Infinite Scroll Loading Spinner (at the bottom) */}
           {loading && games.length > 0 && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, height: 40, mb: 2 }}><CircularProgress size={30} /></Box>
           )}
 
-          {/* End of List Message */}
           {!loading && !hasMore && initialFetchInitiatedRef.current && (
               <Typography sx={{ mt: 3, mb: 2, textAlign: 'center', color: 'text.secondary' }}> You've reached the end! </Typography>
           )}
 
-          {/* No Results Message */}
           {!loading && games.length === 0 && initialFetchInitiatedRef.current && (
               <Typography sx={{ mt: 4, textAlign: 'center', color: 'text.secondary' }}>
                   {isSearchActive || isFilterActive ? 'No games found matching your criteria.' : 'No games available.'}

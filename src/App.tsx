@@ -13,6 +13,7 @@ const Profile = lazy(() => import('./components/Profile/Profile'));
 const ModeratorPanel = lazy(() => import('./components/ModeratorPanel/ModeratorPanel'));
 const VectorSearchPage = lazy(() => import('./components/Search/VectorSearchPage'));
 import Login from './components/Header/Login';
+import { AuthModel } from 'pocketbase';
 
 const SsoLoginPage = lazy(() => import('./components/Sso/SsoLoginPage'));
 const SsoSignupPage = lazy(() => import('./components/Sso/SsoSignupPage'));
@@ -89,21 +90,19 @@ export default function App() {
   // --- НАЧАЛО ИЗМЕНЕНИЙ: Обновленный useEffect для аутентификации ---
   useEffect(() => {
     // Эта функция будет вызываться при логине, логауте и обновлении токена
-    const handleAuthChange = (token: string | null, model: User | null) => {
-        const currentUser = model; // model уже имеет тип User | null
+    const handleAuthChange = (_token: string | null, model: AuthModel | null) => {
+    // Проверяем, является ли модель пользователем, и приводим тип
+    const currentUser = (model && 'collectionName' in model && model.collectionName === 'users') ? model as User : null;
 
-        setSignedIn(!!currentUser);
-        setUser(currentUser);
+    setSignedIn(!!currentUser);
+    setUser(currentUser);
 
-        // Просто берем данные из модели, которая пришла от authStore.
-        // `expand` будет доступен после логина благодаря изменениям в `pocketbase.ts`.
-        if (currentUser && currentUser.expand?.blocked_tags) {
-            setBlockedTags(currentUser.expand.blocked_tags);
-        } else {
-            // Если пользователь не залогинен или у него нет заблокированных тегов
-            setBlockedTags([]);
-        }
-    };
+    if (currentUser && currentUser.expand?.blocked_tags) {
+        setBlockedTags(currentUser.expand.blocked_tags);
+    } else {
+        setBlockedTags([]);
+    }
+};
 
     // Подписываемся на изменения в хранилище аутентификации
     const unsubscribe = pb.authStore.onChange(handleAuthChange);

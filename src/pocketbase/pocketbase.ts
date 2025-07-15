@@ -164,7 +164,10 @@ export async function login(args: { usernameOrEmail: string; password: string } 
   if ('password' in args) {
     await usersCollection.authWithPassword(args.usernameOrEmail, args.password, expandOptions);
   } else {
-    await usersCollection.authWithOAuth2({ provider: args.provider }, expandOptions);
+    await usersCollection.authWithOAuth2({
+    provider: args.provider,
+    expand: 'blocked_tags' // Добавляем expand прямо в этот объект
+});
   }
 }
 

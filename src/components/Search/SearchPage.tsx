@@ -6,6 +6,11 @@ import { Game, gamesCollection, tagsCollection, Tag } from '../../pocketbase/poc
 import type { FilterMode } from '../../types';
 import GameCard from '../GameCard'; // Ensure this import path is correct
 
+import AdCard from '../AdCard';
+
+
+// const AD_FREQUENCY = 9; // Показывать рекламу на каждой 10-й позиции
+
 const ITEMS_PER_PAGE = 25;
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -278,15 +283,14 @@ export default function SearchPage({
   const isSearchActive = selectedTags.length > 0 || selectedAuthors.length > 0;
   const isFilterActive = filterMode !== 'all' || blockedTags.length > 0;
 
-  // --- Render Component --- // <-- THIS WAS MISSING BEFORE
-  return (
+  // --- Render Component --- // <-- ЗАМЕНИТЕ ВЕСЬ БЛОК RETURN НА ЭТОТ
+return (
       <Box sx={{ width: '100%', p: { xs: 1, sm: 2, md: 3 } }}>
           <Typography
               variant="h3" component="h1"
               sx={{
                 mt: -4, mb: 3, textAlign: 'center',
                 fontSize: { xs: '1.8rem', sm: '2.2rem', md: '2.5rem' },
-                // Example of using theme directly or custom properties if defined
                  ...(theme.custom?.cardTitle || { fontWeight: 'bold' }),
               }} >
               {isSearchActive ? 'Search Results' : 'Recent Uploads'}
@@ -299,19 +303,36 @@ export default function SearchPage({
 
           {/* Games Grid */}
           {games.length > 0 && (
-              // Using MUI Grid v1 syntax here. If you use v2 (Grid2), replace Grid with Grid2
               <Grid container spacing={{ xs: 1, sm: 2 }} justifyContent="center">
-                  {memoizedGames.map((game, index) => (
-                     // Adjust column sizes as needed (xs, sm, md, lg)
-                     // Example: 5 columns on lg, 4 on md, 3 on sm, 1 on xs
-                     <Grid item xs={12} sm={6} md={4} lg={2.4} // lg={2.4} means 5 columns (12 / 2.4 = 5)
-                       key={`search-${game.id}-${index}`} // Make sure key is stable and unique
-                       // Assign ref to the last element for infinite scroll trigger
-                       ref={index === memoizedGames.length - 1 ? lastGameElementRef : null}
-                     >
-                       <GameCard game={game} variant="standard"/> {/* Using GameCard */}
-                     </Grid>
-                   ))}
+                  {memoizedGames.map((game, index) => {
+                     
+                     // --- НАША НОВАЯ ЛОГИКА ДЛЯ РЕКЛАМЫ ---
+                     const isAdSpot = (index > 0) && ((index + 1) % AD_FREQUENCY === 0);
+
+                     if (isAdSpot) {
+                        const adId = `ad-container-${index}`;
+                        return (
+                          <Grid item xs={12} sm={6} md={4} lg={2.4}
+                            key={adId}
+                            // Важно: ref для infinite scroll НЕ должен быть на рекламном блоке,
+                            // чтобы не сломать логику подгрузки.
+                          >
+                            <AdCard adId={adId} />
+                          </Grid>
+                        );
+                     }
+                     // --- КОНЕЦ ЛОГИКИ ДЛЯ РЕКЛАМЫ ---
+
+                     // Обычный рендер карточки игры
+                     return (
+                       <Grid item xs={12} sm={6} md={4} lg={2.4}
+                         key={`search-${game.id}-${index}`}
+                         ref={index === memoizedGames.length - 1 ? lastGameElementRef : null}
+                       >
+                         <GameCard game={game} variant="standard"/>
+                       </Grid>
+                     );
+                  })}
               </Grid>
           )}
 

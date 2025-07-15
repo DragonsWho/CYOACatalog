@@ -9,8 +9,11 @@ import DOMPurify from 'dompurify';
 
 import { useTheme } from '@mui/material/styles';
 
+
+
 // Design variables - Constants for styling and layout
-const CARD_ASPECT_RATIO = '133.33%'; // Defines the card height relative to its width (4:3)
+export const CARD_ASPECT_RATIO = '133.33%'; // Defines the card height relative to its width (4:3)
+ 
 const DESCRIPTION_TOP = '60%'; // Vertical starting point for the description text
 const TAG_SECTION_HEIGHT = '80px'; // Maximum height for the tags area
 const TAG_DISPLAY_LIMIT = 12; // Max number of tags to show

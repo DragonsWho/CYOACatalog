@@ -365,7 +365,7 @@ function GameCard({ game, variant = 'standard' }: GameCardProps) {
                  }}
                >
                  {/* Display author name or default */}
-                 {game.expand?.authors_via_games?.[0]?.name || 'Anonymous'}
+                 {game.expand?.authors?.[0]?.name || 'Anonymous'}
                </Typography>
                {/* Stats Icons and Counts */}
                <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>

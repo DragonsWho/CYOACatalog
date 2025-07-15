@@ -8,6 +8,9 @@ export default defineConfig({
     exclude: ["@jsquash/webp"]
   },
   plugins: [react()],
+    define: {
+    'global': 'window', // <-- Добавьте эту строку
+  },
   build: {
     commonjsOptions: {
       // TODO: remove this after react-comments-section is removed (it is randomly calling require('uuid'))
@@ -15,3 +18,5 @@ export default defineConfig({
     },
   },
 });
+
+  

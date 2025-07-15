@@ -1,0 +1,64 @@
+/// <reference path="../pb_data/types.d.ts" />
+
+/**
+ * ОДНОРАЗОВЫЙ ХУК ДЛЯ МИГРАЦИИ СВЯЗЕЙ АВТОРОВ И ИГР.
+ * ЭТОТ ФАЙЛ НУЖНО УДАЛИТЬ ИЛИ ПЕРЕИМЕНОВАТЬ ПОСЛЕ УСПЕШНОГО ЗАПУСКА!
+ */
+onAfterBootstrap((e) => {
+    console.log("--- Starting Author-Game Relationship Migration Hook ---");
+
+    try {
+        // Находим всех авторов, у которых заполнено старое поле `games`
+        const allAuthors = $app.dao().findRecordsByFilter(
+            "authors",
+            "games != null && games != ''", // Находим только авторов с играми
+            "+created",
+            0, // 0 - значит без лимита на количество записей
+            0
+        );
+
+        console.log(`[Migration] Found ${allAuthors.length} authors with games to process.`);
+
+        // Создаем карту для группировки обновлений: { gameId -> [authorId, authorId, ...] }
+        const updates = new Map();
+
+        for (const author of allAuthors) {
+            const authorId = author.getId();
+            const gameIds = author.get('games'); // Получаем массив ID игр из старого поля
+
+            if (Array.isArray(gameIds)) {
+                for (const gameId of gameIds) {
+                    if (!updates.has(gameId)) {
+                        updates.set(gameId, []);
+                    }
+                    updates.get(gameId).push(authorId);
+                }
+            }
+        }
+
+        console.log(`[Migration] Found ${updates.size} unique games to update.`);
+        let updatedCount = 0;
+
+        // Проходим по карте и обновляем каждую игру
+        for (const [gameId, authorIds] of updates.entries()) {
+            try {
+                const gameRecord = $app.dao().findRecordById("games", gameId);
+                // Устанавливаем новое поле `authors`
+                gameRecord.set("authors", authorIds);
+                $app.dao().saveRecord(gameRecord);
+                console.log(`[Migration] Successfully updated game ${gameId} with authors: [${authorIds.join(', ')}]`);
+                updatedCount++;
+            } catch (err) {
+                console.error(`[Migration] FAILED to update game ${gameId}:`, err);
+            }
+        }
+
+        console.log(`--- MIGRATION COMPLETE! ${updatedCount} games were updated. ---`);
+        console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.log("!!! ПОЖАЛУЙСТА, УДАЛИТЕ ИЛИ ПЕРЕИМЕНУЙТЕ ФАЙЛ 'migrate_authors.pb.js' !!!");
+        console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+
+    } catch (err) {
+        console.error("[Migration] A critical error occurred during migration:", err);
+    }
+});

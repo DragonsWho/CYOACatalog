@@ -76,17 +76,18 @@ export type Game = RecordModel & {
   img_or_link: 'img' | 'link';
   iframe_url: string;
   cyoa_pages: string[];
-  upvotes: string[]; // Оставляем для проверки isUpvoted
-  upvotes_count?: number; // <--- ДОБАВЛЕНО: Необязательное поле для счетчика
+  upvotes: string[]; 
+  upvotes_count?: number; 
   comments: string[];
   comments_count?: number;
   uploader: string;
   image_base64?: string;
+  authors?: string[]; 
 } & {
   expand?: {
     tags?: Tag[];
-    authors_via_games?: Author[];
-    upvotes?: User[]; // Это expand для самих User объектов, если нужно
+    authors?: Author[];
+    upvotes?: User[]; 
     comments?: Comment[];
   };
 };

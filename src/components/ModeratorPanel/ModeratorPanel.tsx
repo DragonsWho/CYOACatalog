@@ -179,7 +179,7 @@ export default function ModeratorPanel() {
   useEffect(() => {
     if (signedIn && isModerator) {
       setIsLoadingGames(true);
-      Promise.all([ gamesCollection.getFullList({ sort: '-created', expand: 'tags,authors_via_games' }), authorsCollection.getFullList({ sort: '+name' }), tagsCollection.getFullList(), ])
+      Promise.all([ gamesCollection.getFullList({ sort: '-created', expand: 'tags,authors' }), authorsCollection.getFullList({ sort: '+name' }), tagsCollection.getFullList(), ])
         .then(([gamesRes, authorsRes, tagsRes]) => { setGames(gamesRes); setAvailableAuthors(authorsRes); setAllAvailableTags(tagsRes); setIsLoadingGames(false); })
         .catch((err) => { console.error('Error loading data:', err); setIsLoadingGames(false); });
     }
@@ -189,7 +189,7 @@ export default function ModeratorPanel() {
     if (game) {
       setSelectedGame(game);
       setEditedGame({ title: game.title, description: game.description, image: game.image, iframe_url: game.iframe_url, tags: game.expand?.tags?.map(t => t.id) || [], img_or_link: game.img_or_link, cyoa_pages: game.cyoa_pages, });
-      setCardImage(null); setCyoaImages([]); setNeedsSplit(false); setAuthors(game.expand?.authors_via_games || []);
+      setCardImage(null); setCyoaImages([]); setNeedsSplit(false); setAuthors(game.expand?.authors || []);
     } else { setSelectedGame(null); setEditedGame({}); setCardImage(null); setCyoaImages([]); setNeedsSplit(false); setAuthors([]); }
   };
 
@@ -217,15 +217,14 @@ export default function ModeratorPanel() {
       let updatedGameResponse: Game | null = null;
       if (hasDataChanges) { updatedGameResponse = await gamesCollection.update(selectedGame.id, formData); }
 
-      const originalAuthorIds = selectedGame.expand?.authors_via_games?.map(a => a.id).sort() || []; const selectedAuthorIds = authors.map(a => a.id).sort();
-      // let authorsUpdated = false; // <<<--- Удалена переменная
-      if (JSON.stringify(originalAuthorIds) !== JSON.stringify(selectedAuthorIds)) {
-          await pb.collection('games').update(selectedGame.id, { authors_via_games: selectedAuthorIds });
-          // authorsUpdated = true; // <<<--- Удалено присвоение
+      const originalAuthorIds = selectedGame.expand?.authors?.map(a => a.id).sort() || [];
+      const selectedAuthorIds = authors.map(a => a.id).sort();
+      if (JSON.stringify(originalAuthorIds) !== JSON.stringify(selectedAuthorIds)) { 
+          await gamesCollection.update(selectedGame.id, { authors: selectedAuthorIds });
       }
 
       let finalGameDataForState: Game = updatedGameResponse ? { ...updatedGameResponse } : { ...selectedGame };
-       finalGameDataForState.expand = { ...finalGameDataForState.expand, authors_via_games: authors };
+       finalGameDataForState.expand = { ...finalGameDataForState.expand, authors: authors };
        const finalTagIds = editedGame.tags || [];
        const finalTagsObjects = finalTagIds.map(id => allAvailableTags.find(tag => tag.id === id)).filter((tag): tag is Tag => tag !== undefined);
        finalGameDataForState.expand = { ...finalGameDataForState.expand, tags: finalTagsObjects };

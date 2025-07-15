@@ -48,7 +48,7 @@ export default function LikedGamesSection() {
       try {
         const result = await gamesCollection.getList(page, gamesPerPage, {
           filter: `upvotes ?~ "${user.id}"`,
-          expand: 'tags,authors_via_games',
+          expand: 'tags,authors',
           sort: '-created',
         });
         setLikedGames(result.items);

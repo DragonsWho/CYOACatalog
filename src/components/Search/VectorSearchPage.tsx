@@ -94,7 +94,7 @@ export default function VectorSearchPage() {
       // --- Шаг 4: Запрос к PocketBase ---
       const pbGames = await gamesCollection.getFullList<Game>({ // getFullList<Game> типизирует результат
         filter: pbFilter,
-        expand: 'tags.tag_categories_via_tags,authors_via_games', // Необходимые expand для GameCard
+        expand: 'tags.tag_categories_via_tags,authors', // Необходимые expand для GameCard
       });
       console.log('PocketBase Response (unordered):', pbGames);
 

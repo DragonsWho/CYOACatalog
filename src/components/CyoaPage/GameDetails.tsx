@@ -65,10 +65,10 @@ export default function GameDetails() {
         // 'comments_count',             // Счетчик комментариев (если не нужны сами комменты сразу)
         // 'upvotes_count',              // Счетчик лайков (если не нужны ID лайкнувших)
       
-        // --- Поля из 'expand.authors_via_games' (связь с авторами) ---
-        'expand.authors_via_games.id',   // ID автора (может понадобиться для ключей или ссылок)
-        'expand.authors_via_games.name', // Имя автора (отображается в GameDetails)
-        // 'expand.authors_via_games.username', // Имя пользователя автора (если имя не задано)
+        // --- Поля из 'expand.authors' (связь с авторами) ---
+        'expand.authors.id',   // ID автора (может понадобиться для ключей или ссылок)
+        'expand.authors.name', // Имя автора (отображается в GameDetails)
+        // 'expand.authors.username', // Имя пользователя автора (если имя не задано)
       
         // --- Поля из 'expand.tags' (связь с тегами) ---
         'expand.tags.id',                // ID тега (нужен для ключей, возможно для TagDisplay)
@@ -104,13 +104,9 @@ export default function GameDetails() {
 
       try {
         const gamePromise = gamesCollection.getOne(id, {
-          expand: 'tags.tag_categories_via_tags,authors_via_games,comments.author', // Оставляем expand!
-          fields: requestedFields
-        });
-
-        // Запрос связей. Новые поля (source_language, target_language)
-        // будут получены автоматически, так как они часть самой записи relationship.
-
+          expand: 'tags.tag_categories_via_tags,authors,comments.author'
+          // Параметр fields полностью удален
+      });
 
 
 
@@ -217,9 +213,9 @@ export default function GameDetails() {
           <Typography variant="h4" component="h1" sx={{ mr: 1, color: theme.palette.text.primary }}>
             {game.title || 'Untitled Game'}
           </Typography>
-          {game.expand?.authors_via_games?.length && game.expand.authors_via_games?.length > 0 && (
+          {game.expand?.authors?.length && game.expand.authors?.length > 0 && (
             <Typography variant="subtitle1" sx={{ mb: '0.05em', color: theme.palette.text.primary }}>
-              by {game.expand.authors_via_games.map((author) => author.name).join(', ')}
+              by {game.expand.authors.map((author) => author.name).join(', ')}
             </Typography>
           )}
         </Box>

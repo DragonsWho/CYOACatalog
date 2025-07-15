@@ -9,7 +9,7 @@ import GameCard from '../GameCard'; // Ensure this import path is correct
 import AdCard from '../AdCard';
 
 
-// const AD_FREQUENCY = 9; // Показывать рекламу на каждой 10-й позиции
+const AD_FREQUENCY = 9999; // Показывать рекламу на каждой 10-й позиции
 
 const ITEMS_PER_PAGE = 25;
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -53,11 +53,11 @@ export default function SearchPage({
       return items.map(game => {
           const expandData = game.expand || {};
           const tagsData = expandData.tags;
-          const authorsData = expandData.authors_via_games;
+          const authorsData = expandData.authors;
           return {
               ...game,
               expand: {
-                  ...(expandData.authors_via_games && { authors_via_games: Array.isArray(authorsData) ? authorsData : (authorsData ? [authorsData] : []) }),
+                  ...(expandData.authors && { authors: Array.isArray(authorsData) ? authorsData : (authorsData ? [authorsData] : []) }),
                   ...(expandData.tags && { tags: Array.isArray(tagsData) ? tagsData : (tagsData ? [tagsData] : []) }),
               }
           } as Game;
@@ -108,7 +108,7 @@ export default function SearchPage({
                 if (ids.length === positiveSelectedTags.length) { filterConditions.push(...ids.map(id=>`tags ~ "${id}"`)); }
                 else { filterConditions.push('(1=0)'); }
             }
-            if (selectedAuthors.length > 0) { filterConditions.push(`(${selectedAuthors.map(a => `authors_via_games.name ?~ "${a.replace(/"/g, '\\"')}"`).join(' || ')})`); }
+            if (selectedAuthors.length > 0) { filterConditions.push(`(${selectedAuthors.map(a => `authors.name ?~ "${a.replace(/"/g, '\\"')}"`).join(' || ')})`); }
 
             if (filterMode === 'sfw') {
                 const sfwConditions: string[] = [];
@@ -141,10 +141,14 @@ export default function SearchPage({
             }
             // --- End Server Filter ---
             const filterString = filterConditions.length > 0 ? filterConditions.join(' && ') : '';
-            const expandRelations = 'authors_via_games,tags,tags.tag_categories_via_tags';
-            const fieldsToFetch = ['id','title','description','image','image_base64','upvotes_count','comments_count','authors','expand.authors_via_games.name','expand.tags.id','expand.tags.name','expand.tags.expand.tag_categories_via_tags.name'].join(',');
+            const expandRelations = 'authors,tags,tags.tag_categories_via_tags';
 
-            const fetchedGamesResult = await gamesCollection.getList(pageNum, ITEMS_PER_PAGE, { sort: '-created', expand: expandRelations, filter: filterString, fields: fieldsToFetch });
+            const fetchedGamesResult = await gamesCollection.getList(pageNum, ITEMS_PER_PAGE, {
+                sort: '-created',
+                expand: expandRelations,
+                filter: filterString
+                // Параметр fields полностью удален
+            });
             const gamesFromApi = processGameData(fetchedGamesResult.items);
 
             setGames((prevGames) => {

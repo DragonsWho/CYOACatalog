@@ -45,6 +45,26 @@ export default function SearchPage({
     extremeId: string | null
   } | null>(null);
 
+
+
+
+
+  const generateRandomAdPosition = () => {
+      const minIndex = 99999;
+      const maxIndex = 9999910;
+      const randomAdIndex = Math.floor(Math.random() * (maxIndex - minIndex + 1)) + minIndex;
+      setAdPosition(randomAdIndex);
+      console.log(`[Ad] New random ad position set to index: ${randomAdIndex}`);
+  };
+
+
+
+
+
+
+
+  
+
   const processGameData = (items: any[]): Game[] => {
       return items.map(game => {
           const expandData = game.expand || {};
@@ -192,14 +212,6 @@ export default function SearchPage({
       })();
       return () => { isMounted = false; };
   }, []);
-
-  const generateRandomAdPosition = () => {
-      const minIndex = 5;
-      const maxIndex = 10;
-      const randomAdIndex = Math.floor(Math.random() * (maxIndex - minIndex + 1)) + minIndex;
-      setAdPosition(randomAdIndex);
-      console.log(`[Ad] New random ad position set to index: ${randomAdIndex}`);
-  };
 
   useEffect(() => {
       if (tagsLoaded && tagIdsProcessed && !initialFetchInitiatedRef.current) {

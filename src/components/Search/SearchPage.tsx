@@ -269,12 +269,16 @@ export default function SearchPage({
 
   }, [selectedTags, selectedAuthors, filterMode, blockedTags, nsfwTagId, extremeTagId, fetchGames]);
 
-  useEffect(() => {
-    if (page > 1 && hasMore && !loading && initialFetchInitiatedRef.current) {
-      console.log(`[Infinite Scroll] Fetching page ${page}`);
-      fetchGames(page, false);
-    }
-  }, [page, hasMore, loading, fetchGames]);
+useEffect(() => {
+  // Этот эффект должен реагировать ТОЛЬКО на изменение страницы,
+  // чтобы инициировать новую загрузку.
+  // Проверка !loading внутри защищает от запуска во время уже идущей загрузки.
+  if (page > 1 && hasMore && !loading && initialFetchInitiatedRef.current) {
+    console.log(`[Infinite Scroll] Fetching page ${page}`);
+    fetchGames(page, false);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [page]); // <-- УБРАЛИ ЛИШНИЕ ЗАВИСИМОСТИ
 
   const observer = useRef<IntersectionObserver | null>(null);
   const lastGameElementRef = useCallback((node: HTMLElement | null) => {

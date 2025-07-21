@@ -5,7 +5,7 @@ import { Box, Typography, CircularProgress, Grid, useTheme } from '@mui/material
 import { Game, gamesCollection, tagsCollection, Tag } from '../../pocketbase/pocketbase';
 import type { FilterMode } from '../../types';
 import GameCard from '../GameCard';
-import AdCard from '../AdCard';
+// import AdCard from '../AdCard';
 
 const ITEMS_PER_PAGE = 25;
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -34,7 +34,7 @@ export default function SearchPage({
   const initialFetchInitiatedRef = useRef<boolean>(false);
   const [nsfwTagId, setNsfwTagId] = useState<string | null>(null);
   const [extremeTagId, setExtremeTagId] = useState<string | null>(null);
-  const [adPosition, setAdPosition] = useState<number>(-1);
+//  const [adPosition, setAdPosition] = useState<number>(-1);
 
   const prevFiltersRef = useRef<{
     tags: string[],
@@ -48,7 +48,7 @@ export default function SearchPage({
 
 
 
-
+ /*
   const generateRandomAdPosition = () => {
       const minIndex = 99999;
       const maxIndex = 9999910;
@@ -57,7 +57,7 @@ export default function SearchPage({
       console.log(`[Ad] New random ad position set to index: ${randomAdIndex}`);
   };
 
-
+ */
 
 
 
@@ -219,7 +219,7 @@ export default function SearchPage({
           initialFetchInitiatedRef.current = true;
           setPage(1);
           
-          generateRandomAdPosition();
+        //  generateRandomAdPosition();
           
           fetchGames(1, true);
 
@@ -263,7 +263,7 @@ export default function SearchPage({
       setPage(1);
       setHasMore(true);
 
-      generateRandomAdPosition();
+     // generateRandomAdPosition();
       
       fetchGames(1, true);
 
@@ -321,6 +321,7 @@ useEffect(() => {
               <Grid container spacing={{ xs: 1, sm: 2 }} justifyContent="center">
                   {memoizedGames.map((game, index) => {
                      
+                     /*
                      const isAdSpot = index === adPosition;
 
                      if (isAdSpot) {
@@ -332,7 +333,8 @@ useEffect(() => {
                             <AdCard adId={adId} />
                           </Grid>
                         );
-                     }
+                     } 
+                     */
 
                      return (
                        <Grid item xs={12} sm={6} md={4} lg={2.4}

@@ -39,6 +39,32 @@ const DiscordIcon = () => (
   </SvgIcon>
 );
 
+const OryIcon = () => (
+    <SvgIcon viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
+    </SvgIcon>
+);
+
+const OryButton = styled(Button)(({ theme }) => ({
+    backgroundColor: '#000000',
+    color: theme.palette.common.white,
+    border: '1px solid #555',
+    '&:hover': {
+      backgroundColor: '#222222',
+    },
+    width: '70%',
+    margin: '10px auto 0 auto', // Добавил отступ сверху
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '10px',
+    borderRadius: '3px',
+    fontWeight: 500,
+    fontSize: '14px',
+    lineHeight: '20px',
+    textTransform: 'none',
+  }));
+
 const StyledTextField = styled(TextField)(() => ({
   '& .MuiInputBase-input': {
     backgroundColor: '#1e1e1e',
@@ -212,6 +238,35 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     }
   }
 
+  async function handleOryLogin() {
+    setIsLoading(true);
+    setError('');
+    try {
+      // Это волшебная строка. Она использует имя 'ory', которое мы задали в админке PocketBase.
+      // PocketBase SDK сам сделает редирект на Hydra, а после входа обработает коллбэк.
+      await pb.collection('users').authWithOAuth2({ provider: 'ory' });
+
+      // Как и в случае с Discord, синхронизация с Flarum должна произойти
+      // когда pb.authStore станет валидным.
+      if (pb.authStore.isValid) {
+        console.log('Login.tsx: Ory login process resulted in valid session. Attempting Flarum session sync...');
+        const syncResult = await syncFlarumSession();
+        if (!syncResult.success) {
+          console.warn("Login.tsx: Flarum session sync failed after Ory login:", syncResult.error);
+        } else {
+          console.log('Login.tsx: Flarum session sync successful after Ory login.');
+        }
+      }
+    } catch (err) {
+      console.error('Ory login error:', err);
+      const error = err as ErrorResponse;
+      setError(error.response?.data?.message || error.message || 'Ory/SSO login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!username || !email || !password) { setError('Please fill in all fields'); return; }
@@ -314,6 +369,9 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
             <DiscordButton onClick={handleDiscordLogin} disabled={isLoading} startIcon={<DiscordIcon />}>
               {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Sign in with Discord'}
             </DiscordButton>
+            <OryButton onClick={handleOryLogin} disabled={isLoading} startIcon={<OryIcon />}>
+                {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Sign in with SSO'}
+            </OryButton>
           </>
         )}
         {error && (

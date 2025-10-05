@@ -242,27 +242,41 @@ export default function Login({ open = false, onClose = () => {}, onLoginSuccess
     setIsLoading(true);
     setError('');
     try {
-      // Это волшебная строка. Она использует имя 'ory', которое мы задали в админке PocketBase.
-      // PocketBase SDK сам сделает редирект на Hydra, а после входа обработает коллбэк.
-      await pb.collection('users').authWithOAuth2({ provider: 'ory' });
+      // Шаг 1: Получаем список всех доступных провайдеров
+      const providers = await pb.collection('users').listAuthMethods();
 
-      // Как и в случае с Discord, синхронизация с Flarum должна произойти
-      // когда pb.authStore станет валидным.
-      if (pb.authStore.isValid) {
-        console.log('Login.tsx: Ory login process resulted in valid session. Attempting Flarum session sync...');
-        const syncResult = await syncFlarumSession();
-        if (!syncResult.success) {
-          console.warn("Login.tsx: Flarum session sync failed after Ory login:", syncResult.error);
-        } else {
-          console.log('Login.tsx: Flarum session sync successful after Ory login.');
-        }
+      // Шаг 2: Находим наш провайдер с именем 'ory'
+      const oryProvider = providers.authProviders.find(p => p.name === 'ory');
+
+      if (!oryProvider) {
+        throw new Error("Ory auth provider not found. Please check PocketBase admin settings.");
       }
+
+      // Шаг 3: Сохраняем 'codeVerifier' в локальное хранилище.
+      // PocketBase SDK сделает это сам при вызове authWithOAuth2, но так как мы
+      // делаем редирект вручную, нам нужно сделать это самим.
+      localStorage.setItem('provider', JSON.stringify({
+        ...oryProvider,
+        // Мы добавляем наш redirect_uri. PocketBase SDK будет его использовать на следующем шаге.
+        redirectUrl: 'https://cyoa.cafe/api/oauth2-redirect',
+      }));
+
+      // Шаг 4: Формируем правильный URL для редиректа, добавляя недостающий параметр.
+      const redirectUrl = encodeURIComponent('https://cyoa.cafe/api/oauth2-redirect');
+      const authUrlWithRedirect = `${oryProvider.authUrl}${redirectUrl}`;
+
+      // Шаг 5: Перенаправляем пользователя на этот URL.
+      window.location.href = authUrlWithRedirect;
+
     } catch (err) {
       console.error('Ory login error:', err);
       const error = err as ErrorResponse;
       setError(error.response?.data?.message || error.message || 'Ory/SSO login failed');
+      // Очищаем хранилище в случае ошибки
+      localStorage.removeItem('provider');
     } finally {
-      setIsLoading(false);
+      // Мы не выключаем isLoading, так как страница все равно будет перезагружена
+      // setIsLoading(false);
     }
   }
 

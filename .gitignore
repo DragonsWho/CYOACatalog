@@ -1,0 +1,70 @@
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+hosting/cloudflare_api.env
+
+# --- PocketBase runtime data (never commit: contains user accounts) ---
+/pb_data/
+/pb_data_*/
+/pb_test_data/
+/pb_data_test/
+*.db
+*.db-shm
+*.db-wal
+data.db
+
+# --- Build output ---
+/dist/
+/dist-ssr/
+/bin/
+CYOACatalog
+pbserve
+cloudflared.deb
+node_modules
+
+# --- Semantic search: generated index and caches ---
+/semantic-search/index/
+/semantic-search/cache_vectors/
+/semantic-search/__pycache__/
+/semantic-search/venv/
+*.npy
+*.pyc
+
+# --- Tests ---
+/test-results/
+/playwright-report/
+/e2e/test-results/
+/e2e/playwright-report/
+
+# --- Local tooling / scratch ---
+/_dev/
+/auth-server/
+/hosting/
+/temp/
+/.direnv/
+.claude/
+
+# --- Logs ---
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Editors / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.local
+.fuse_hidden*

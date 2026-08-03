@@ -1,0 +1,14 @@
+[Unit]
+Description=cyoa.cafe semantic search v2 (catalog-only, 1536 dim)
+After=network.target
+
+[Service]
+WorkingDirectory=/root/semantic-search-v2
+ExecStart=/root/semantic-search-v2/venv/bin/uvicorn server:app --host 127.0.0.1 --port 8100
+Environment=EMBED_MIN_INTERVAL=0.5
+Environment=SYNC_HOURS=1
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

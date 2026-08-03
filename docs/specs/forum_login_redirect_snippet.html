@@ -1,0 +1,47 @@
+<!--
+  cyoa.cafe forum (Flarum) — bypass the default Log In / Sign Up modal.
+  Paste into: Admin → Appearance → Edit Custom Footer. Save, hard-refresh.
+  Reversible: delete this block to restore Flarum's native modal.
+
+  Behaviour (unified — needs the catalog-side ?sso=forum handler in App.tsx):
+    Both buttons → https://cyoa.cafe/login?sso=forum
+      • Already logged into the catalog  → App.tsx bounces back to the forum's
+        silent OIDC hop → instant forum login, no extra clicks.
+      • Logged out → the catalog drops the marker and opens its own
+        login/registration modal. The visitor is already on the cyoa.cafe
+        auth form; nothing to return yet.
+    (A forum-side "is the user logged in?" check is impossible — the auth token
+     lives only on the cyoa.cafe origin and must not be exposed to *.cyoa.cafe
+     subdomains, where user-hosted games run — so the check happens on the
+     catalog, which can read its own auth state.)
+-->
+<script>
+(function () {
+  var LOGIN_URL  = 'https://cyoa.cafe/login?sso=forum';
+  var SIGNUP_URL = 'https://cyoa.cafe/login?sso=forum';
+
+  var done = false;
+  function go(url) { if (!done) { done = true; window.location.href = url; } }
+
+  // 1) Header buttons: intercept in the CAPTURE phase, before Flarum's own
+  //    click handler runs, so the modal never opens (no flash).
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('.item-signUp')) { e.preventDefault(); e.stopPropagation(); return go(SIGNUP_URL); }
+    if (e.target.closest('.item-logIn'))  { e.preventDefault(); e.stopPropagation(); return go(LOGIN_URL);  }
+  }, true);
+
+  // 2) Safety net: if the Log In / Sign Up modal appears by any other path
+  //    (auto-open, in-modal "Log In" link, "log in to reply" prompts), redirect.
+  function check(node) {
+    if (!node || node.nodeType !== 1) return;
+    if ((node.matches && node.matches('.SignUpModal')) || (node.querySelector && node.querySelector('.SignUpModal'))) return go(SIGNUP_URL);
+    if ((node.matches && node.matches('.LogInModal'))  || (node.querySelector && node.querySelector('.LogInModal')))  return go(LOGIN_URL);
+  }
+  new MutationObserver(function (muts) {
+    for (var i = 0; i < muts.length; i++) {
+      var added = muts[i].addedNodes;
+      for (var j = 0; j < added.length; j++) check(added[j]);
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>

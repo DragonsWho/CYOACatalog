@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" /> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>CYOA.CAFE</title>
+
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="CYOA.cafe" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <!-- gsi/client (Google Identity Services) удалён: вход идёт через
+         pb.authWithOAuth2() (popup/redirect PocketBase), gsi нигде не использовался
+         (~95КБ мёртвого груза на каждой странице). -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      // send_page_view:false — GA4 НЕ шлёт page_view автоматически. Каждый просмотр
+      // (включая смену роута в SPA) шлём вручную из React с правильным page_location +
+      // page_title. Иначе на первой загрузке был бы двойной счёт.
+      gtag('config', 'G-G0CC5DZ5ZZ', { send_page_view: false });
+      // gtag.js (~150КБ) уведён далеко с критического пути: события сейчас копятся
+      // в dataLayer, а сам скрипт качаем только ЧЕРЕЗ 5с ПОСЛЕ полной загрузки
+      // страницы (load), он потом разбирает очередь. Аналитика цела, первая
+      // отрисовка и догрузка карточек давно позади.
+      (function () {
+        function loadGtag() {
+          if (window.__gtagLoaded) return;
+          window.__gtagLoaded = true;
+          var s = document.createElement('script');
+          s.async = true;
+          s.src = 'https://www.googletagmanager.com/gtag/js?id=G-G0CC5DZ5ZZ';
+          document.head.appendChild(s);
+        }
+        window.addEventListener('load', function () { setTimeout(loadGtag, 2000); });
+      })();
+    </script>
+
+    <style>
+      /* --- START Simplified Inlined Placeholder Styles --- */
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow-x: hidden;
+        box-sizing: border-box;
+        /* Обеспечиваем постоянное наличие скроллбара, как в твоем CSS */
+        overflow-y: scroll;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        /*
+         * Основной фон - точно такой же, как в theme.ts (MuiCssBaseline)
+         * Это важно для бесшовного перехода.
+         */
+        background-color: #101010;
+        background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='noise' x='0' y='0'><feTurbulence type='turbulence' baseFrequency='0.322' numOctaves='3' stitchTiles='stitch'/><feBlend mode='darken'/></filter><rect width='100%' height='100%' filter='url(%23noise)' opacity='0.07'/></svg>");
+        background-repeat: repeat;
+        background-size: 300px 300px;
+        background-position: 0 0;
+        /* position: relative; больше не нужен здесь, так как нет ::after */
+        color: #dcdcdc; /* Цвет текста по умолчанию */
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      *, *::before, *::after {
+        box-sizing: inherit;
+      }
+
+      /*
+       * === ИСПРАВЛЕНИЕ: Удален стиль для .placeholder-overlay ===
+       * Статическое затемнение убрано, чтобы избежать дублирования
+       * с затемнением из theme.ts (body::after).
+       */
+      /* .placeholder-overlay { ... } */
+
+      #root {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        /* position: relative; z-index: 0; больше не нужны для позиционирования над статическим оверлеем */
+      }
+
+      .app-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Хедер-заглушка */
+      .placeholder-header {
+        background-color: #1f1f1f; /* Цвет фона хедера (примерный, как у AppBar?) */
+        height: 48px; /* theme.ts форсит MuiToolbar minHeight:48px !important на ВСЕХ брейкпоинтах */
+        width: 100%;
+        flex-shrink: 0;
+        box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2), 0 4px 5px 0 rgba(0,0,0,0.14), 0 1px 10px 0 rgba(0,0,0,0.12); /* Стандартная тень AppBar */
+        display: flex;
+        align-items: center;
+        justify-content: center; /* Центрируем контейнер внутри хедера */
+        /* position: relative; z-index: 1; не нужны, так как нет оверлея ниже */
+      }
+
+      /* Правый кластер хедера (зеркалит Header.tsx: фильтр-свитч + поиск +
+         иконки Forum/Discord/Add/Bell + аватар UserMenu). Геометрия, не функции. */
+      .ph-hcluster { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+      /* Фильтр-свитч: по умолчанию НЕЙТРАЛЬНО-СЕРЫЙ (цветным становится только
+         когда переключён в одну из сторон — sfw зелёный / nsfw красный). */
+      .ph-filter { display: flex; border: 1px solid #3a3a3a; border-radius: 16px; overflow: hidden; }
+      .ph-filter span { width: 26px; height: 26px; background: rgba(189,189,189,0.18); }
+      .ph-filter span:nth-child(2) { background: rgba(189,189,189,0.32); }
+      .ph-search { width: 180px; height: 34px; border-radius: 17px; background: rgba(255,255,255,0.08); }
+      .ph-ic { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.07); flex-shrink: 0; }
+      .ph-avatar { width: 34px; height: 34px; border-radius: 50%; background: #555; flex-shrink: 0; }
+      @media (max-width: 899px) { .ph-search, .ph-filter { display: none; } }
+      @media (max-width: 599px) { .ph-ic { display: none; } }
+
+      /* Контейнер-заглушка (аналог MUI Container maxWidth="lg") */
+      .placeholder-container {
+        width: 100%;
+        max-width: 1200px; /* Соответствует maxWidth="lg" в MUI */
+        padding-left: 24px; /* Стандартные отступы контейнера */
+        padding-right: 24px;
+      }
+
+      /* Тулбар-заглушка */
+      .placeholder-toolbar {
+        display: flex;
+        align-items: center;
+        height: 100%;
+      }
+
+      /* Заголовок-заглушка */
+      .placeholder-title {
+        font-size: 1.25rem; /* Примерно как variant="h6" */
+        font-weight: 700; /* Жирный */
+        color: #fc3447; /* Основной цвет темы */
+        text-decoration: none;
+        line-height: 1.6;
+        margin-right: auto; /* Отодвигает остальные элементы вправо */
+      }
+
+      /* Контент-заглушка */
+      .placeholder-content {
+        flex-grow: 1; /* Занимает оставшееся место */
+        display: flex;
+        justify-content: center; /* Центрируем текст */
+        align-items: flex-start; /* Текст сверху */
+        padding-top: 32px; /* Отступ сверху, как у MUI Container */
+        padding-left: 20px; /* Небольшие боковые отступы для текста */
+        padding-right: 20px;
+        overflow: auto; /* Если контент вдруг станет больше */
+        /* position: relative; z-index: 1; не нужны */
+      }
+
+      /* Текст загрузки */
+      .placeholder-loading-text {
+         /* === ИСПРАВЛЕНИЕ: Уменьшен размер шрифта === */
+         font-size: 2.5rem; /* Уменьшаем размер */
+         font-weight: 500;
+         color: #666; /* Серый цвет, чтобы не бросался в глаза */
+         line-height: 1.2;
+         text-align: center;
+         user-select: none; /* Запрет выделения */
+      }
+
+      /* ── Static catalog snapshot ("впрыск" frame-2) ──────────────────────
+         Раньше тут был только "Loading...", который браузер красил, пока
+         качается+парсится 670К бандл (React ещё не смонтирован). Теперь сюда
+         инлайн-скрипт рисует РЕАЛЬНЫЕ карточки из window.__CATALOG__ (Go вшил
+         в <head>), ДО бандла → карточки в 1-2 кадре, а не пустота. React при
+         монтировании заменяет этот блок своим (seeded) — размеры совпадают,
+         сдвига нет. Геометрия зеркалит SearchPage: Container maxWidth 2200,
+         сетка 1/2/3/5 кол. по брейкпоинтам MUI (600/900/1200), карточка 3:4. */
+      /* ВНЕШНИЙ контейнер = App.tsx <Container component="main"> : дефолтные
+         гаттеры MUI (px xs:2=16 / sm:3=24) + mt:4 (32px). БЕЗ него карточки шире
+         (визуально на ~10% крупнее), при монтировании React был сдвиг. */
+      .ph-main { flex-grow: 1; width: 100%; margin-top: 32px; padding: 0 16px; }
+      @media (min-width: 600px) { .ph-main { padding: 0 24px; } }
+      /* ВНУТРЕННИЙ контейнер = SearchPage <Container disableGutters maxWidth 2200,
+         px xs:1=8 / sm:2=16 / md:3=24>. Суммарный отступ совпадает с реальным. */
+      .ph-container { width: 100%; max-width: 2200px; margin: 0 auto; padding: 0 8px; }
+      @media (min-width: 600px) { .ph-container { padding: 0 16px; } }
+      @media (min-width: 900px) { .ph-container { padding: 0 24px; } }
+      /* Табы = Paper(rounded 16, bg alpha .04, p 0.5) + Tabs(7 шт, minHeight 40,
+         radius 12, иконка+лейбл). Outer Box mb:2. */
+      .ph-controls { display: flex; justify-content: center; padding: 0 0 16px; }
+      .ph-tabs { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;
+        background: rgba(255,255,255,0.04); border-radius: 16px; padding: 4px;
+        max-width: 100%; }
+      .ph-tab { display: inline-flex; align-items: center; min-height: 40px;
+        font-size: 0.875rem; font-weight: 600; color: #bbb; padding: 0 16px;
+        border-radius: 12px; white-space: nowrap; }
+      @media (max-width: 599px) { .ph-tab { padding: 0 8px; } }
+      .ph-tab-active { background: #1f1f1f; color: #fc3447;
+        box-shadow: 0 2px 1px -1px rgba(0,0,0,0.2), 0 1px 1px 0 rgba(0,0,0,0.14); }
+      /* Лид-иконка таба (квадрат, currentColor → активный краснеет вместе с текстом) */
+      .ph-ico { display: inline-block; width: 16px; height: 16px; border-radius: 4px;
+        background: currentColor; opacity: 0.75; margin-right: 6px; }
+      /* Формат-фильтр = ToggleButtonGroup (3 связанные иконки), outer Box gap 2. */
+      .ph-controls2 { display: flex; justify-content: center; padding-bottom: 16px; }
+      .ph-toggle { display: inline-flex; border: 1px solid rgba(255,255,255,0.18);
+        border-radius: 6px; overflow: hidden; }
+      .ph-tg { width: 38px; height: 32px; display: flex; align-items: center;
+        justify-content: center; border-left: 1px solid rgba(255,255,255,0.12); }
+      .ph-tg:first-child { border-left: 0; }
+      .ph-tg-i { width: 16px; height: 16px; border-radius: 3px; background: #999; }
+      .ph-tg-active { background: rgba(252,52,71,0.16); }
+      .ph-tg-active .ph-tg-i { background: #fc3447; }
+      .ph-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+      @media (min-width: 600px) { .ph-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; } }
+      @media (min-width: 900px) { .ph-grid { grid-template-columns: repeat(3, 1fr); } }
+      @media (min-width: 1200px) { .ph-grid { grid-template-columns: repeat(5, 1fr); } }
+      /* Карточка = GameCard.tsx (desktop/md значения, подобраны автором в
+         catalog-playground.html). Слои: обложка(blur) → оверлей → заголовок(+blur-
+         подложка) → описание(размытый филлер) → теги(палитра-пятна) → подвал. */
+      .ph-card { position: relative; width: 100%; padding-top: 133.33%; border-radius: 8px;
+        overflow: hidden; background-color: #0b0b0b; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+      .ph-card-skeleton { background-color: #161616; box-shadow: none; }
+      /* Обложка-заглушка (base64 ~1px) с блюром, как img blur(4) в GameCard */
+      .ph-cover { position: absolute; inset: 0; background-size: cover;
+        background-position: center; filter: blur(9px); transform: scale(1.1); }
+      .ph-card-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+      /* blur-подложка под заголовком (GameCard backdrop-filter blur, radial-маска) */
+      .ph-card-titlebg { position: absolute; left: 16px; right: 16px; top: 6px; height: 72px;
+        backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border-radius: 12px;
+        -webkit-mask-image: radial-gradient(ellipse at center, #000 40%, transparent 100%);
+        mask-image: radial-gradient(ellipse at center, #000 40%, transparent 100%); }
+      /* красный (#fc3447) заголовок сверху по центру, клэмп 2 строки */
+      .ph-card-title { position: absolute; left: 16px; right: 16px; top: 15px;
+        text-align: center; font-size: 1.1rem; font-weight: 700; color: #fc3447;
+        line-height: 1.2; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); display: -webkit-box;
+        -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      @media (min-width: 600px) { .ph-card-title { font-size: 1.5rem; } }
+      @media (min-width: 900px) { .ph-card-title { font-size: 1.8rem; } }
+      /* Описание: размытый филлер-текст (нечитаем → просто пятно), низ затухает */
+      .ph-desc { position: absolute; left: 16px; right: 16px; top: 59%; bottom: 80px;
+        overflow: hidden; color: #dcdcdc; font-size: 1rem; line-height: 1.5; text-align: left;
+        filter: blur(2.4px);
+        -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+        mask-image: linear-gradient(to bottom, #000 80%, transparent 100%); }
+      /* Теги: палитра CATEGORY/TAG_SPECIFIC_COLORS, пятна разной длины, размытие */
+      .ph-tags { position: absolute; left: 17px; right: 17px; bottom: 48px; display: flex;
+        flex-wrap: wrap; gap: 5px; align-content: flex-start; filter: blur(4px); }
+      .ph-tags i { height: 24px; border-radius: 12px; display: block; }
+      /* Подвал: автор (размытое слово) + розовый/белый коммент-лайк (secondary #ff4081) */
+      .ph-foot { position: absolute; left: 14px; right: 14px; bottom: 17px; display: flex;
+        align-items: center; justify-content: space-between; filter: blur(4px); }
+      .ph-foot-author { color: #dcdcdc; font-size: 0.9rem; white-space: nowrap;
+        overflow: hidden; max-width: 50%; }
+      .ph-foot-meta { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+      .ph-foot-meta .pink { width: 15px; height: 15px; border-radius: 50%; background: #ff4081; }
+      .ph-foot-meta .num { width: 12px; height: 12px; border-radius: 3px; background: #fff; }
+
+      /* --- END Simplified Inlined Placeholder Styles --- */
+    </style>
+  </head>
+  <body>
+    <!--
+      * === ИСПРАВЛЕНИЕ: Удален div.placeholder-overlay ===
+      * <div class="placeholder-overlay" aria-hidden="true"></div>
+     -->
+
+    <div id="root">
+      <!-- ===== START SIMPLIFIED STATIC HTML PLACEHOLDER ===== -->
+      <!-- Этот блок будет заменен React-приложением при монтировании -->
+      <div class="app-placeholder" aria-hidden="true">
+        <header class="placeholder-header">
+          <div class="placeholder-container">
+            <div class="placeholder-toolbar">
+              <div class="placeholder-title">CYOA.CAFE</div>
+              <!-- Правый кластер: фильтр-свитч + поиск + иконки + аватар (геометрия) -->
+              <div class="ph-hcluster">
+                <div class="ph-filter"><span></span><span></span><span></span></div>
+                <div class="ph-search"></div>
+                <div class="ph-ic"></div>
+                <div class="ph-ic"></div>
+                <div class="ph-ic"></div>
+                <div class="ph-ic"></div>
+                <div class="ph-avatar"></div>
+              </div>
+            </div>
+          </div>
+        </header>
+        <main class="ph-main">
+          <div class="ph-container">
+            <div class="ph-controls">
+              <div class="ph-tabs">
+                <span class="ph-tab ph-tab-active"><i class="ph-ico"></i>New</span>
+                <span class="ph-tab"><i class="ph-ico"></i>Top</span>
+                <span class="ph-tab"><i class="ph-ico"></i>Liked</span>
+                <span class="ph-tab"><i class="ph-ico"></i>Search</span>
+                <span class="ph-tab"><i class="ph-ico"></i>Random</span>
+                <span class="ph-tab"><i class="ph-ico"></i>Similar</span>
+                <span class="ph-tab"><i class="ph-ico"></i>Semantic</span>
+              </div>
+            </div>
+            <div class="ph-controls2">
+              <div class="ph-toggle">
+                <div class="ph-tg ph-tg-active"><span class="ph-tg-i"></span></div>
+                <div class="ph-tg"><span class="ph-tg-i"></span></div>
+                <div class="ph-tg"><span class="ph-tg-i"></span></div>
+              </div>
+            </div>
+            <!-- Карточки рисует инлайн-скрипт ниже из window.__CATALOG__ (до бандла) -->
+            <div class="ph-grid" id="ph-grid"></div>
+          </div>
+        </main>
+      </div>
+      <!-- ===== END SIMPLIFIED STATIC HTML PLACEHOLDER ===== -->
+    </div>
+
+    <!--
+      Frame-2 pre-paint: рисуем реальные карточки из window.__CATALOG__ (Go вшил
+      снимок дефолтного SFW-каталога в <head>) ДО загрузки React-бандла, прямо в
+      статический плейсхолдер #ph-grid. React при монтировании заменит весь #root
+      своим (seeded) деревом — геометрия совпадает, видимого сдвига нет.
+      Активно только на точном дефолтном SFW-домашнем виде, чтобы не показать
+      не тот контент (совпадает с гейтом seed в SearchPage).
+    -->
+    <script>
+      (function () {
+        try {
+          var p = location.pathname;
+          if (p !== '/' && p !== '/search') return;
+          if (location.search) return; // ?q / ?tags / ?authors / ?similar
+          var m = document.cookie.match(/(?:^|; )cyoa_filter_mode=([^;]*)/);
+          var mode = m ? decodeURIComponent(m[1]) : 'sfw';
+          var grid = document.getElementById('ph-grid');
+          if (!grid) return;
+          // SFW → дефолтный снимок (без nsfw/extreme). Любой другой режим (all/nsfw)
+          // → снимок ALL (Go вшил оба массива; блюр ~1px, чужого контента в кадре нет).
+          var data = mode === 'sfw' ? window.__CATALOG__ : window.__CATALOG_ALL__;
+          var hasData = Array.isArray(data) && data.length;
+          var esc = function (s) {
+            return String(s == null ? '' : s)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          };
+          // Псевдо-контент (описание/теги/автор НЕ тянем из снимка — экономия веса;
+          // всё размыто в пятна, нечитаемо). Палитра тегов = реальная из GameCard.
+          var TAG_PAL = [
+            ['rgba(46,125,50,.6)', 'rgba(211,47,47,.6)', 'rgba(255,143,0,.6)'],
+            ['rgba(243,179,62,.6)', 'rgba(84,110,122,.6)', 'rgba(123,31,162,.6)'],
+            ['rgba(0,0,0,.4)'], ['rgba(255,140,0,.4)'], ['rgba(138,43,226,.4)'],
+            ['rgba(0,0,0,.4)'], ['rgba(96,125,139,.5)'],
+            ['rgba(194,24,91,.6)', 'rgba(194,24,91,.6)']
+          ];
+          var WORDS = ('world powers choose path magic combat girls drawbacks update ' +
+            'combos potential story').split(' ');
+          var rnd = function (a) { return a[(Math.random() * a.length) | 0]; };
+          var tagsHtml = function () {
+            var s = '', n = 8 + ((Math.random() * 3) | 0);
+            for (var k = 0; k < n; k++) {
+              var c = rnd(TAG_PAL[k < TAG_PAL.length ? k : TAG_PAL.length - 1]);
+              s += '<i style="width:' + (30 + ((Math.random() * 46) | 0)) + 'px;background:' + c + '"></i>';
+            }
+            return s;
+          };
+          var descText = function () {
+            var n = 26 + ((Math.random() * 12) | 0), a = [];
+            for (var k = 0; k < n; k++) a.push(rnd(WORDS));
+            return a.join(' ');
+          };
+          var authorWord = function () { return rnd(WORDS) + (Math.random() < 0.5 ? ' ' + rnd(WORDS) : ''); };
+          var out = '';
+          if (hasData) {
+            for (var i = 0; i < data.length; i++) {
+              var g = data[i] || {};
+              var b64 = g.image_base64 || '';
+              var src = b64 ? (b64.indexOf('data:') === 0 ? b64 : 'data:image/jpeg;base64,' + b64) : '';
+              var bg = src ? 'background-image:url(\'' + src.replace(/'/g, '%27') + '\');' : '';
+              out += '<div class="ph-card">'
+                   + '<div class="ph-cover" style="' + bg + '"></div>'
+                   + '<div class="ph-card-overlay"></div>'
+                   + '<div class="ph-card-titlebg"></div>'
+                   + '<div class="ph-card-title">' + esc(g.title) + '</div>'
+                   + '<div class="ph-desc">' + descText() + '</div>'
+                   + '<div class="ph-tags">' + tagsHtml() + '</div>'
+                   + '<div class="ph-foot"><span class="ph-foot-author">' + authorWord() + '</span>'
+                   + '<span class="ph-foot-meta"><span class="pink"></span><span class="num"></span>'
+                   + '<span class="pink"></span><span class="num"></span></span></div></div>';
+            }
+          } else {
+            // Снимка нет (старый кэш/ошибка) → резервируем высоту скелетонами,
+            // чтобы React-монтаж не дал прыжок (CLS).
+            for (var j = 0; j < 25; j++) {
+              out += '<div class="ph-card ph-card-skeleton"></div>';
+            }
+          }
+          grid.innerHTML = out;
+        } catch (e) { /* плейсхолдер не критичен — React отрисует всё равно */ }
+      })();
+    </script>
+
+    <!-- Скрипт вашего React-приложения -->
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

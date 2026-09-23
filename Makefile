@@ -1,5 +1,6 @@
 # --- Config ---
-# SSH_HOST (deploy target) lives in the untracked deploy.mk: the origin IP must not be public.
+# Maintainer-only settings live in the untracked deploy.mk: SSH_HOST (the origin IP must not be
+# public), PB_PROD_ENV (.env with prod superuser creds for pb-prod/schema-snapshot), CODEX_DIR.
 -include deploy.mk
 SERVICE_NAME := cyoa-cafe
 REMOTE_DIR := /root/cyoa-cafe
@@ -14,12 +15,18 @@ endif
 install:
 	bun i
 
+# Local development. Open http://localhost:8090 — the Go server answers /api from the LOCAL
+# pb_data and proxies the page to Vite. (Vite's own :8091 proxies /api to PRODUCTION.)
 .PHONY: dev
 dev:
+	@test -f pb_data/data.db || { echo "No local DB yet: run 'make seed' first."; exit 1; }
 	NODE_ENV='development' ./node_modules/.bin/concurrently -n "server,client" -c "bgBlue.bold,bgMagenta.bold" "CGO_ENABLED=0 go run . serve" "./node_modules/.bin/vite --port 8091"
 
-.PHONY: build
-build: update-oauth
+.PHONY: build build-app
+build: update-oauth build-app
+
+# Build without refreshing the OAuth plugin (no network, go.mod untouched).
+build-app:
 	rm -f ./dist/serve
 	./node_modules/.bin/tsc -b
 	./node_modules/.bin/vite build
@@ -28,6 +35,56 @@ build: update-oauth
 .PHONY: run
 run:
 	./dist/serve serve --dir ./pb_data
+
+# Fresh local DB: schema from pb_schema.json, newest games/tags/authors from the public site API,
+# test accounts (see AGENTS.md). An existing pb_data is moved aside, never deleted.
+# SEED_ARGS examples: --games 0 (all games), --no-images, --from http://127.0.0.1:8090
+.PHONY: seed
+seed:
+	@if [ -d pb_data ]; then b=pb_data.bak-$$(date +%Y%m%d-%H%M%S); mv pb_data $$b; echo "old pb_data -> $$b"; fi
+	CGO_ENABLED=0 go run . seed --dir pb_data $(SEED_ARGS)
+
+# Fast checks that write nothing into dist/ (what agents should run before committing).
+.PHONY: check
+check:
+	./node_modules/.bin/tsc -p tsconfig.app.json --noEmit --incremental false
+	./node_modules/.bin/tsc -p tsconfig.node.json --noEmit --incremental false
+	go vet ./...
+	go test ./...
+
+# --- PocketBase schema/data scripts (pb_scripts/, see pb_scripts/README.md) ---
+
+# Run a script against the local dev server (make dev must be running). APPLY=1 writes.
+.PHONY: pb-local
+pb-local:
+	@test -n "$(S)" || { echo "usage: make pb-local S=pb_scripts/<file>.py [APPLY=1]"; exit 1; }
+	python3 $(S) $(if $(APPLY),--apply,)
+
+# Maintainer: run a reviewed script against PRODUCTION. Dry-run unless APPLY=1 (asks to confirm).
+.PHONY: pb-prod
+pb-prod:
+	@test -n "$(S)" || { echo "usage: make pb-prod S=pb_scripts/<file>.py [APPLY=1]"; exit 1; }
+	@test -n "$(PB_PROD_ENV)" || { echo "PB_PROD_ENV is not set (deploy.mk)"; exit 1; }
+	@if [ -n "$(APPLY)" ]; then read -p "APPLY $(S) to PRODUCTION? type yes: " a; [ "$$a" = yes ] || exit 1; fi
+	PB_ENV_FILE="$(PB_PROD_ENV)" python3 $(S) $(if $(APPLY),--apply,)
+	@if [ -n "$(APPLY)" ]; then $(MAKE) --no-print-directory schema-snapshot; fi
+
+# Maintainer: refresh pb_schema.json from production (read-only). Runs after every ship and
+# pb-prod APPLY so the seed never drifts from the live schema; commit the diff if there is one.
+.PHONY: schema-snapshot
+schema-snapshot:
+	@if [ -z "$(PB_PROD_ENV)" ]; then echo "schema-snapshot: PB_PROD_ENV not set, skipped"; exit 0; fi; \
+	PB_ENV_FILE="$(PB_PROD_ENV)" python3 pb_scripts/schema_snapshot.py && \
+	{ git diff --quiet -- pb_schema.json || echo ">> pb_schema.json changed: commit it"; }
+
+# --- Codex (a second agent working in its own clone, CODEX_DIR in deploy.mk) ---
+# codex-sync: hand main to the clone. codex-pull: review + merge its `codex` branch.
+.PHONY: codex-sync codex-pull ship-codex
+codex-sync:
+	@scripts/codex.sh sync "$(CODEX_DIR)"
+codex-pull:
+	@scripts/codex.sh pull "$(CODEX_DIR)"
+ship-codex: codex-pull ship
 
 # Refresh the forked OAuth2 plugin.
 .PHONY: update-oauth
@@ -85,6 +142,7 @@ ship:
 
 	# 3. Purge cache and check
 	$(MAKE) cf-purge
+	$(MAKE) --no-print-directory schema-snapshot
 	sleep 10
 	$(MAKE) open-incognito
 
@@ -97,12 +155,12 @@ logs:
 # Run all E2E tests headlessly against a dedicated test PocketBase instance.
 # Requires the app to be built first: make build
 .PHONY: test
-test: build
+test: build-app
 	./node_modules/.bin/playwright test
 
 # Run tests with the Playwright UI (trace viewer, re-run, watch mode).
 .PHONY: test-ui
-test-ui: build
+test-ui: build-app
 	./node_modules/.bin/playwright test --ui
 
 # Show the last HTML test report without re-running tests.

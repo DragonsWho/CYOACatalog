@@ -18,34 +18,44 @@ not shared, and a catalog dump may be published separately.
 - `pb_hooks/` — PocketBase JS hooks, read from disk at runtime (NOT embedded).
 - `cheat_shim.js` — script injected into hosted games for the build saver / cheat companion.
 - `public/` — static assets copied into the build.
+- `semantic-search/` — embeddings search service (Python, FastAPI), deployed separately.
+- `pb_scripts/` — PocketBase schema/data change scripts; `seed.go` builds a local dev DB.
+- `e2e/` — Playwright tests.
 
 ## Build and run
 
-Requirements: Go 1.25+, Bun (or npm).
+Requirements: Go 1.25+, Node 18+ with npm (or Bun), Python 3 (for `pb_scripts/` only).
 
 ```bash
-make install   # frontend dependencies
-make dev       # PocketBase on :8090 + Vite HMR on :8091
+make install   # frontend dependencies (bun i; `npm ci` works too)
+make seed      # local DB: schema from pb_schema.json + today's public catalog from cyoa.cafe
+make dev       # open http://localhost:8090 — local API + Vite hot reload
+make check     # type check + go vet + go test (writes nothing)
+make test      # Playwright end-to-end tests against a throwaway copy of the local DB
 make build     # tsc + vite build + go build → dist/serve
-make run       # ./dist/serve serve --dir ./pb_data
 ```
 
-⚠️ In `make dev`, Vite proxies `/api` to the **production** site (see `vite.config.ts`). Only `/all`
-goes to the local server. Point that proxy at `http://127.0.0.1:8090` to work against a local database.
+`make seed` never copies users. It creates local accounts instead: `admin@local.test` /
+`localadmin123` (PocketBase admin UI at `/_/`), `user@local.test` / `localuser123`,
+`moder@local.test` / `localmoder123` (moderator). Details, and what does not work locally, are in
+[AGENTS.md](AGENTS.md) — written for AI coding agents, equally useful for humans.
 
-Semantic search and "similar games" (`/api/semantic-search`, `/api/similar-games`) come from a
-separate embeddings service (port 8100 in dev). It is not part of this repository; the rest of the
-site works without it.
+⚠️ Use port **8090**. Vite's own port 8091 proxies `/api` to the **production** site.
+
+Semantic search and "similar games" come from the service in `semantic-search/` (port 8100 in dev).
+The rest of the site works without it.
 
 `make build` first runs `update-oauth`, which pulls the forked OAuth2 plugin
-(`github.com/DragonsWho/pocketbase-ext-oauth2`). It is used for forum SSO.
+(`github.com/DragonsWho/pocketbase-ext-oauth2`, forum SSO) and may touch `go.mod`;
+`make build-app` skips that.
 
 ## Data
 
-The server expects a PocketBase data directory (`pb_data/`) with the site's collections
-(games, tags, authors, comments, users, chat, …). Starting on an empty directory boots PocketBase,
-but the catalog UI needs that schema. Restore from a PocketBase backup or catalog dump. Some
-collections (e.g. `game_views`) are created automatically on boot.
+`pb_schema.json` is a sanitized snapshot of the production collections (no system collections,
+no secrets). The maintainer refreshes it after every deploy and schema change, so `make seed` stays
+current. Don't edit it by hand: schema changes are Python scripts in `pb_scripts/`
+(see [pb_scripts/README.md](pb_scripts/README.md)), tested locally and applied to production by the
+maintainer.
 
 ## Configuration
 

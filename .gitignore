@@ -41,7 +41,10 @@ __pycache__/
 .DS_Store
 *.sw?
 
-# Agent instructions for this machine (kept local)
-AGENTS.md
 CLAUDE.md
 .claude/
+
+# Local DB copies made by `make seed`, schema script backups
+/pb_data.bak-*/
+/pb_scripts/.backups/
+__pycache__/

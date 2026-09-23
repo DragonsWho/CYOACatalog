@@ -895,6 +895,7 @@ func main() {
 	})
 
 	registerPushKeysCmd(app)
+	registerSeedCmd(app)
 
 	app.RootCmd.ParseFlags(os.Args[1:])
 

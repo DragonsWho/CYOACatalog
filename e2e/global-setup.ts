@@ -22,7 +22,8 @@ import {
 } from './constants';
 
 const PB_BINARY = path.join(process.cwd(), 'dist', 'serve');
-const SOURCE_DB = path.join(process.cwd(), 'pb_data', 'data.db');
+// A seeded local DB (`make seed`); E2E_SOURCE_DB points elsewhere if needed.
+const SOURCE_DB = process.env.E2E_SOURCE_DB || path.join(process.cwd(), 'pb_data', 'data.db');
 const ABS_TEST_DIR = path.join(process.cwd(), PB_TEST_DIR);
 const ABS_PID_FILE = path.join(process.cwd(), PB_PID_FILE);
 
@@ -423,7 +424,7 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
   if (!fs.existsSync(SOURCE_DB)) {
     throw new Error(
       `Source database not found at ${SOURCE_DB}. ` +
-        `Run the dev server at least once to initialise PocketBase.`,
+        `Run 'make seed' to build a local DB first.`,
     );
   }
 

@@ -67,3 +67,7 @@ SSH_HOST := root@<origin-ip>
 ```
 
 Keep the origin address private: the site relies on Cloudflare in front of it.
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE). The name "cyoa.cafe" is not covered by the license.

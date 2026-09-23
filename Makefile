@@ -11,9 +11,14 @@ ifneq (,$(wildcard .env))
   export $(shell sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*$$/\1/p' .env)
 endif
 
-.PHONY: install
+.PHONY: install deps
 install:
 	npm ci
+
+# Reinstall only when package-lock.json changed since the last install (e.g. after codex-pull), so
+# a build never ships an outdated node_modules.
+deps:
+	@[ node_modules/.package-lock.json -nt package-lock.json ] || npm ci --no-audit --no-fund
 
 DEV_PORT ?= 8090
 VITE_PORT ?= 8091
@@ -29,7 +34,7 @@ dev:
 build: update-oauth build-app
 
 # Build without refreshing the OAuth plugin (no network, go.mod untouched).
-build-app:
+build-app: deps
 	rm -f ./dist/serve
 	./node_modules/.bin/tsc -b
 	./node_modules/.bin/vite build
@@ -120,7 +125,7 @@ open-incognito:
 
 # Build, upload, restart, purge CF cache.
 .PHONY: ship
-ship: update-oauth
+ship: update-oauth deps
 ship:
 	# 1. Local linux build
 	rm -f ./dist/serve

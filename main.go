@@ -1812,10 +1812,13 @@ func main() {
 
 		isDevelopment := os.Getenv("NODE_ENV") == "development"
 		if isDevelopment {
-			log.Println(
-				"Info: Running in development mode. Proxying frontend requests to http://localhost:8091",
-			)
-			remoteURL, err := url.Parse("http://localhost:8091")
+			// DEV_VITE_URL lets two dev setups share a machine (`make dev VITE_PORT=...`).
+			viteURL := os.Getenv("DEV_VITE_URL")
+			if viteURL == "" {
+				viteURL = "http://localhost:8091"
+			}
+			log.Println("Info: Running in development mode. Proxying frontend requests to " + viteURL)
+			remoteURL, err := url.Parse(viteURL)
 			if err != nil {
 				return err
 			}

@@ -15,12 +15,15 @@ endif
 install:
 	bun i
 
+DEV_PORT ?= 8090
+VITE_PORT ?= 8091
+
 # Local development. Open http://localhost:8090 — the Go server answers /api from the LOCAL
 # pb_data and proxies the page to Vite. (Vite's own :8091 proxies /api to PRODUCTION.)
 .PHONY: dev
 dev:
 	@test -f pb_data/data.db || { echo "No local DB yet: run 'make seed' first."; exit 1; }
-	NODE_ENV='development' ./node_modules/.bin/concurrently -n "server,client" -c "bgBlue.bold,bgMagenta.bold" "CGO_ENABLED=0 go run . serve" "./node_modules/.bin/vite --port 8091"
+	NODE_ENV='development' DEV_VITE_URL=http://localhost:$(VITE_PORT) ./node_modules/.bin/concurrently -n "server,client" -c "bgBlue.bold,bgMagenta.bold" "CGO_ENABLED=0 go run . serve --http 127.0.0.1:$(DEV_PORT)" "./node_modules/.bin/vite --port $(VITE_PORT) --strictPort"
 
 .PHONY: build build-app
 build: update-oauth build-app

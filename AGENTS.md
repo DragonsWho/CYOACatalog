@@ -32,8 +32,9 @@ make dev          # then open http://localhost:8090
   | user | `user@local.test` | `localuser123` |
   | moderator (full access) | `moder@local.test` | `localmoder123` |
 
-- ⚠️ Always use **:8090**. `make dev` also starts Vite on :8091, and Vite proxies `/api` to the
-  **production** site: anything you do there reads and writes the live site.
+- The maintainer checkout uses :8090/:8091. The Codex clone uses :8190/:8191 through `DEV_PORT`
+  and `VITE_PORT`. Always browse the Go server port, never the Vite port: Vite proxies `/api` to
+  the **production** site, so writes made through it affect the live site.
 - No `.env` is needed. Copy `.env.example` to `.env` to turn features on, e.g. `SHOUTBOX_ENABLED=1`
   for the chat.
 
@@ -69,3 +70,26 @@ e2e needs a seeded `pb_data/` and Chromium (`npx playwright install chromium` on
   `cf-purge`, `update-oauth`, `logs`, `ssh`, `server-env`, anything in `semantic-search/Makefile` that deploys.
 - Keep diffs focused; match the surrounding code style. UI text is English.
 - Commit when a piece of work is done and `make check` passes, with a message saying what and why.
+
+## Codex clone workflow
+
+These machine-local rules apply in `/data/codex-cyoa-cafe`:
+
+- Work only on the `codex` branch; never commit to `main`. The maintainer updates the local `main`
+  branch. Start every task with `git rebase main && make check`. The check and dev targets refresh
+  `node_modules` automatically when `package-lock.json` changes.
+- When a piece of work is complete and `make check` passes, commit it to `codex`. The maintainer
+  reviews and merges it from her checkout. This clone cannot push to GitHub, which is expected.
+- Use :8190 for the Go server and :8191 for Vite. `DEV_PORT`, `VITE_PORT`, and `PB_URL` are normally
+  set in the environment. If they are missing, run
+  `make dev DEV_PORT=8190 VITE_PORT=8191` and set `PB_URL=http://127.0.0.1:8190` for local scripts.
+- On the first run, use `make seed`, then `make dev`, and browse http://localhost:8190. Dependencies
+  are installed already, and caches live under `/data/codex-cache`.
+- If Git reports dubious ownership, run
+  `git config --global --add safe.directory /data/codex-cyoa-cafe`.
+- For database schema, rule, or bulk-data changes, add a script under `pb_scripts/` following
+  `pb_scripts/README.md`. Test with `make pb-local S=...`, then `APPLY=1`, then a final dry run.
+  Commit the script and include `apply with make pb-prod S=pb_scripts/<file>.py` in the final report.
+  Never connect to production from this clone.
+- Finish every task with a short report covering changes, tests, and any maintainer action such as a
+  `pb-prod` script, `.env` variable, or deploy step.

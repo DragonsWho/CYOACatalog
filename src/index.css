@@ -1,0 +1,97 @@
+/* src/index.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#root {
+    width: 100%;
+    height: 100%;
+}
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #1e1e1e inset !important;
+    -webkit-text-fill-color: #e0e0e0 !important;
+}
+
+/* Site-wide dark scrollbar instead of the native one (white on light OS themes); the site is always
+   dark. Dropdowns/popovers set a narrower variant (styles/scrollbar.ts) and win by specificity. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    transition: background-color 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.28);
+}
+
+  
+
+ 
+/* View modes for static CYOA pages (bottom-right buttons, CyoaPage/GameContent.tsx). The container
+   itself goes full-bleed; the image must just not break layout. It used to stretch to 100vw with
+   negative margins INSIDE a content-visibility:auto box, which clipped it to the box edges and
+   left only the middle of the page visible. */
+.normal-image {
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    display: block;
+}
+
+/* Fit width: the box already equals the viewport; the image fills it. */
+.full-width-image {
+    display: block;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    margin: 0;
+}
+
+/* 1:1: natural size. The box is a horizontal scroller; auto margins center the image while it fits
+   and collapse to 0 when it doesn't (then it's left-aligned and fully scrollable).
+   flex-shrink: 0 — otherwise flex would squeeze it back to screen width. */
+.original-size-image {
+    display: block;
+    width: auto;
+    max-width: none;
+    height: auto;
+    margin: 0 auto;
+    flex: 0 0 auto;
+}
+ 
+.image-container-expanded {
+    position: relative !important;
+    overflow: visible !important;
+    max-width: none !important;
+    z-index: 1 !important;
+}
+     .Crop-Controls {
+    margin-bottom: 10px;
+}
+.Crop-Controls > * {
+    margin-bottom: 3px;
+}

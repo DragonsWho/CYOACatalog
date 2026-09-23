@@ -1,0 +1,28 @@
+# Local runtime data
+/pb_data/
+/pb_data_test/
+/pb_test_data/
+data.db
+
+# Build output
+node_modules/
+dist/
+dist-ssr/
+/bin/
+/.direnv/
+CYOACatalog
+pbserve
+
+# Secrets and local config
+.env
+*.local
+*.key
+deploy.mk
+
+# Logs / editor
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.sw?

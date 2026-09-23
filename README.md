@@ -24,10 +24,10 @@ not shared, and a catalog dump may be published separately.
 
 ## Build and run
 
-Requirements: Go 1.25+, Node 18+ with npm (or Bun), Python 3 (for `pb_scripts/` only).
+Requirements: Go 1.25+, Node 18+ with npm, Python 3 (for `pb_scripts/` only).
 
 ```bash
-make install   # frontend dependencies (bun i; `npm ci` works too)
+make install   # frontend dependencies (npm ci, from package-lock.json)
 make seed      # local DB: schema from pb_schema.json + today's public catalog from cyoa.cafe
 make dev       # open http://localhost:8090 — local API + Vite hot reload
 make check     # type check + go vet + go test (writes nothing)

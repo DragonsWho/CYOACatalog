@@ -13,7 +13,7 @@ endif
 
 .PHONY: install
 install:
-	bun i
+	npm ci
 
 DEV_PORT ?= 8090
 VITE_PORT ?= 8091
@@ -184,6 +184,6 @@ test-report:
 .PHONY: update-local
 update-local:
 	git pull
-	bun i --frozen-lockfile
+	npm ci
 	make build
 	sudo systemctl restart $(SERVICE_NAME)

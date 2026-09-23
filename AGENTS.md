@@ -12,10 +12,10 @@ SPA (`src/`, Vite, MUI) embedded into it. `pb_hooks/*.pb.js` are read from disk 
 
 ## Run it locally
 
-Requirements: Go 1.25+, Node 18+ with npm (or Bun), Python 3.
+Requirements: Go 1.25+, Node 18+ with npm, Python 3.
 
 ```bash
-npm ci            # or: make install (bun)
+npm ci            # or: make install
 make seed         # build pb_data/ (takes ~1 min, downloads covers of the newest 300 games)
 make dev          # then open http://localhost:8090
 ```

@@ -98,7 +98,8 @@ func runSeed(app core.App, o seedOpts) error {
 			limit = o.games
 		}
 		// Newest first where the collection has a created date (some, e.g. game_variants, don't).
-		sort := ""
+		// Paging needs a stable order either way, or pages overlap and records repeat.
+		sort := "id"
 		if col.Fields.GetByName("created") != nil {
 			sort = "-created"
 		}

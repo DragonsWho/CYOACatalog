@@ -7,7 +7,7 @@
 // ETag (no DB hit per request).
 // Image conversion is intentionally NOT server-side: a third of the pack is animated webp
 // (impossible via canvas), and img2webp on the droplet expands all frames to PNG in a
-// memory-starved box. Animations are built by _dev/emoji_pack/build.py; the browser compresses
+// memory-starved box. Animations are built by the (private) emoji-pack builder; the browser compresses
 // statics; the server accepts ready webp.
 package main
 
@@ -220,7 +220,7 @@ func chatEmojiFile(c *core.RequestEvent, fields map[string]any) (*filesystem.Fil
 	if n < 12 || string(head[0:4]) != "RIFF" || string(head[8:12]) != "WEBP" {
 		// Check content, not Content-Type (client-written). Pack must be webp or browsers disagree on
 		// what renders.
-		return nil, fmt.Errorf("Only WebP files (convert it with _dev/emoji_pack/build.py)")
+		return nil, fmt.Errorf("Only WebP files are accepted")
 	}
 	animated, hasAlpha := chatEmojiProbe(head)
 	fields["bytes"] = int(h.Size)

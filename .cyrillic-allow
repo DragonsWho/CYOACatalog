@@ -1,0 +1,7 @@
+# Files allowed to contain Cyrillic (test DATA / native language names, not prose). One regex per line.
+^src/utils/langPref\.ts$
+^slug_test\.go$
+^trim_names_test\.go$
+^shoutbox_reactions_test\.go$
+^shoutbox_user_state_test\.go$
+^mod_comments_test\.go$

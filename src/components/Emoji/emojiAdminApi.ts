@@ -2,13 +2,13 @@
 // server parsing path; rename and image change aren't two endpoints). Only changed fields are sent:
 // PATCH must not blank what wasn't asked. Conversion here is for static images only: the browser
 // canvas can't build animations (a third of the pack), so animated ones are prepared by
-// _dev/emoji_pack/build.py and the panel accepts the finished .webp.
+// the (private) emoji-pack builder and the panel accepts the finished .webp.
 
 import { authedFetch } from '../../pocketbase/pocketbase';
 import { EMOJI_API, reloadEmojiPack } from './registry';
 
 // Shortcode bounds live in three more places — keep in sync: chatEmojiNameRe (chat_emoji.go),
-// SHORTCODE (Shoutbox/richText.tsx), SHORTCODE_MIN/MAX (_dev/emoji_pack/build.py).
+// SHORTCODE (Shoutbox/richText.tsx), SHORTCODE_MIN/MAX (emoji-pack builder).
 export const EMOJI_NAME_RE = /^[a-z0-9_]{2,32}$/;
 
 // Same cap as the collection schema and chat_emoji.go.
@@ -98,8 +98,8 @@ export async function prepareEmoji(file: File): Promise<PreparedEmoji> {
     return { blob: file, w, h, converted: false };
   }
   if (isAnimatedSource(file)) {
-    throw new Error('Animated files have to go through _dev/emoji_pack/build.py — '
-      + 'the browser can only keep one frame. Drop the .webp it produces here.');
+    throw new Error('Animated files must be converted to animated WebP first (emoji-pack builder) — '
+      + 'the browser can only keep one frame. Drop the finished .webp here.');
   }
   const bitmap = await createImageBitmap(file);
   // Fit into the square without stretching.

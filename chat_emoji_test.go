@@ -48,10 +48,13 @@ func TestChatEmojiProbe(t *testing.T) {
 	}
 }
 
-// Probe must agree with build.py's manifest or panel and builder disagree on labels. The build
-// folder is outside git, so the test skips when absent.
+// Probe must agree with build.py's manifest or panel and builder disagree on labels. The pack
+// builder is private tooling (outside this repo): set EMOJI_PACK_DIR to its out/ folder to run.
 func TestChatEmojiProbeOnBuiltPack(t *testing.T) {
-	dir := filepath.Join("_dev", "emoji_pack", "out")
+	dir := os.Getenv("EMOJI_PACK_DIR")
+	if dir == "" {
+		t.Skip("EMOJI_PACK_DIR not set")
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Skipf("pack not built (%s): %v", dir, err)

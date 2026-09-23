@@ -12,12 +12,26 @@ dist-ssr/
 /.direnv/
 CYOACatalog
 pbserve
+test-results/
+/e2e/test-results/
+/e2e/playwright-report/
 
-# Secrets and local config
+# Secrets and machine-local config (the pre-commit hook reads SSH_HOST from deploy.mk)
 .env
+.env.*
+!.env.example
 *.local
 *.key
 deploy.mk
+/hosting/
+.claude/settings.local.json
+
+# Semantic search runtime
+/semantic-search/index/
+/semantic-search/cache_vectors/
+/semantic-search/queries.tsv
+/semantic-search/venv/
+__pycache__/
 
 # Logs / editor
 *.log
@@ -26,3 +40,8 @@ deploy.mk
 .idea
 .DS_Store
 *.sw?
+
+# Agent instructions for this machine (kept local)
+AGENTS.md
+CLAUDE.md
+.claude/

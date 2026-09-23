@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Pre-commit gate for the public repo. Enable once per clone: git config core.hooksPath .githooks
+#  1. No Cyrillic in staged text files (comments/docs are English); exceptions in .cyrillic-allow.
+#  2. The deploy host from the untracked deploy.mk must not appear anywhere (origin sits behind CF).
+#  3. gitleaks on the staged changes, if installed.
+set -uo pipefail
+fail=0
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+allow=$(grep -v '^#' .cyrillic-allow 2>/dev/null | sed '/^$/d')
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  if [ -n "$allow" ] && printf '%s\n' "$f" | grep -qE -f <(printf '%s\n' "$allow"); then continue; fi
+  if git show ":$f" | grep -qIP '[\x{0400}-\x{04FF}]'; then
+    echo "pre-commit: Cyrillic in $f (translate it, or add a test-data exception to .cyrillic-allow)"; fail=1
+  fi
+done <<< "$staged"
+
+host=$(sed -n 's/^SSH_HOST *:*= *[^@]*@\{0,1\}\(.*\)$/\1/p' deploy.mk 2>/dev/null | tr -d ' ')
+if [ -n "$host" ]; then
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    if git show ":$f" | grep -qF "$host"; then echo "pre-commit: deploy host found in $f"; fail=1; fi
+  done <<< "$staged"
+fi
+
+GL=$(command -v gitleaks || echo "$HOME/go/bin/gitleaks")
+if [ -x "$GL" ]; then
+  "$GL" git --staged --no-banner --redact . >/dev/null 2>&1 || { echo "pre-commit: gitleaks found secrets (run: $GL git --staged .)"; fail=1; }
+fi
+
+[ "$fail" = 0 ] || { echo "pre-commit: commit blocked."; exit 1; }

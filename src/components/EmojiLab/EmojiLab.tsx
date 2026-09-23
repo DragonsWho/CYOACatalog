@@ -6,7 +6,7 @@
 // The Pack tab is the real pack admin panel for moderators (chat_emoji collection; edits go to the
 // server immediately, no rebuild/deploy); others see the pack read-only. It does NOT convert
 // animations: a third of the pack is animated webp and canvas extracts one frame, silently breaking
-// them — python3 _dev/emoji_pack/build.py prepares those; the panel accepts finished .webp and
+// them — the private emoji-pack builder prepares those; the panel accepts finished .webp and
 // compresses static png/jpg itself.
 
 import { useContext, useMemo, useRef, useState } from 'react';
@@ -602,8 +602,7 @@ function PackManager({ pack }: { pack: Pack }) {
           <Typography variant="body2" sx={{ color: '#aaa' }}>
             Drop PNG or JPG here — they get squeezed to 128px WebP in the browser.
             <br />
-            Animated ones have to come from{' '}
-            <code>python3 _dev/emoji_pack/build.py</code> — drop the .webp it makes.
+            Animated ones must already be animated WebP (made by the emoji-pack builder).
           </Typography>
           <Button size="small" sx={{ mt: 1 }} onClick={() => fileInput.current?.click()}>
             Pick files

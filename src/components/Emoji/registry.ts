@@ -2,7 +2,7 @@
 // when it was baked into the binary, renaming one image meant rebuilding frontend + Go and
 // deploying. Now the list comes from /api/custom/chat/emoji; images served from
 // /api/files/chat_emoji/… cached in CDN for 31 days (Cloudflare "PB media" rule). Animated webp
-// still prepared locally by _dev/emoji_pack/build.py.
+// still prepared locally by the private emoji-pack builder.
 // Module singleton, not a stateful hook: the markup parser (Shoutbox/richText.tsx) is a plain
 // synchronous function outside React and needs the pack without context or promises.
 // Unicode emoji are NOT touched: no 😄→image substitution, no ":3" conversion. Our pack only via

@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "known false positives"
+regexTarget = "match"
+regexes = ['''ratingTagIds_v1''']

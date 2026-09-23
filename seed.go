@@ -97,7 +97,12 @@ func runSeed(app core.App, o seedOpts) error {
 		if name == "games" {
 			limit = o.games
 		}
-		items, err := seedFetchAll(client, o.from, name, limit)
+		// Newest first where the collection has a created date (some, e.g. game_variants, don't).
+		sort := ""
+		if col.Fields.GetByName("created") != nil {
+			sort = "-created"
+		}
+		items, err := seedFetchAll(client, o.from, name, sort, limit)
 		if err != nil {
 			fmt.Printf("  %-18s skipped: %v\n", name, err)
 			continue
@@ -297,10 +302,13 @@ func seedStrings(v any) []string {
 	return nil
 }
 
-func seedFetchAll(client *http.Client, from, collection string, limit int) ([]map[string]any, error) {
+func seedFetchAll(client *http.Client, from, collection, sort string, limit int) ([]map[string]any, error) {
 	var out []map[string]any
 	for page := 1; ; page++ {
-		q := url.Values{"page": {fmt.Sprint(page)}, "perPage": {"200"}, "sort": {"-created"}}
+		q := url.Values{"page": {fmt.Sprint(page)}, "perPage": {"200"}}
+		if sort != "" {
+			q.Set("sort", sort)
+		}
 		var body struct {
 			Items      []map[string]any `json:"items"`
 			TotalPages int              `json:"totalPages"`

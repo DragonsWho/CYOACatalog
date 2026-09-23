@@ -26,7 +26,7 @@ VITE_PORT ?= 8091
 # Local development. Open http://localhost:8090 — the Go server answers /api from the LOCAL
 # pb_data and proxies the page to Vite. (Vite's own :8091 proxies /api to PRODUCTION.)
 .PHONY: dev
-dev:
+dev: deps
 	@test -f pb_data/data.db || { echo "No local DB yet: run 'make seed' first."; exit 1; }
 	NODE_ENV='development' DEV_VITE_URL=http://localhost:$(VITE_PORT) ./node_modules/.bin/concurrently -n "server,client" -c "bgBlue.bold,bgMagenta.bold" "CGO_ENABLED=0 go run . serve --http 127.0.0.1:$(DEV_PORT)" "./node_modules/.bin/vite --port $(VITE_PORT) --strictPort"
 
@@ -54,7 +54,7 @@ seed:
 
 # Fast checks that write nothing into dist/ (what agents should run before committing).
 .PHONY: check
-check:
+check: deps
 	@# //go:embed dist needs the folder; a fresh clone gets a placeholder until the first vite build.
 	@test -e dist/index.html || { mkdir -p dist; echo '<!-- placeholder: run vite build -->' > dist/index.html; }
 	./node_modules/.bin/tsc -p tsconfig.app.json --noEmit --incremental false

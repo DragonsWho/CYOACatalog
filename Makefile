@@ -47,6 +47,8 @@ seed:
 # Fast checks that write nothing into dist/ (what agents should run before committing).
 .PHONY: check
 check:
+	@# //go:embed dist needs the folder; a fresh clone gets a placeholder until the first vite build.
+	@test -e dist/index.html || { mkdir -p dist; echo '<!-- placeholder: run vite build -->' > dist/index.html; }
 	./node_modules/.bin/tsc -p tsconfig.app.json --noEmit --incremental false
 	./node_modules/.bin/tsc -p tsconfig.node.json --noEmit --incremental false
 	go vet ./...

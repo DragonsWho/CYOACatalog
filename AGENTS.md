@@ -66,6 +66,6 @@ e2e needs a seeded `pb_data/` and Chromium (`npx playwright install chromium` on
 - Don't edit `pb_schema.json` by hand, and don't change the schema from Go/JS code. Schema and bulk
   data changes are scripts in `pb_scripts/` — see `pb_scripts/README.md`.
 - Maintainer-only targets — don't run: `make ship`, `ship-codex`, `pb-prod`, `schema-snapshot`,
-  `cf-purge`, `update-oauth`, `logs`, anything in `semantic-search/Makefile` that deploys.
+  `cf-purge`, `update-oauth`, `logs`, `ssh`, `server-env`, anything in `semantic-search/Makefile` that deploys.
 - Keep diffs focused; match the surrounding code style. UI text is English.
 - Commit when a piece of work is done and `make check` passes, with a message saying what and why.

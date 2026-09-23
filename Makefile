@@ -147,9 +147,17 @@ ship:
 
 	# 3. Purge cache and check
 	$(MAKE) cf-purge
-	$(MAKE) --no-print-directory schema-snapshot
 	sleep 10
+	# Non-fatal: the deploy is already done; a failed snapshot just means run it again later.
+	-$(MAKE) --no-print-directory schema-snapshot
 	$(MAKE) open-incognito
+
+# Maintainer: shell on the server, or edit its .env (the service restarts after nano closes).
+.PHONY: ssh server-env
+ssh:
+	ssh -t $(SSH_HOST) 'cd $(REMOTE_DIR) && exec bash -l'
+server-env:
+	ssh -t $(SSH_HOST) 'nano $(REMOTE_DIR)/.env && systemctl restart $(SERVICE_NAME) && sleep 3 && systemctl is-active $(SERVICE_NAME)'
 
 .PHONY: logs
 logs:

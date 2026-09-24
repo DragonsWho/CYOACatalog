@@ -165,8 +165,9 @@ export default function FeedModeControls({ variant = 'page', onReroll, randomLoa
               </Tooltip>
             );
           })}
+          {/* Locked only while a roll is loading: the feed's first load used to grey it out (visible blink). */}
           <Tooltip title={seed === 'random' ? "Roll again" : "Random picks within the current filters"}>
-            <ToggleButton value="random" selected={seed === 'random'} onChange={rollRandom} disabled={randomLoading} aria-label={seed === 'random' ? "Roll again" : "Random picks"}>
+            <ToggleButton value="random" selected={seed === 'random'} onChange={rollRandom} disabled={randomLoading && seed === 'random'} aria-label={seed === 'random' ? "Roll again" : "Random picks"}>
               <ShuffleIcon fontSize="small" />
             </ToggleButton>
           </Tooltip>

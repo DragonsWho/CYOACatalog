@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -184,7 +186,12 @@ var (
 type catalogSnapshot struct {
 	mu        sync.RWMutex
 	scriptTag string
+	layoutKey string
 }
+
+// Counters change all the time and don't move anything on screen (the live fetch refreshes them in
+// place); everything else in the snapshot decides which cards the pre-paint draws and where.
+var snapshotCountRe = regexp.MustCompile(`"(?:upvotes_count|comments_count)":\d+`)
 
 func (s *catalogSnapshot) get() string {
 	s.mu.RLock()
@@ -199,13 +206,20 @@ func (s *catalogSnapshot) set(tag string) {
 }
 
 // On error keep the previous value (frontend falls back to its normal fetch).
-func (s *catalogSnapshot) refresh(app core.App) {
+// Reports whether the layout-relevant part changed (not on the first build: deploys purge via make).
+func (s *catalogSnapshot) refresh(app core.App) bool {
 	tag, err := buildCatalogScriptTag(app)
 	if err != nil {
 		log.Printf("Warn: catalog snapshot refresh failed: %v", err)
-		return
+		return false
 	}
-	s.set(tag)
+	sum := sha256.Sum256([]byte(snapshotCountRe.ReplaceAllString(tag, "")))
+	key := hex.EncodeToString(sum[:])
+	s.mu.Lock()
+	changed := s.layoutKey != "" && s.layoutKey != key
+	s.scriptTag, s.layoutKey = tag, key
+	s.mu.Unlock()
+	return changed
 }
 
 // cfPurger coalesces a burst of publishes into one CF purge (a new game changes the "recent" set,
@@ -238,7 +252,7 @@ func (p *cfPurger) trigger(app core.App) {
 			app.Logger().Warn("catalog HTML cache purge failed", "error", err.Error())
 			return
 		}
-		app.Logger().Info("catalog HTML cache purged after new game publish")
+		app.Logger().Info("catalog HTML cache purged (snapshot changed)")
 	}()
 }
 
@@ -1911,12 +1925,25 @@ func main() {
 			if catalogSnap.get() != "" {
 				log.Println("Info: catalog snapshot inlining active")
 			}
+			_, purgedTagDictV, _ := tagDict.get()
 			go func() {
 				ticker := time.NewTicker(5 * time.Minute)
 				defer ticker.Stop()
 				for range ticker.C {
-					catalogSnap.refresh(app)
+					// The home shell is edge-cached long; any change the explicit triggers (publish, bump,
+					// edits) miss — a pin expiring, moderator edits via the admin API, deletes, a new
+					// announcement, a tag-dictionary version — is caught here and purged within 5 min.
+					changed := catalogSnap.refresh(app)
 					tagDict.refresh(app)
+					// Tag hooks rebuild the dictionary immediately, so compare with the version last seen here.
+					_, v, _ := tagDict.get()
+					if v != purgedTagDictV {
+						changed = changed || purgedTagDictV != ""
+						purgedTagDictV = v
+					}
+					if changed {
+						catalogPurge.trigger(app)
+					}
 				}
 			}()
 			// /assets/* with immutable headers and a real 404 (no SPA fallback), so CF never caches

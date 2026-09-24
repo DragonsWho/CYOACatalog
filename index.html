@@ -56,9 +56,10 @@
         box-sizing: border-box;
         /* Background must match theme.ts (MuiCssBaseline) for a seamless handoff to React. */
         background-color: #101010;
-        background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='noise' x='0' y='0'><feTurbulence type='turbulence' baseFrequency='0.322' numOctaves='3' stitchTiles='stitch'/><feBlend mode='darken'/></filter><rect width='100%' height='100%' filter='url(%23noise)' opacity='0.07'/></svg>");
+        /* Same two layers as theme.ts: darkening shade over the noise tile. */
+        background-image: linear-gradient(rgba(5, 5, 5, 0.25), rgba(5, 5, 5, 0.25)), url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='noise' x='0' y='0'><feTurbulence type='turbulence' baseFrequency='0.322' numOctaves='3' stitchTiles='stitch'/><feBlend mode='darken'/></filter><rect width='100%' height='100%' filter='url(%23noise)' opacity='0.07'/></svg>");
         background-repeat: repeat;
-        background-size: 300px 300px;
+        background-size: auto, 300px 300px;
         background-position: 0 0;
         color: #dcdcdc;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;

@@ -521,7 +521,10 @@ export default function App() {
           sx={{
             mt: chatFullBleed ? 0 : 4,
             mb: chatFullBleed ? 0 : 4,
-            flex: 1,
+            // '1 0 auto', not 1: with an explicit minHeight a 0%-basis flex item stops growing with its
+            // content (the automatic min size is gone), so main stayed one screen tall and the footer
+            // was drawn over the feed.
+            flex: chatFullBleed ? 1 : '1 0 auto',
             display: 'flex',
             flexDirection: 'column',
             // At least a screen tall: while a route chunk / first data loads, the footer then sits

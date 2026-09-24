@@ -124,6 +124,37 @@ export default function GameContent({ game, cheatsActive = false, onCheatReady, 
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // The game iframe mounts once the page itself has loaded and the browser is idle, or earlier when
+  // it nears the viewport. loading="lazy" alone didn't defer it: Chrome loads lazy iframes within
+  // ~1250-2500px of the viewport, and on phones the frame sits ~1100px down — the game's own JS and
+  // images (often 300+ KB) competed with the cover and the page's chunks. The box (spinner) is
+  // already reserved, so nothing shifts.
+  const [iframeArmed, setIframeArmed] = useState(false);
+  const iframeSlotRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (iframeArmed) return;
+    const arm = () => setIframeArmed(true);
+    let idle = 0;
+    const onLoad = () => {
+      idle = window.requestIdleCallback
+        ? window.requestIdleCallback(arm, { timeout: 2000 })
+        : window.setTimeout(arm, 1000);
+    };
+    if (document.readyState === 'complete') onLoad();
+    else window.addEventListener('load', onLoad, { once: true });
+    let io: IntersectionObserver | null = null;
+    if (iframeSlotRef.current && typeof IntersectionObserver !== 'undefined') {
+      io = new IntersectionObserver((e) => { if (e.some((x) => x.isIntersecting)) arm(); }, { rootMargin: '300px' });
+      io.observe(iframeSlotRef.current);
+    }
+    return () => {
+      window.removeEventListener('load', onLoad);
+      if (window.cancelIdleCallback) window.cancelIdleCallback(idle);
+      window.clearTimeout(idle);
+      io?.disconnect();
+    };
+  }, [iframeArmed]);
+
   // Interactive iframe URL. Our own hosted games always load with ?__save=1 so the Go backend
   // injects the companion shim in saver mode; the flagged URL is a separate edge-cache entry with
   // normal cache headers, and direct visits to the game subdomain (no flag) stay byte-for-byte
@@ -784,7 +815,7 @@ export default function GameContent({ game, cheatsActive = false, onCheatReady, 
         </Box>
       ) : game.img_or_link === 'link' && game.iframe_url ? (
         <Box
-          ref={iframeContainerRef}
+          ref={(el: HTMLDivElement | null) => { iframeContainerRef.current = el; iframeSlotRef.current = el; }}
           sx={{
             position: 'relative',
             width: '100%',
@@ -813,7 +844,7 @@ export default function GameContent({ game, cheatsActive = false, onCheatReady, 
               <CircularProgress />
             </Box>
           )}
-          <iframe
+          {iframeArmed && <iframe
             ref={iframeRef}
             src={iframeSrc}
             style={{
@@ -829,7 +860,7 @@ export default function GameContent({ game, cheatsActive = false, onCheatReady, 
             loading="lazy"
             onLoad={() => setIsIframeLoading(false)}
             onError={handleIframeError}
-          />
+          />}
           {!isIframeLoading && !customBarActive && (
             <Box
               sx={{

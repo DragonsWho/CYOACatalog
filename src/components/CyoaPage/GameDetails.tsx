@@ -493,6 +493,7 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
           {game.expand?.authors?.length && game.expand.authors?.length > 0 && (
             <Typography 
               variant="subtitle1" 
+              component="p"
               sx={{ 
                 color: '#ff5252',
                 fontWeight: 600,

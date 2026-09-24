@@ -253,9 +253,11 @@ export default function GameAdditionalInfo({
       <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2, minHeight: 40, mb: 1 }}>
         
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Tooltip title={userID ? (isUpvoted ? 'Remove upvote' : 'Upvote') : LOGIN_TOOLTIP} arrow>
+            {/* describeChild: the name goes on the button itself (aria-label on the wrapper span is invalid ARIA). */}
+            <Tooltip title={userID ? (isUpvoted ? 'Remove upvote' : 'Upvote') : LOGIN_TOOLTIP} arrow describeChild>
             <span>
                 <IconButton
+                aria-label={userID ? (isUpvoted ? 'Remove upvote' : 'Upvote') : LOGIN_TOOLTIP}
                 onClick={handleUpvote}
                 disabled={isLoading || !userID}
                 size="small"

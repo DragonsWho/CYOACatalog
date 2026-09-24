@@ -189,7 +189,7 @@ export default function GameContent({ game, cheatsActive = false, onCheatReady, 
   // image games (GA measures them).
   useGamePlaytime(game.id, isInteractiveGame, isHosted);
 
-  const iframeContainerRef = useRef<HTMLDivElement>(null);
+  const iframeContainerRef = useRef<HTMLDivElement | null>(null);
   const contentContainerRef = useRef<HTMLDivElement>(null);
   const scrollPositionRef = useRef<number>(0);
   const initialIframeStyles = useRef<{ height: string; width: string } | null>(null);

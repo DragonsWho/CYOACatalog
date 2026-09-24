@@ -1339,8 +1339,8 @@ func handleLanding(
 	}
 
 	pageHTML := fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en" style="color-scheme:dark;background:#101010"><head>
+<meta charset="utf-8"><meta name="color-scheme" content="dark"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Games by %s — CYOA Cafe</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -1402,8 +1402,8 @@ func handleReservedLanding(e *core.RequestEvent, hostingSlug string) error {
 	neocitiesURL := fmt.Sprintf("https://%s.neocities.org", hostingSlug)
 
 	pageHTML := fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en" style="color-scheme:dark;background:#101010"><head>
+<meta charset="utf-8"><meta name="color-scheme" content="dark"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>%s — CYOA.CAFE</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}

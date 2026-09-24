@@ -1,7 +1,10 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" /> 
+    <meta charset="UTF-8" />
+    <!-- First thing in <head>: tells the browser the page is dark before any CSS arrives, so the
+         canvas it paints while loading is dark too (no white flash at night). -->
+    <meta name="color-scheme" content="dark" />
     <!-- interactive-widget=resizes-content: the on-screen keyboard must SHRINK the page, not overlay
          it — otherwise the chat composer slid under the keyboard or floated above it. Android honors
          this hint; on iOS the chat compensates via visualViewport (Chat/ChatView.tsx). -->
@@ -40,6 +43,8 @@
     <style>
       /* --- START Simplified Inlined Placeholder Styles --- */
       html {
+        color-scheme: dark;
+        background-color: #101010;
         margin: 0;
         padding: 0;
         width: 100%;

@@ -111,7 +111,8 @@ func renderAllPage(entries []allIndexEntry, page int) string {
 	}
 
 	var b strings.Builder
-	b.WriteString(`<!doctype html><html lang="en"><head><meta charset="utf-8">`)
+	// color-scheme + html background: dark canvas from the first frame (no white flash).
+	b.WriteString(`<!doctype html><html lang="en" style="color-scheme:dark;background:#151515"><head><meta charset="utf-8"><meta name="color-scheme" content="dark">`)
 	b.WriteString(`<meta name="viewport" content="width=device-width,initial-scale=1">`)
 	b.WriteString(`<title>` + html.EscapeString(title) + `</title>`)
 	b.WriteString(`<meta name="description" content="The complete CYOA.CAFE catalog: all ` +

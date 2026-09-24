@@ -6,10 +6,26 @@ import { build as esbuild } from 'esbuild';
 // Bundles src/prepaint/prepaint.ts into one classic inline <script> at <!--prepaint--> in index.html,
 // so the UI mock paints before the main bundle is even fetched. Rebuilt on every HTML transform
 // (dev picks up edits on reload).
+let snap: { at: number; html: string } | null = null;
+async function prodSnapshot(): Promise<string> {
+  if (snap && Date.now() - snap.at < 60_000) return snap.html;
+  try {
+    // Browser UA: Cloudflare blocks bare fetch clients.
+    const r = await fetch('https://cyoa.cafe/', { headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140 Safari/537.36' } });
+    const doc = await r.text();
+    const scripts = doc.match(/<script>window\.__[A-Z_]+__[\s\S]*?<\/script>/g) ?? [];
+    snap = { at: Date.now(), html: scripts.join('') };
+  } catch (e) {
+    console.warn('prepaint: prod snapshot unavailable', e);
+    snap = { at: Date.now(), html: '' };
+  }
+  return snap.html;
+}
+
 function prepaint(): Plugin {
   return {
     name: 'prepaint',
-    async transformIndexHtml(html) {
+    async transformIndexHtml(html, ctx) {
       const out = await esbuild({
         entryPoints: ['src/prepaint/prepaint.ts'],
         bundle: true,
@@ -20,7 +36,11 @@ function prepaint(): Plugin {
         legalComments: 'none',
       });
       const code = out.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
-      return html.replace('<!--prepaint-->', `<script>${code}</script>`);
+      html = html.replace('<!--prepaint-->', `<script>${code}</script>`);
+      // Dev has no Go HTML injection (main.go proxies to vite as is): borrow the catalog snapshot /
+      // tag-dictionary scripts from production's home HTML so the pre-paint shows real cards here too.
+      if (ctx.server) html = html.replace('</head>', `${await prodSnapshot()}</head>`);
+      return html;
     },
   };
 }

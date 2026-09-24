@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense, useContext, useCallback } from 'react';
 import { Routes, Route, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import {
-  Container, Box, CircularProgress, GlobalStyles,
+  Container, Box, GlobalStyles,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button
 } from '@mui/material';
 import Cookies from 'js-cookie';
@@ -10,6 +10,7 @@ import Footer from './components/Footer/Footer';
 import OverloadNotice from './components/OverloadNotice';
 import SearchPage from './components/Search/SearchPage';
 import AppErrorBoundary from './components/AppErrorBoundary';
+import PrepaintFallback from './components/PrepaintFallback';
 
 const GameDetails = lazy(() => import('./components/CyoaPage/GameDetails'));
 const Profile = lazy(() => import('./components/Profile/Profile'));
@@ -537,20 +538,7 @@ export default function App() {
             area.
           */}
           <AppErrorBoundary>
-            <Suspense
-              fallback={
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '100%',
-                  }}
-                >
-                  <CircularProgress />
-                </Box>
-              }
-            >
+            <Suspense fallback={<PrepaintFallback />}>
               <Routes>
                 <Route
                   path="/"

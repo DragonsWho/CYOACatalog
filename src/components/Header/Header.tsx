@@ -43,6 +43,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import LoginIcon from '@mui/icons-material/Login';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
@@ -76,6 +77,10 @@ import { thinScrollbar } from '../../styles/scrollbar';
 // loading and when the server feature flag is off. Shown to everyone — anonymous posting is a
 // feature, so deliberately OUTSIDE the signedIn conditional.
 const ShoutboxButton = lazy(() => import('../Shoutbox/ShoutboxButton'));
+// Same localStorage flag ShoutboxButton renders from (ENABLED_KEY there).
+function chatFlagCached(): boolean {
+  try { return localStorage.getItem('shoutbox_enabled') === '1'; } catch { return false; }
+}
 
 const SITE_TITLE = 'CYOA.CAFE';
 
@@ -631,7 +636,17 @@ const Header: React.FC<HeaderProps> = ({
             </IconButton>
           </Tooltip>
 
-          <Suspense fallback={null}>
+          {/*
+            Fallback: an inert copy of the chat button while its chunk loads, when the cached feature
+            flag says it will show — otherwise the icon popped out and back in after the pre-paint.
+          */}
+          <Suspense
+            fallback={chatFlagCached() ? (
+              <IconButton color="inherit" disabled aria-hidden="true" sx={{ p: btnPad, '&.Mui-disabled': { color: 'inherit' } }}>
+                <ChatBubbleOutlineIcon sx={{ fontSize: iconSize }} />
+              </IconButton>
+            ) : null}
+          >
             {/*
               Chat: single vs double click do different things per singleClickFullChat (default:
               single = /chat page); right-to-left swipe opens the quick drawer from any page unless

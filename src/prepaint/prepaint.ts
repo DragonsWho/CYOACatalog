@@ -268,7 +268,11 @@ function run(): void {
       ? seed.pins.map((g) => card(g, true)).join('') + seed.games.map((g) => card(g, false)).join('')
       // No snapshot (dev, old cache): skeletons hold the grid's height so nothing jumps.
       : '<div class="pp-c pp-sk"></div>'.repeat(10);
-    body = `<main class="pp-main"><div class="pp-home">${panel()}<div class="pp-grid">${cards}</div></div></main>`;
+    const home = `<div class="pp-home">${panel()}<div class="pp-grid">${cards}</div></div>`;
+    body = `<main class="pp-main">${home}</main>`;
+    // React replaces #root before the lazy HomePage chunk arrives; App's route Suspense fallback
+    // re-shows this markup instead of a spinner (components/PrepaintFallback.tsx).
+    (window as unknown as { __PREPAINT__?: { css: string; home: string } }).__PREPAINT__ = { css: CSS, home };
   }
   root.dataset.prepaint = '1';
   root.innerHTML = `<style>${CSS}</style><div class="pp" aria-hidden="true">${header(mode, user)}${body}</div>`;

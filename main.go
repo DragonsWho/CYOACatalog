@@ -1434,11 +1434,24 @@ func main() {
 			if err != nil {
 				return apis.NewNotFoundError("Mod request not found", err)
 			}
-			ticketFields := []string{"status", "kind", "assignee", "internal_note"}
+			ticketFields := []string{"status", "kind", "assignee", "internal_note", "resolved_by", "resolved_at"}
 			ticketBefore := modSnapshot(rec, ticketFields...)
 			if payload.Status != nil {
 				if !validModStatuses[*payload.Status] {
 					return c.BadRequestError("Invalid status", nil)
+				}
+				// resolved_by/resolved_at: set on entering resolved, cleared on leaving it. Guarded so the
+				// binary runs before PB/add_mod_request_resolved_fields.py.
+				wasResolved := rec.GetString("status") == "resolved"
+				nowResolved := *payload.Status == "resolved"
+				if wasResolved != nowResolved && rec.Collection().Fields.GetByName("resolved_by") != nil {
+					if nowResolved {
+						rec.Set("resolved_by", c.Auth.Id)
+						rec.Set("resolved_at", time.Now().UTC())
+					} else {
+						rec.Set("resolved_by", "")
+						rec.Set("resolved_at", "")
+					}
 				}
 				rec.Set("status", *payload.Status)
 			}

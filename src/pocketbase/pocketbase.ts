@@ -564,12 +564,15 @@ export type ModRequest = RecordModel & {
   status: ModRequestStatus;
   assignee?: string;
   internal_note?: string;
+  resolved_by?: string;  // set by Go on resolve, cleared on reopen
+  resolved_at?: string;
 } & {
   expand?: {
     comment?: Comment;
     game?: Game;
     requester?: User;
     assignee?: User;
+    resolved_by?: User;
   };
 };
 

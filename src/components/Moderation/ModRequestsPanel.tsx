@@ -6,13 +6,15 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   Container, Typography, Paper, Box, Button, Chip, CircularProgress, Snackbar,
-  Alert, Tabs, Tab, Stack, TextField, Link as MuiLink, Avatar, Tooltip,
+  Alert, Tabs, Tab, Stack, TextField, Link as MuiLink, Avatar, Tooltip, MenuItem,
 } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { styled } from '@mui/material/styles';
 import { Link as RouterLink } from 'react-router-dom';
 import { AuthContext, Game, ModRequest, ModRequestStatus, pb, gameCanonicalKey } from '../../pocketbase/pocketbase';
-import { fetchModRequests, fetchModRequestsFull, updateModRequest } from './modRequestsApi';
+import {
+  fetchModRequests, fetchModRequestsFull, fetchTicketModerators, updateModRequest, ModRequestSort,
+} from './modRequestsApi';
 import { postComment } from '../CyoaPage/Comments/commentsApi';
 import CommentBody from '../CyoaPage/Comments/CommentBody';
 
@@ -68,6 +70,21 @@ const fmtDate = (s: string) => {
 
 const PER_PAGE = 30;
 
+// Archive tabs (resolved / trash / all) sort server-side; open queues keep the triage order.
+const SORTS: { value: ModRequestSort; label: string }[] = [
+  { value: '-resolved_at', label: 'Resolved: newest' },
+  { value: 'resolved_at', label: 'Resolved: oldest' },
+  { value: '-created', label: 'Received: newest' },
+  { value: 'created', label: 'Received: oldest' },
+  { value: 'resolved_by.username', label: 'Resolved by (A–Z)' },
+  { value: 'assignee.username', label: 'Claimed by (A–Z)' },
+  { value: 'kind', label: 'Kind' },
+];
+
+// Moderator filter sentinels: any / nobody (neither resolver nor claimer); otherwise a user id.
+const ANY = '__any__';
+const NONE = '__none__';
+
 export default function ModRequestsPanel() {
   const { user } = useContext(AuthContext);
   const [tab, setTab] = useState<ModRequestStatus | 'all'>('open');
@@ -79,44 +96,84 @@ export default function ModRequestsPanel() {
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
   const [groupBusy, setGroupBusy] = useState<string | null>(null);
+  const [sort, setSort] = useState<ModRequestSort>('-resolved_at');
+  const [modFilter, setModFilter] = useState<string>(ANY);
+  const [moderators, setModerators] = useState<{ id: string; username: string }[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const actionable = tab === 'open' || tab === 'in_progress';
+  const modParam = modFilter === ANY ? undefined : modFilter === NONE ? '' : modFilter;
+
+  // Don't touch an in-progress note: list reloads (tab switch, ticket action) used to wipe the
+  // moderator's unsent text.
+  const mergeNotes = (rows: ModRequest[]) =>
+    setNoteDraft((prev) => ({
+      ...prev,
+      ...Object.fromEntries(rows.map((t) => [t.id, prev[t.id] ?? t.internal_note ?? ''])),
+    }));
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Actionable queues (open / in_progress) are fetched whole so priority sort is global, not
-      // per page. Archive tabs stay paged.
-      const actionable = tab === 'open' || tab === 'in_progress';
-      const rows = actionable
-        ? await fetchModRequestsFull(tab)
-        : (await fetchModRequests(tab, 1, PER_PAGE)).items;
-      // Triage order: illegal/rule-breaking first, then most-liked triggering comment, then newest.
-      const sorted = [...rows].sort((a, b) => {
-        const ai = a.kind === 'illegal' ? 1 : 0;
-        const bi = b.kind === 'illegal' ? 1 : 0;
-        if (ai !== bi) return bi - ai;
-        const al = a.expand?.comment?.likes_count ?? 0;
-        const bl = b.expand?.comment?.likes_count ?? 0;
-        if (al !== bl) return bl - al;
-        return b.created.localeCompare(a.created);
-      });
-      setItems(sorted);
-      // Don't touch an in-progress note: list reloads (tab switch, ticket action) used to wipe the
-      // moderator's unsent text.
-      setNoteDraft((prev) =>
-        Object.fromEntries(
-          sorted.map((t) => [t.id, prev[t.id] ?? t.internal_note ?? '']),
-        ),
-      );
+      if (tab === 'open' || tab === 'in_progress') {
+        // Actionable queues are fetched whole so priority sort is global, not per page.
+        const rows = await fetchModRequestsFull(tab);
+        // Triage order: illegal/rule-breaking first, then most-liked triggering comment, then newest.
+        const sorted = [...rows].sort((a, b) => {
+          const ai = a.kind === 'illegal' ? 1 : 0;
+          const bi = b.kind === 'illegal' ? 1 : 0;
+          if (ai !== bi) return bi - ai;
+          const al = a.expand?.comment?.likes_count ?? 0;
+          const bl = b.expand?.comment?.likes_count ?? 0;
+          if (al !== bl) return bl - al;
+          return b.created.localeCompare(a.created);
+        });
+        setItems(sorted);
+        setTotal(sorted.length);
+        mergeNotes(sorted);
+      } else {
+        // Archive tabs grow unbounded: server-side sort/filter, paged with "Load more".
+        const res = await fetchModRequests(tab, 1, PER_PAGE, sort, modParam);
+        setItems(res.items);
+        setTotal(res.totalItems);
+        setPage(1);
+        mergeNotes(res.items);
+      }
     } catch {
       setToast({ msg: 'Failed to load tickets.', sev: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [tab, sort, modParam]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (actionable) return;
+    fetchTicketModerators(tab).then(setModerators).catch(() => setModerators([]));
+  }, [tab, actionable]);
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetchModRequests(tab, page + 1, PER_PAGE, sort, modParam);
+      setItems((prev) => {
+        const seen = new Set(prev.map((t) => t.id));
+        return [...prev, ...res.items.filter((t) => !seen.has(t.id))];
+      });
+      setTotal(res.totalItems);
+      setPage(page + 1);
+      mergeNotes(res.items);
+    } catch {
+      setToast({ msg: 'Failed to load tickets.', sev: 'error' });
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [tab, page, sort, modParam]);
 
   const patch = useCallback(
     async (id: string, body: Parameters<typeof updateModRequest>[1], okMsg: string) => {
@@ -158,8 +215,10 @@ export default function ModRequestsPanel() {
   );
 
   // Cluster priority-sorted tickets by game; the first ticket fixes the group position, so global
-  // triage order is preserved. Tickets without a game go to a trailing bucket.
+  // triage order is preserved. Tickets without a game go to a trailing bucket. Archive tabs stay
+  // flat so the chosen sort reads top to bottom.
   const groups = useMemo(() => {
+    if (!actionable) return items.map((t) => ({ key: t.id, game: t.expand?.game, tickets: [t] }));
     const map = new Map<string, { key: string; game?: Game; tickets: ModRequest[] }>();
     for (const t of items) {
       const key = t.game || '__nogame__';
@@ -171,7 +230,7 @@ export default function ModRequestsPanel() {
       g.tickets.push(t);
     }
     return [...map.values()];
-  }, [items]);
+  }, [items, actionable]);
 
   // Resolve all open tickets in a game group in one click; low volume, sequential loop, one reload
   // at the end.
@@ -214,6 +273,45 @@ export default function ModRequestsPanel() {
           <Tab key={t.value} value={t.value} label={t.label} />
         ))}
       </Tabs>
+
+      {!actionable && (
+        <Stack direction="row" spacing={1.5} flexWrap="wrap" gap={1.5} alignItems="center" sx={{ mb: 1 }}>
+          <TextField
+            select
+            size="small"
+            label="Sort by"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as ModRequestSort)}
+            sx={{ minWidth: 240 }}
+          >
+            {SORTS.map((o) => (
+              <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="Moderator"
+            value={modFilter}
+            onChange={(e) => setModFilter(e.target.value)}
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value={ANY}>Any</MenuItem>
+            <MenuItem value={NONE}>Nobody</MenuItem>
+            {moderators.map((a) => (
+              <MenuItem key={a.id} value={a.id}>{a.username}</MenuItem>
+            ))}
+          </TextField>
+          <Tooltip
+            arrow
+            title="Moderator filter matches who resolved or claimed a ticket. Resolver for tickets closed before 2026-09-10 is backfilled (owner by default)."
+          >
+            <Typography variant="caption" sx={{ color: 'text.secondary', cursor: 'help' }}>
+              {total} ticket(s) ⓘ
+            </Typography>
+          </Tooltip>
+        </Stack>
+      )}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -295,6 +393,12 @@ export default function ModRequestsPanel() {
                     )}
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                       {fmtDate(t.created)}
+                      {t.resolved_at && (
+                        <>
+                          {' · resolved '}{fmtDate(t.resolved_at)}
+                          {t.expand?.resolved_by && <> by <strong>{t.expand.resolved_by.username}</strong></>}
+                        </>
+                      )}
                     </Typography>
                   </Stack>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -472,6 +576,14 @@ export default function ModRequestsPanel() {
             })}
           </Box>
         ))
+      )}
+
+      {!loading && !actionable && items.length < total && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+          <Button variant="outlined" disabled={loadingMore} onClick={loadMore}>
+            {loadingMore ? 'Loading…' : `Load more (${total - items.length} left)`}
+          </Button>
+        </Box>
       )}
 
       <Snackbar

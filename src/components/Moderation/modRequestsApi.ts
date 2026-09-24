@@ -11,18 +11,59 @@ import {
   authedFetch,
 } from '../../pocketbase/pocketbase';
 
-const EXPAND = 'requester,game,comment,assignee';
+const EXPAND = 'requester,game,comment,assignee,resolved_by';
 
+// Archive sort keys. resolved_* are set by Go on resolve (backfilled from mod_actions).
+export type ModRequestSort =
+  | '-resolved_at'
+  | 'resolved_at'
+  | '-created'
+  | 'created'
+  | 'resolved_by.username'
+  | 'assignee.username'
+  | 'kind';
+
+// moderator: user id matched against resolved_by OR assignee; '' = neither set; undefined = any.
 export async function fetchModRequests(
   status: ModRequestStatus | 'all',
   page = 1,
   perPage = 30,
+  sort: ModRequestSort = '-created',
+  moderator?: string,
 ): Promise<ListResult<ModRequest>> {
+  const parts: string[] = [];
+  if (status !== 'all') parts.push(`status = "${status}"`);
+  if (moderator !== undefined) {
+    const id = moderator.replace(/"/g, '');
+    parts.push(id ? `(resolved_by = "${id}" || assignee = "${id}")` : 'resolved_by = "" && assignee = ""');
+  }
   return modRequestsCollection.getList(page, perPage, {
-    filter: status === 'all' ? '' : `status = "${status}"`,
-    sort: '-created',
+    filter: parts.join(' && '),
+    // Tie-break so equal keys (same moderator/kind) keep newest-first.
+    sort: sort === '-created' ? sort : `${sort},-created`,
     expand: EXPAND,
   });
+}
+
+// Moderators that resolved or claimed tickets in a status bucket, for the archive filter dropdown.
+// Tickets are low volume, so one light full-list read is fine.
+export async function fetchTicketModerators(
+  status: ModRequestStatus | 'all',
+): Promise<{ id: string; username: string }[]> {
+  const any = '(resolved_by != "" || assignee != "")';
+  const rows = await modRequestsCollection.getFullList({
+    filter: status === 'all' ? any : `status = "${status}" && ${any}`,
+    fields: 'expand.assignee.id,expand.assignee.username,expand.resolved_by.id,expand.resolved_by.username',
+    expand: 'assignee,resolved_by',
+  });
+  const map = new Map<string, string>();
+  for (const r of rows) {
+    for (const u of [r.expand?.assignee, r.expand?.resolved_by]) {
+      if (u) map.set(u.id, u.username);
+    }
+  }
+  return [...map].map(([id, username]) => ({ id, username }))
+    .sort((a, b) => a.username.localeCompare(b.username));
 }
 
 // Full actionable queue for open/in_progress (small: tickets get closed), so client-side priority

@@ -385,7 +385,7 @@ export default function CyoaCompanionDrawer({ gameId }: CyoaCompanionDrawerProps
         sx={{
           position: 'fixed', bottom: 50, right: 20, zIndex: CALC_BUTTON_Z,
           borderColor: '#d32f2f', borderWidth: 2, color: '#e7e7e7ee',
-          bgcolor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          bgcolor: 'rgba(0,0,0,0.75)',
           textTransform: 'none', fontWeight: 'bold', px: 2, py: 0.5, boxShadow: 4,
           '&:hover': { bgcolor: 'rgba(40,0,0,0.9)', borderColor: '#ff5252', borderWidth: 2 },
           transition: 'all 0.2s',
@@ -402,7 +402,7 @@ export default function CyoaCompanionDrawer({ gameId }: CyoaCompanionDrawerProps
           sx={isMobile ? {
             position: 'fixed', top: 0, right: 0, bottom: 0,
             width: '85%', maxWidth: '400px',
-            bgcolor: 'rgba(18, 18, 18, 0.95)', backdropFilter: 'blur(12px)',
+            bgcolor: 'rgba(18, 18, 18, 0.95)',
             zIndex: CALC_WINDOW_Z, display: 'flex', flexDirection: 'column', p: 2,
             borderLeft: '1px solid #333',
             animation: 'slideIn 0.3s ease-out',
@@ -416,7 +416,7 @@ export default function CyoaCompanionDrawer({ gameId }: CyoaCompanionDrawerProps
             height: `${size.height}px`,
             
             display: 'flex', flexDirection: 'column',
-            bgcolor: 'rgba(30, 30, 30, 0.95)', backdropFilter: 'blur(10px)',
+            bgcolor: 'rgba(30, 30, 30, 0.95)',
             border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2,
             zIndex: CALC_WINDOW_Z, p: 2,
             boxShadow: '0 8px 32px rgba(0,0,0,0.5)',

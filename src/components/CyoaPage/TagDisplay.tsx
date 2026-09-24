@@ -641,7 +641,6 @@ export default function TagDisplay({
                 backgroundColor: getTagColor(category, tag.name),
                 color: isGold ? GOLD_ACCENT : '#ffffff',
                 textShadow: '0px 1px 2px rgba(0,0,0,0.8)',
-                backdropFilter: 'blur(2px)',
                 fontSize: '0.7rem',
                 height: '22px',
                 ...(tagTapToSearch && { cursor: 'pointer' }),

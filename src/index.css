@@ -48,9 +48,24 @@ input:-webkit-autofill:active {
     background-color: rgba(255, 255, 255, 0.28);
 }
 
-  
+/* Field perf toggles (utils/perfFlags.ts): A/B suspected-expensive effects on a real phone. */
+html.perf-nonoise body,
+html.perf-nonoise .cc-card-noise { background-image: none !important; }
+html.perf-noblur *,
+html.perf-noblur *::before,
+html.perf-noblur *::after { backdrop-filter: none !important; }
 
- 
+/* backdrop-filter is what lags scrolling on Firefox mobile (confirmed on a real phone via
+   ?perf=noblur, 2026-09-24). Small badges/chips/buttons over near-opaque fills lost the blur for
+   everyone. The card title/description "glass" is a visible design element, so only Firefox gets a
+   plain shade instead (the element's radial mask keeps the soft edge). */
+@supports (-moz-appearance: none) {
+    .cc-glass {
+        backdrop-filter: none !important;
+        background-color: rgba(0, 0, 0, 0.35);
+    }
+}
+
 /* View modes for static CYOA pages (bottom-right buttons, CyoaPage/GameContent.tsx). The container
    itself goes full-bleed; the image must just not break layout. It used to stretch to 100vw with
    negative margins INSIDE a content-visibility:auto box, which clipped it to the box edges and

@@ -494,7 +494,6 @@ export default function SimilarGamesStrip({ game, filterMode }: { game: Game; fi
                         color: '#fff',
                         fontWeight: 'bold',
                         fontSize: '0.65rem',
-                        backdropFilter: 'blur(4px)',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
                         border: '1px solid rgba(255,255,255,0.1)',
                         '& .MuiChip-label': { px: 0.5 },

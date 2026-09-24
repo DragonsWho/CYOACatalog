@@ -129,22 +129,14 @@ const themeOptions: ThemeOptions = {
       styleOverrides: {
         body: {
           backgroundColor: '#101010',
-          backgroundImage: `url("${generateBodyNoiseFilter()}")`,
+          // The darkening shade used to be a fixed full-screen body::after layer, composited
+          // over the page every scroll frame (measurable lag on Firefox mobile). As a gradient
+          // layer of the background it looks the same and costs nothing.
+          backgroundImage: `linear-gradient(rgba(5, 5, 5, 0.25), rgba(5, 5, 5, 0.25)), url("${generateBodyNoiseFilter()}")`,
           backgroundRepeat: 'repeat',
-          backgroundSize: '300px 300px',
+          backgroundSize: 'auto, 300px 300px',
           backgroundPosition: '0 0',
           position: 'relative',
-          '&::after': {
-            content: '""',
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            pointerEvents: 'none',
-            backgroundColor: 'rgba(5, 5, 5, 0.25)',
-            zIndex: -1,
-          },
         },
       },
     },

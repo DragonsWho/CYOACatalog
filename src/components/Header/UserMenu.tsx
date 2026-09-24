@@ -47,8 +47,9 @@ const UserMenu: React.FC<UserMenuProps> = ({ currentUser, isMobile, isBelow400px
   const userInitial = currentUser?.username?.charAt(0).toUpperCase();
   const userAvatarUrl = currentUser?.avatar ? pb.files.getURL(currentUser, currentUser.avatar, { thumb: '50x50' }) : undefined;
 
-  const avatarSize = isMobile ? (isBelow400px ? 20 : 22) : 24;
-  const buttonPaddingValue = isMobile ? (isBelow400px ? '4px' : '5px') : '6px';
+  // Button box = the header's icon buttons (38px, 32px below 400px). Mirrored in src/prepaint.
+  const avatarSize = isBelow400px ? 24 : 28;
+  const buttonPaddingValue = isBelow400px ? '4px' : '5px';
 
   return (
     <>

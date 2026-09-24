@@ -60,7 +60,13 @@ const CSS = [
   `.pp-grow{flex-grow:1}`,
   `.pp-ib{flex-shrink:0;padding:8px;display:flex;color:${TEXT}}`,
   `.pp-ib svg{width:1.4rem;height:1.4rem}`,
-  `.pp-av{width:32px;height:32px;border-radius:50%;background:#555;margin:0 3px;flex-shrink:0;background-size:cover;background-position:center}`,
+  // UserMenu: Button (p 5 / 4 below 400 / 5px 8px from sm) whose startIcon avatar has MUI's -4px
+  // margin-left; the username shows from sm.
+  `.pp-ub{display:flex;align-items:center;flex-shrink:0;padding:5px;color:${TEXT}}`,
+  `.pp-av{width:28px;height:28px;margin-left:-4px;border-radius:50%;background:#757575 center/cover;color:#101010;font-size:.8rem;font-weight:500;display:flex;align-items:center;justify-content:center}`,
+  `.pp-un{display:none;margin-left:8px;font-size:.875rem;font-weight:500;letter-spacing:.02857em;line-height:1.5;white-space:nowrap}`,
+  `@media(max-width:399px){.pp-ub{padding:4px}.pp-av{width:24px;height:24px;font-size:.7rem}}`,
+  `@media(min-width:${SM}px){.pp-ub{padding:5px 8px}.pp-un{display:inline}}`,
   // Filter switch (FilterSwitch.tsx): phone = 76×26 track with a pill thumb carrying the mode name;
   // <400px = 70×22; ≥600px = "SFW" 70×28 round thumb "NSFW".
   `.pp-sw{display:flex;align-items:center;gap:6px;flex-shrink:0;font-size:12px;font-weight:500;color:#9e9e9e}`,
@@ -174,6 +180,7 @@ interface AuthRecord {
   id?: string;
   collectionId?: string;
   avatar?: string;
+  username?: string;
   blocked_games?: string[];
   blocked_authors?: string[];
   blocked_tags?: string[];
@@ -190,9 +197,10 @@ function header(mode: FeedMode, user: AuthRecord | null): string {
   // ShoutboxButton renders only with the cached feature flag '1'.
   let chatOn = false;
   try { chatOn = localStorage.getItem('shoutbox_enabled') === '1'; } catch { /* off */ }
+  // Same thumb URL as UserMenu, so the browser reuses the download.
   const avatar = user?.avatar && user.id
-    ? ` style="background-image:url('/api/files/${esc(user.collectionId || '_pb_users_auth_')}/${esc(user.id)}/${esc(user.avatar)}?thumb=100x100')"`
-    : '';
+    ? `<div class="pp-av" style="background-image:url('/api/files/${esc(user.collectionId || '_pb_users_auth_')}/${esc(user.id)}/${esc(user.avatar)}?thumb=50x50')"></div>`
+    : user?.username ? `<div class="pp-av">${esc(user.username.charAt(0).toUpperCase())}</div>` : '';
   return `<header class="pp-bar"><div class="pp-tb">`
     + `<div class="pp-logo">CYOA.CAFE</div><div class="pp-grow"></div>`
     + `<div class="pp-sw"><span class="pp-sw-l">SFW</span><div class="pp-trk">`
@@ -201,26 +209,28 @@ function header(mode: FeedMode, user: AuthRecord | null): string {
     + `<div class="pp-ib">${icon('search')}</div><div class="pp-ib">${icon('add')}</div>`
     + (chatOn ? `<div class="pp-ib">${icon('chat')}</div>` : '')
     + (user
-      ? `<div class="pp-ib">${icon('bell')}</div><div class="pp-av"${avatar}></div>`
+      ? `<div class="pp-ib">${icon('bell')}</div><div class="pp-ub">${avatar}<span class="pp-un">${esc(user.username)}</span></div>`
       : `<div class="pp-ib">${icon('login')}</div><div class="pp-ib">${icon('more')}</div>`)
     + `</div></header>`;
 }
 
-function modeControls(): string {
+function modeControls(signedIn: boolean): string {
   const ib = (n: string, on = false) => `<div class="pp-b${on ? ' on' : ''}">${icon(n)}</div>`;
   const tb = (t: string, on = false) => `<div class="pp-b t${on ? ' on' : ''}">${t}</div>`;
   // Default feed: no order button lit, period "All", format "All formats".
   return `<div class="pp-mc">`
     + `<div class="pp-g">${ib('newest')}${ib('top')}${ib('comment')}${ib('shuffle')}</div><div class="pp-dv"></div>`
     + `<div class="pp-g">${tb('Month')}${tb('Year')}${tb('All', true)}</div><div class="pp-dv"></div>`
-    + `<div class="pp-g">${ib('apps', true)}${ib('image')}${ib('touch')}</div></div>`;
+    + `<div class="pp-g">${ib('apps', true)}${ib('image')}${ib('touch')}</div>`
+    // "Only what I liked" (signed-in only), standalone after the format group.
+    + (signedIn ? ib('favorite') : '') + `</div>`;
 }
 
-function panel(): string {
+function panel(signedIn: boolean): string {
   const field = (ic: string, text: string, cls = '') => `<div class="pp-f${cls}">${icon(ic)}<span>${text}</span></div>`;
-  return `<div class="pp-pn">${field('search', 'Title, author or tag...', ' pp-fb')}${modeControls()}</div>`
+  return `<div class="pp-pn">${field('search', 'Title, author or tag...', ' pp-fb')}${modeControls(signedIn)}</div>`
     + `<div class="pp-pw"><div class="pp-r3">${field('title', 'Title...')}${field('tag', 'Tags (e.g. RPG, -Horror)')}${field('author', 'Authors...')}</div>`
-    + `<div class="pp-r1">${field('psychology', '...or describe what you want and search by meaning')}</div>${modeControls()}</div>`;
+    + `<div class="pp-r1">${field('psychology', '...or describe what you want and search by meaning')}</div>${modeControls(signedIn)}</div>`;
 }
 
 function card(g: SeedGame, pinned: boolean): string {
@@ -268,7 +278,7 @@ function run(): void {
       ? seed.pins.map((g) => card(g, true)).join('') + seed.games.map((g) => card(g, false)).join('')
       // No snapshot (dev, old cache): skeletons hold the grid's height so nothing jumps.
       : '<div class="pp-c pp-sk"></div>'.repeat(10);
-    const home = `<div class="pp-home">${panel()}<div class="pp-grid">${cards}</div></div>`;
+    const home = `<div class="pp-home">${panel(!!user)}<div class="pp-grid">${cards}</div></div>`;
     body = `<main class="pp-main">${home}</main>`;
     // React replaces #root before the lazy HomePage chunk arrives; App's route Suspense fallback
     // re-shows this markup instead of a spinner (components/PrepaintFallback.tsx).

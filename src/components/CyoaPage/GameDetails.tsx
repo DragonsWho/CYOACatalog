@@ -43,11 +43,41 @@ const DETAIL_IMG_WIDTHS = [400, 600, 800, 1200];
 const DETAIL_IMG_WIDTH = 600;
 const DETAIL_IMG_SIZES = '(max-width: 900px) 96vw, 580px';
 
+// Data the Go shell inlines for /game/<slug> (game_inline.go): same shapes as the queries below, so
+// the page renders at mount instead of after two round trips. Keyed by the canonical URL key.
+interface InlineGame {
+  key: string;
+  game: Game;
+  related: GameRelationship[];
+  variants: GameVariant[];
+}
+
+// Order-insensitive deep equality for API-shaped JSON (Go and PocketBase emit keys in different order).
+function sameData(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown): unknown =>
+    Array.isArray(v) ? v.map(norm)
+      : v && typeof v === 'object'
+        ? Object.fromEntries(Object.keys(v as object).sort().map((k) => [k, norm((v as Record<string, unknown>)[k])]))
+        : v;
+  return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+}
+
+function peekInlineGame(key: string | undefined): InlineGame | null {
+  const g = (window as unknown as { __GAME__?: InlineGame }).__GAME__;
+  return key && g && g.key === key && g.game ? g : null;
+}
+
 export default function GameDetails({ filterMode }: { filterMode: FilterMode }) {
-  const [game, setGame] = useState<Game | null>(null);
-  const [relatedGames, setRelatedGames] = useState<GameRelationship[]>([]);
-  const [variants, setVariants] = useState<GameVariant[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const { id } = useParams<{ id: string }>();
+  // Inline data for the first render only; the fetch effect then revalidates it quietly (the shell
+  // is edge-cached for an hour, so an edit could otherwise hide behind it).
+  const [inline] = useState(() => peekInlineGame(id));
+  const [game, setGame] = useState<Game | null>(inline?.game ?? null);
+  const [relatedGames, setRelatedGames] = useState<GameRelationship[]>(inline?.related ?? []);
+  const [variants, setVariants] = useState<GameVariant[]>(inline?.variants ?? []);
+  const [loading, setLoading] = useState<boolean>(!inline);
+  const gameRef = useRef<Game | null>(game);
+  gameRef.current = game;
   const [imageSrc, setImageSrc] = useState<string>('');
   const [imageSrcSet, setImageSrcSet] = useState<string | undefined>(undefined);
   // Tag edit mode is shared by TagDisplay and the toggle button in GameAdditionalInfo's icon row.
@@ -62,7 +92,6 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
   // Build string awaiting hand-off to the shim (from a build card "Load"); cleared once pushed.
   const [pendingLoadCode, setPendingLoadCode] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -211,10 +240,17 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
           console.error('Game id/slug is missing');
           return;
       }
-      setLoading(true);
-      setGame(null);
-      setRelatedGames([]);
-      setVariants([]);
+      // Already showing this game (inline data): refresh in place — no spinner, no blanking, and
+      // state is replaced only if something actually changed (a new object would re-run the cover
+      // effect and flash the blur).
+      const shown = gameRef.current;
+      const quiet = reloadKey === 0 && shown !== null && gameCanonicalKey(shown) === id;
+      if (!quiet) {
+        setLoading(true);
+        setGame(null);
+        setRelatedGames([]);
+        setVariants([]);
+      }
 
       try {
         // Resolve the URL segment (legacy id / current slug / retired slug) to the canonical game
@@ -255,11 +291,13 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
         ]);
         if (cancelled) return;
 
-        setGame(gameData);
         const validOutgoing = Array.isArray(outgoingRelationships) ? outgoingRelationships : [];
         const validIncoming = Array.isArray(incomingRelationships) ? incomingRelationships : [];
-        setRelatedGames([...validOutgoing, ...validIncoming]);
-        setVariants(Array.isArray(variantsData) ? variantsData : []);
+        const nextRelated = [...validOutgoing, ...validIncoming];
+        const nextVariants = Array.isArray(variantsData) ? variantsData : [];
+        if (!quiet || !sameData(gameData, shown)) setGame(gameData);
+        setRelatedGames((prev) => (quiet && sameData(prev, nextRelated) ? prev : nextRelated));
+        setVariants((prev) => (quiet && sameData(prev, nextVariants) ? prev : nextVariants));
 
         // Canonical redirect: legacy ids and retired slugs → /game/<slug>, preserving query
         // (?lang=…) and hash. Client-side replace; the guard above prevents refetching.
@@ -381,6 +419,12 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
         orig.onerror = () => console.error('Failed to load full image, keeping base64');
         orig.src = imageURL;
       };
+      // Same srcset/sizes as the <img>: the probe fetches exactly the candidate the <img> will use
+      // (and the one the shell preloads) — a bare 600w probe meant a second download on 2-3x phones.
+      if (transformedSrcSet) {
+        img.sizes = DETAIL_IMG_SIZES;
+        img.srcset = transformedSrcSet;
+      }
       img.src = transformedURL;
     } else if (imageURL && !coverRecord.image_base64) {
       showFull();

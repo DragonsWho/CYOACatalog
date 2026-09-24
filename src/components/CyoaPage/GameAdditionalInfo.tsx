@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useContext } from 'react';
 import { Box, Typography, CircularProgress, Tooltip, IconButton, Menu, MenuItem, ListItemText, Snackbar, Button } from '@mui/material';
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import LikeHeart from './LikeHeart';
 import { useTheme } from '@mui/material/styles';
 import { AuthContext, authedFetch, gamesCollection, usersCollection, pb, GameRelationship } from '../../pocketbase/pocketbase';
 import { analytics } from '../../utils/analytics';
@@ -108,6 +108,8 @@ export default function GameAdditionalInfo({
   const theme = useTheme();
   const navigate = useNavigate();
   const [isUpvoted, setIsUpvoted] = useState(false);
+  // The pop plays only on the user's own click, not when a saved like loads.
+  const [likeClicked, setLikeClicked] = useState(false);
   const [localUpvoteCount, setLocalUpvoteCount] = useState(initialUpvoteCount || 0);
   const [isLoading, setIsLoading] = useState(false);
   const [showLoader, setShowLoader] = useState(false);
@@ -161,6 +163,7 @@ export default function GameAdditionalInfo({
 
     const newIsUpvoted = !isUpvoted;
     setIsUpvoted(newIsUpvoted);
+    setLikeClicked(true);
     setLocalUpvoteCount((prevCount) => (newIsUpvoted ? prevCount + 1 : Math.max(0, prevCount - 1)));
     analytics.gameUpvote({ game_id: gameId, active: newIsUpvoted });
 
@@ -243,7 +246,6 @@ export default function GameAdditionalInfo({
   // show only the hosting button.
   const originalDuplicatesHosted = isInternalHost(gameUrl) && isInternalHost(originalLink);
 
-  const heartColor = theme.palette.secondary.main;
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -268,7 +270,7 @@ export default function GameAdditionalInfo({
                 >
                 {showLoader && <CircularProgress size={24} color="inherit" sx={{ position: 'absolute', zIndex: 1 }} />}
                 <Box sx={{ width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: showLoader ? 0 : 1 }}>
-                    <DotLottieReact key={isUpvoted ? 'upvoted' : 'not-upvoted'} src="/like.lottie" loop={false} autoplay={isUpvoted} style={{ width: '72px', height: '72px', color: heartColor }} />
+                    <LikeHeart key={isUpvoted ? 'upvoted' : 'not-upvoted'} liked={isUpvoted} animate={likeClicked} />
                 </Box>
                 </IconButton>
             </span>

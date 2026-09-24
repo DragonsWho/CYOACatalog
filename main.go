@@ -1909,6 +1909,7 @@ func main() {
 			appBuild = buildAppBuild(distDirFS)
 			log.Printf("Info: frontend build marker: %q", appBuild)
 
+			routePreloads := buildRoutePreloads(distDirFS)
 			earlyHintsLink := buildEarlyHintsLink(distDirFS)
 			if earlyHintsLink != "" {
 				log.Printf("Info: Early Hints Link header active: %s", earlyHintsLink)
@@ -1997,6 +1998,19 @@ func main() {
 					return c.Redirect(http.StatusMovedPermanently, redirectTo)
 				}
 				doc = strings.Replace(doc, "</head>", metaBlock+"</head>", 1)
+				// The route's lazy chunk downloads alongside the main bundle (route_preload.go).
+				if p == "" {
+					doc = strings.Replace(doc, "</head>", routePreloads["home"]+"</head>", 1)
+				} else if gamePathRe.MatchString(p) {
+					doc = strings.Replace(doc, "</head>", routePreloads["game"]+"</head>", 1)
+				}
+				// Game pages: the game's data + cover preload ride along (game_inline.go).
+				if m := gamePathRe.FindStringSubmatch(p); m != nil && !notFound {
+					if rec := findGameByURLKey(app, m[1]); rec != nil {
+						withPreload := !strings.Contains(c.Request.URL.RawQuery, "lang=")
+						doc = strings.Replace(doc, "</head>", buildGameInline(app, rec, withPreload)+"</head>", 1)
+					}
+				}
 				doc = strings.Replace(doc, "<title>CYOA.CAFE</title>",
 					"<title>"+html.EscapeString(pageTitle)+"</title>", 1)
 				// Edge TTL is decided here (s-maxage); CF rule R6 respects it and overrides the browser TTL

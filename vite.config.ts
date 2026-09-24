@@ -99,6 +99,9 @@ server: {
   },
 
   build: {
+    // Read by Go (route_preload.go) to modulepreload a route's lazy chunk with the HTML. Not under
+    // .vite/: //go:embed dist skips dot-directories.
+    manifest: 'route-manifest.json',
     commonjsOptions: {
       // TODO: remove after react-comments-section is gone (it randomly calls require('uuid'))
       transformMixedEsModules: true,

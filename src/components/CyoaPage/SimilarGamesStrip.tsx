@@ -190,12 +190,31 @@ export default function SimilarGamesStrip({ game, filterMode }: { game: Game; fi
     writeView(v);
   };
 
+  // The strip mounts with the page so its skeleton holds the exact height (a fixed placeholder that
+  // later grew pushed Comments and the footer down — CLS); the requests wait until it nears the
+  // viewport. No skeleton element (collapsed view) → fetch right away, it's one small row.
+  const [skeletonEl, setSkeletonEl] = useState<HTMLElement | null>(null);
+  const [near, setNear] = useState(false);
+  useEffect(() => {
+    if (near) return;
+    if (view === 'collapsed' || typeof IntersectionObserver === 'undefined') {
+      setNear(true);
+      return;
+    }
+    if (!skeletonEl) return;
+    const io = new IntersectionObserver((e) => {
+      if (e.some((x) => x.isIntersecting)) setNear(true);
+    }, { rootMargin: '300px' });
+    io.observe(skeletonEl);
+    return () => io.disconnect();
+  }, [skeletonEl, near, view]);
+
   useEffect(() => {
     let cancelled = false;
 
     const cached = readCachedItems(game.id, filterMode);
     setItems(cached);
-    if (cached) return;
+    if (cached || !near) return;
 
     (async () => {
       try {
@@ -318,7 +337,7 @@ export default function SimilarGamesStrip({ game, filterMode }: { game: Game; fi
     return () => {
       cancelled = true;
     };
-  }, [game.id, game.expand?.tags, filterMode]);
+  }, [game.id, game.expand?.tags, filterMode, near]);
 
   // Same section heading as "Description" (GameDetails): h6, centered, opacity .9.
   const collapsed = view === 'collapsed';
@@ -407,7 +426,7 @@ export default function SimilarGamesStrip({ game, filterMode }: { game: Game; fi
     // stay silent until the response.
     if (collapsed) return null;
     return (
-      <Box sx={{ mt: 3 }}>
+      <Box ref={setSkeletonEl} sx={{ mt: 3 }}>
         {heading}
         <Box sx={gridSx}>
           {Array.from({ length: MAX_ITEMS }).map((_, i) => (

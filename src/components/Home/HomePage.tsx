@@ -743,9 +743,11 @@ export default function HomePage({
     (node: HTMLElement | null) => {
       if (loading || !hasMore || seed !== 'none') return;
       observerRef.current?.disconnect();
+      // Next page ~1.5 screens ahead: fetched only once the last card was on screen, the footer
+      // showed up first and the new cards then pushed it away (a visible layout shift).
       observerRef.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) setPage((p) => p + 1);
-      });
+      }, { rootMargin: '0px 0px 1500px 0px' });
       if (node) observerRef.current.observe(node);
     },
     [loading, hasMore, seed],

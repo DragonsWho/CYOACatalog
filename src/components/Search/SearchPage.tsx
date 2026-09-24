@@ -843,7 +843,8 @@ useEffect(() => {
   const lastGameElementRef = useCallback((node: HTMLElement | null) => {
       if (loading || !hasMore || ['semantic','random','similar'].includes(currentTab)) return;
       if (observer.current) observer.current.disconnect();
-      observer.current = new IntersectionObserver(entries => { if (entries[0].isIntersecting) setPage(p => p + 1); });
+      // ~1.5 screens ahead, else the footer shows and then gets pushed away (layout shift).
+      observer.current = new IntersectionObserver(entries => { if (entries[0].isIntersecting) setPage(p => p + 1); }, { rootMargin: '0px 0px 1500px 0px' });
       if (node) observer.current.observe(node);
   }, [loading, hasMore, currentTab]);
 

@@ -656,14 +656,15 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
         "Other games" before the comments: after reading the description and trying the game, offer
         the next one. Also the only links from the card to the catalog — see SimilarGamesStrip.
       */}
-      <LazyMount minHeight={200}>
-        <Suspense fallback={<Box sx={{ minHeight: 200 }} />}>
-          <SimilarGamesStrip game={game} filterMode={filterMode} />
-        </Suspense>
-      </LazyMount>
+      {/* Mounted at once: its skeleton reserves the exact height; it fetches only when near. */}
+      <Suspense fallback={null}>
+        <SimilarGamesStrip game={game} filterMode={filterMode} />
+      </Suspense>
 
       {/* Straight away when the link targets a comment or summons a moderator (?call=mod). */}
-      <LazyMount eager={/^#comment-/.test(window.location.hash) || searchParams.get('call') === 'mod'}>
+      {/* 800px ahead: Comments (height unknown until loaded) mount while the footer below is still
+          off-screen, so its move isn't a visible layout shift. */}
+      <LazyMount margin="800px" eager={/^#comment-/.test(window.location.hash) || searchParams.get('call') === 'mod'}>
         <Suspense fallback={null}>
           <Box>
             <Comments game={game} />

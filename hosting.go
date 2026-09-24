@@ -2480,6 +2480,8 @@ func registerHostingRoutes(app *pocketbase.PocketBase) {
 			}
 			hs, _ := ensureHostingSlug(app, user)
 			target := fmt.Sprintf("https://%s.%s/%s/%s", hs, baseDomain, slug, filePath)
+			// Edge-cached like the SPA shell (CF rule R6 respects origin TTLs).
+			e.Response.Header().Set("Cache-Control", "public, max-age=3600")
 			return e.Redirect(http.StatusMovedPermanently, target)
 		})
 

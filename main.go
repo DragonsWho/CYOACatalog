@@ -1988,7 +1988,7 @@ func main() {
 				if _, _, snippet := tagDict.get(); snippet != "" {
 					doc = strings.Replace(doc, "</head>", snippet+"</head>", 1)
 				}
-				metaBlock, pageTitle, cacheable, notFound, redirectTo := buildSocialMeta(app, p)
+				metaBlock, pageTitle, _, notFound, redirectTo := buildSocialMeta(app, p)
 				if redirectTo != "" {
 					if q := c.Request.URL.RawQuery; q != "" {
 						redirectTo += "?" + q
@@ -1999,9 +1999,15 @@ func main() {
 				doc = strings.Replace(doc, "</head>", metaBlock+"</head>", 1)
 				doc = strings.Replace(doc, "<title>CYOA.CAFE</title>",
 					"<title>"+html.EscapeString(pageTitle)+"</title>", 1)
-				if cacheable && !notFound {
-					c.Response.Header().Set("Cache-Control", "public, max-age=3600")
+				// Edge TTL is decided here (s-maxage); CF rule R6 respects it and overrides the browser TTL
+				// (2 min). Home and search without a query: 1 day — catalogPurge purges exactly those URLs
+				// whenever the snapshot changes, and deploys purge via `make cf-purge`. Everything else
+				// (other pages, query variants that no purge reaches): 1 hour.
+				edgeTTL := 3600
+				if (p == "" || p == "search") && c.Request.URL.RawQuery == "" {
+					edgeTTL = 86400
 				}
+				c.Response.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=120, s-maxage=%d", edgeTTL))
 				// X-Robots-Tag header alongside <meta robots>: covers header-only crawlers and survives any
 				// edge HTML rewriting.
 				if isNoindexPath(p) || notFound {
@@ -2009,15 +2015,13 @@ func main() {
 				}
 				c.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
 				// A missing page says so in the status line (the only signal crawlers trust); the shell still
-				// goes out so the frontend catch-all walks the human home. no-store is only the origin's
-				// intent: CF rule "[R7] SPA HTML" overrides it (edge 1h, browser 120s), so a 404 IS pinned at
-				// the edge for an hour (verified). What prevents a forgotten route from 404ing is
-				// TestKnownAppPathsMatchFrontendRoutes, which fails the build. Edge-caching junk-path 404s is
-				// otherwise a feature: scanners never reach origin.
+				// goes out so the frontend catch-all walks the human home. What prevents a forgotten route from
+				// 404ing is TestKnownAppPathsMatchFrontendRoutes, which fails the build.
 				status := http.StatusOK
 				if notFound {
 					status = http.StatusNotFound
-					c.Response.Header().Set("Cache-Control", "no-store")
+					// Junk-path 404s stay pinned at the edge for an hour (scanners never reach origin).
+					c.Response.Header().Set("Cache-Control", "public, max-age=0, s-maxage=3600")
 				}
 				c.Response.WriteHeader(status)
 				_, werr := c.Response.Write([]byte(doc))

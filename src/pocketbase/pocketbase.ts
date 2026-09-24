@@ -312,6 +312,11 @@ function readLocalPinnedSeen(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(PINNED_SEEN_LS_KEY) || '[]')); }
   catch { return new Set(); }
 }
+// Synchronous best guess of dismissed pins (the local mirror; logged-in users' server set is
+// mirrored here too) — lets the home feed seed its first paint without a pin jump.
+export function peekPinnedSeen(): Set<string> {
+  return readLocalPinnedSeen();
+}
 function writeLocalPinnedSeen(ids: Set<string>) {
   try { localStorage.setItem(PINNED_SEEN_LS_KEY, JSON.stringify([...ids].slice(-500))); }
   catch { }
@@ -321,11 +326,10 @@ function writeLocalPinnedSeen(ids: Set<string>) {
 // — swallowed. Must never break opening the game: try/catch, fire-and-forget.
 export async function markPinnedSeen(gameId: string): Promise<void> {
   const uid = pb.authStore.model?.id;
+  const s = readLocalPinnedSeen(); s.add(gameId); writeLocalPinnedSeen(s);
   if (pb.authStore.isValid && uid) {
     try { await pinnedSeenCollection.create({ user: uid, game: gameId }); }
     catch { }
-  } else {
-    const s = readLocalPinnedSeen(); s.add(gameId); writeLocalPinnedSeen(s);
   }
 }
 
@@ -340,7 +344,13 @@ export async function loadPinnedSeen(candidateIds: string[]): Promise<Set<string
       const rows = await pinnedSeenCollection.getFullList({
         filter: `user = "${uid}" && (${inClause})`, fields: 'game',
       });
-      return new Set(rows.map((r) => r.game));
+      const seen = new Set<string>(rows.map((r) => r.game));
+      if (seen.size) {
+        const local = readLocalPinnedSeen();
+        seen.forEach((id) => local.add(id));
+        writeLocalPinnedSeen(local);
+      }
+      return seen;
     } catch { return new Set(); }
   }
   return readLocalPinnedSeen();

@@ -7,6 +7,7 @@
 // mode — never silently disable the filter (the stale-tagMap trap).
 
 import { tagsCollectionPublic } from '../pocketbase/pocketbase';
+import { inlineRatingTagIds } from './tagDictionary';
 
 export interface RatingTagIds {
   nsfw: string | null;
@@ -43,6 +44,9 @@ function writeCache(ids: RatingTagIds) {
 // NSFW/Extreme tag ids. Never throws: on any failure returns an empty pair and the caller relies on
 // the name filter.
 export function getRatingTagIds(): Promise<RatingTagIds> {
+  // Inlined into the HTML by Go (tag_dictionary.go) — no request at all.
+  const inline = inlineRatingTagIds();
+  if (inline) return Promise.resolve(inline);
   const cached = readCache();
   if (cached) return Promise.resolve(cached);
   if (inflight) return inflight;

@@ -67,6 +67,8 @@ import UserMenu from './UserMenu';
 import NotificationBell from '../Notifications/NotificationBell';
 import { SEARCH_FILTER_EVENT, SEARCH_OPEN_EVENT, type SearchFilterDetail, requestSearchHome } from '../../utils/searchTagBus';
 import { getUsedTagIds } from '../../utils/tagUsage';
+import { getRatingTagIds } from '../../utils/ratingTags';
+import { inlineRatingTagIds } from '../../utils/tagDictionary';
 import { FORUM_URL } from './externalLinks';
 import { thinScrollbar } from '../../styles/scrollbar';
 
@@ -376,19 +378,15 @@ const Header: React.FC<HeaderProps> = ({
   }, [searchOpen, dismissSearch]);
 
   // Live typeahead (3 anonymous cacheable queries). SFW/NSFW gate for title suggestions like
-  // SearchPage (sfw: exclude nsfw/extreme-tagged; nsfw: only those; all: none). The two tag ids are
-  // fetched once anonymously. `~` matching + client-side exact pick = case-insensitive without the
-  // full tag list.
-  const [gateTags, setGateTags] = useState<{ nsfw: string | null; extreme: string | null } | null>(null);
+  // SearchPage (sfw: exclude nsfw/extreme-tagged; nsfw: only those; all: none). The two tag ids
+  // come inlined in the HTML (utils/tagDictionary), else one cached lookup.
+  const [gateTags, setGateTags] = useState<{ nsfw: string | null; extreme: string | null } | null>(
+    () => inlineRatingTagIds(),
+  );
   useEffect(() => {
-    tagsCollectionPublic
-      .getList(1, 10, { filter: 'name ~ "nsfw" || name ~ "extreme"', fields: 'id,name', skipTotal: true })
-      .then((r) => {
-        const items = r.items as unknown as NameHit[];
-        const idOf = (n: string) => items.find((t) => t.name.toLowerCase() === n)?.id ?? null;
-        setGateTags({ nsfw: idOf('nsfw'), extreme: idOf('extreme') });
-      })
-      .catch(() => setGateTags({ nsfw: null, extreme: null }));
+    if (gateTags) return;
+    getRatingTagIds().then(setGateTags);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Ids of used tags — don't suggest empty (0-game) tags.

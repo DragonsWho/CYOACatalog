@@ -116,6 +116,7 @@ function GameCard({ game, variant = 'standard', relevanceScore, priority = false
 
   const hasBase64 = initialSrc !== transparentPixel;
   const [finalImageDisplayed, setFinalImageDisplayed] = useState<boolean>(false);
+  const [fullLoaded, setFullLoaded] = useState<boolean>(false);
   // Start fetching the full cover when the card nears the viewport; first-screen cards start in
   // view.
   const loadNow = priority || eager;
@@ -199,9 +200,9 @@ function GameCard({ game, variant = 'standard', relevanceScore, priority = false
           position: 'relative',
           overflow: 'hidden',
           // The feed isn't virtualized: after a few infinite-scroll pages hundreds of cards sit in
-          // the DOM, each with up to ~20 backdrop-filters (title/description panels + blur per tag
-          // chip), recomputed every scroll frame — jank on weak phones. content-visibility skips
-          // offscreen cards entirely, blurs included. Clipping is safe: the card is
+          // the DOM, each with backdrop-filter glass panels (.cc-glass, index.css) recomputed every
+          // scroll frame — jank on weak phones. content-visibility skips offscreen cards entirely,
+          // blurs included. Clipping is safe: the card is
           // overflow:hidden, children are absolutely positioned, hover-scale applies to the
           // container itself.
           contentVisibility: 'auto',
@@ -215,6 +216,7 @@ function GameCard({ game, variant = 'standard', relevanceScore, priority = false
 
           {!isShowingBase64 && (
             <Box
+              className="cc-card-noise"
               sx={{
                 position: 'absolute',
                 top: 0, left: 0, width: '100%', height: '100%',
@@ -226,32 +228,53 @@ function GameCard({ game, variant = 'standard', relevanceScore, priority = false
             />
           )}
 
-          <img
-            src={displaySrc}
-            srcSet={displaySrcSet}
-            sizes={displaySizes}
-            alt={game.title || 'Game image'}
-            loading={loadNow ? 'eager' : 'lazy'}
-            fetchPriority={priority ? 'high' : 'auto'}
-            onLoad={() => { if (showFull) setFinalImageDisplayed(true); }}
-            onError={() => {
-              if (showFull && useTransformed) {
-                if (finalImageURL) imageCache.set(finalImageURL, 'original');
-                setUseTransformed(false);
-              } else {
-                setFinalImageDisplayed(true);
-              }
-            }}
-            style={{
-              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-              objectFit: 'cover',
-              objectPosition: 'center',
-              transition: 'opacity 0.3s ease-in-out, filter 0.3s ease-in-out',
-              filter: isShowingBase64 ? 'blur(4px)' : 'none',
-              display: displaySrc === transparentPixel ? 'none' : 'block',
-              zIndex: 1,
-            }}
-          />
+          {/* Blur placeholder stays underneath until the full cover has faded in on top. It used to
+              be swapped out the moment the full URL was assigned, so first-screen cards (which
+              request the full cover immediately) sat empty until it arrived. */}
+          {isShowingBase64 && (
+            <img
+              src={initialSrc}
+              alt=""
+              aria-hidden
+              style={{
+                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center',
+                filter: 'blur(4px)',
+                zIndex: 1,
+              }}
+            />
+          )}
+
+          {showFull && (
+            <img
+              src={displaySrc}
+              srcSet={displaySrcSet}
+              sizes={displaySizes}
+              alt={game.title || 'Game image'}
+              loading={loadNow ? 'eager' : 'lazy'}
+              fetchPriority={priority ? 'high' : 'auto'}
+              onLoad={() => setFullLoaded(true)}
+              onTransitionEnd={() => { if (fullLoaded) setFinalImageDisplayed(true); }}
+              onError={() => {
+                if (useTransformed) {
+                  if (finalImageURL) imageCache.set(finalImageURL, 'original');
+                  setUseTransformed(false);
+                } else {
+                  setFinalImageDisplayed(true);
+                }
+              }}
+              style={{
+                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center',
+                // No placeholder → nothing to fade over, show as it streams in.
+                opacity: fullLoaded || !hasBase64 ? 1 : 0,
+                transition: 'opacity 0.3s ease-in-out',
+                zIndex: 1,
+              }}
+            />
+          )}
 
           <Box sx={{
               position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
@@ -297,7 +320,6 @@ function GameCard({ game, variant = 'standard', relevanceScore, priority = false
                     backgroundColor: relevanceScore > 80 ? 'rgba(46, 125, 50, 0.9)' : 'rgba(255, 143, 0, 0.9)',
                     color: '#fff',
                     fontWeight: 'bold',
-                    backdropFilter: 'blur(4px)',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
                     border: '1px solid rgba(255,255,255,0.1)'
                  }}
@@ -319,7 +341,6 @@ function GameCard({ game, variant = 'standard', relevanceScore, priority = false
                   // Dark-green text on light green: ~7.5:1 contrast; white was ~2:1, unreadable.
                   color: '#0b3d12',
                   fontWeight: 'bold',
-                  backdropFilter: 'blur(4px)',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
                   border: '1px solid rgba(255,255,255,0.25)',
                 }}
@@ -343,7 +364,6 @@ function GameCard({ game, variant = 'standard', relevanceScore, priority = false
                   color: '#ffffff',
                   textShadow: '0px 1px 2px rgba(0,0,0,0.8)',
                   fontWeight: 'bold',
-                  backdropFilter: 'blur(2px)',
                 }}
               />
             </Box>
@@ -372,6 +392,7 @@ function GameCard({ game, variant = 'standard', relevanceScore, priority = false
                <Box sx={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
 
                  <Box
+                   className="cc-glass"
                    sx={{
                      position: 'absolute',
                      top: '-15%', bottom: '-15%',
@@ -416,6 +437,7 @@ function GameCard({ game, variant = 'standard', relevanceScore, priority = false
                    }}
                  >
                    <Box
+                     className="cc-glass"
                      sx={{
                        position: 'absolute',
                        top: -10, left: -10, right: -10, bottom: -10,
@@ -476,11 +498,6 @@ function GameCard({ game, variant = 'standard', relevanceScore, priority = false
                                 backgroundColor: chipColor,
                                 color: isGold ? GOLD_ACCENT : '#ffffff',
                                 textShadow: '0px 1px 2px rgba(0,0,0,0.8)',
-                                // Chip backdrop blur removed on phones: up to TAG_DISPLAY_LIMIT
-                                // chips, each a separate layer recomputed every scroll frame — this
-                                // batch is what janks the feed on weak mobile GPUs; under the solid
-                                // chipColor it was barely visible anyway. Desktop unchanged.
-                                backdropFilter: { xs: 'none', md: 'blur(2px)' },
                                 fontSize: CARD_CHIP_FONT,
                                 height: CARD_CHIP_HEIGHT,
                                 ...(isGold && {

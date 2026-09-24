@@ -52,11 +52,9 @@ import {
   refreshAuth,
   User,
   Tag,
-  tagsCollectionPublic,
-  tagCategoriesCollectionPublic,
 } from './pocketbase/pocketbase';
 import { fetchMyBuiltGameIds } from './components/CyoaPage/Comments/buildsApi';
-import { getUsedTagIds } from './utils/tagUsage';
+import { loadTagDictionary, peekTagDictionary, tagCategoryMapOf } from './utils/tagDictionary';
 import { BUILD_POSTED_EVENT } from './utils/cheat';
 import { analytics } from './utils/analytics';
 import { fetchMyModPerms } from './utils/modPerms';
@@ -137,12 +135,8 @@ export default function App() {
 
   const [tags, setTags] = useState<string[]>([]);
   const [tagCategoryMap, setTagCategoryMap] = useState<Map<string, string>>(() => {
-    try {
-      const cached = localStorage.getItem('tagCategoryMap_v1');
-      return cached ? new Map(JSON.parse(cached) as [string, string][]) : new Map();
-    } catch {
-      return new Map();
-    }
+    const dict = peekTagDictionary();
+    return dict ? tagCategoryMapOf(dict) : new Map();
   });
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
@@ -289,59 +283,20 @@ export default function App() {
     }
   };
 
+  // Tag names for search options (0-game tags excluded — they'd always return 0 results) and the
+  // global tagId → categoryName map (TagCategoryContext; lets catalog queries skip the per-game
+  // taxonomy expand). Both from the one tag dictionary (utils/tagDictionary).
   useEffect(() => {
     let isMounted = true;
-    (async () => {
-      try {
-        // Exclude tags with 0 games from search options (they'd always return 0 results). Curated
-        // categories in Add use another component.
-        const [fetchedTags, usedIds] = await Promise.all([
-          tagsCollectionPublic.getFullList({ sort: 'name', fields: 'id,name' }),
-          getUsedTagIds(),
-        ]);
-        if (isMounted) {
-          const names = usedIds.size
-            ? fetchedTags.filter((t) => usedIds.has(t.id)).map((t) => t.name)
-            : fetchedTags.map((t) => t.name);
-          setTags(names);
-        }
-      } catch (error) {
-        console.error('Error fetching tags:', error);
-      }
-    })();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Global tagId → categoryName map (same taxonomy for every game), shared via TagCategoryContext
-  // so catalog queries can drop the per-game `tags.tag_categories_via_tags` expand. localStorage
-  // 24h, like tagMap_v2 in SearchPage.
-  useEffect(() => {
-    let isMounted = true;
-    const CACHE_KEY = 'tagCategoryMap_v1';
-    const CACHE_TS_KEY = 'tagCategoryMap_v1_updated';
-    const TTL = 24 * 60 * 60 * 1000;
-    (async () => {
-      try {
-        const ts = localStorage.getItem(CACHE_TS_KEY);
-        if (localStorage.getItem(CACHE_KEY) && ts && Date.now() - Number(ts) < TTL) {
-          return;
-        }
-        const categories = await tagCategoriesCollectionPublic.getFullList({ fields: 'name,tags' });
-        const map = new Map<string, string>();
-        for (const category of categories) {
-          for (const tagId of category.tags ?? []) {
-            map.set(tagId, category.name);
-          }
-        }
-        if (isMounted) setTagCategoryMap(map);
-        localStorage.setItem(CACHE_KEY, JSON.stringify([...map]));
-        localStorage.setItem(CACHE_TS_KEY, Date.now().toString());
-      } catch (error) {
-        console.error('Error fetching tag categories:', error);
-      }
-    })();
+    loadTagDictionary()
+      .then((dict) => {
+        if (!isMounted) return;
+        const used = new Set(dict.used);
+        const visible = used.size ? dict.tags.filter((t) => used.has(t.id)) : dict.tags;
+        setTags(visible.map((t) => t.name));
+        setTagCategoryMap(tagCategoryMapOf(dict));
+      })
+      .catch((error) => console.error('Error loading tag dictionary:', error));
     return () => {
       isMounted = false;
     };
@@ -568,6 +523,10 @@ export default function App() {
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
+            // At least a screen tall: while a route chunk / first data loads, the footer then sits
+            // below the fold instead of at the bottom of an empty viewport, jumping down when
+            // content arrives (CLS ~0.17 on home and game pages).
+            ...(chatFullBleed ? null : { minHeight: '100vh' }),
             // minHeight:0 — a flex child won't shrink below its content otherwise, and the feed
             // inside can't scroll.
             ...(chatFullBleed ? { minHeight: 0 } : null),

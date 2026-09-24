@@ -9,8 +9,19 @@ import { Announcement, announcementsCollectionPublic } from '../../pocketbase/po
 
 const DISMISSED_KEY = 'dismissed_announcement_id';
 
+// Go inlines the newest announcement into the catalog HTML (main.go buildCatalogScriptTag) so the
+// banner is there on first paint instead of pushing the grid down when a request returns.
+function inlineAnnouncement(): Announcement | null {
+  const a = (window as unknown as { __ANNOUNCEMENT__?: Announcement | null }).__ANNOUNCEMENT__;
+  try {
+    return a && localStorage.getItem(DISMISSED_KEY) !== a.id ? a : null;
+  } catch {
+    return a ?? null;
+  }
+}
+
 export default function AnnouncementBanner() {
-  const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  const [announcement, setAnnouncement] = useState<Announcement | null>(inlineAnnouncement);
 
   useEffect(() => {
     let mounted = true;
@@ -21,9 +32,8 @@ export default function AnnouncementBanner() {
           fields: 'id,title,body',
         });
         const latest = res.items[0] ?? null;
-        if (mounted && latest && localStorage.getItem(DISMISSED_KEY) !== latest.id) {
-          setAnnouncement(latest);
-        }
+        if (!mounted) return;
+        setAnnouncement(latest && localStorage.getItem(DISMISSED_KEY) !== latest.id ? latest : null);
       } catch {
       }
     })();

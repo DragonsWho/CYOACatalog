@@ -7,6 +7,7 @@ import ModReuploadDialog from '../Hosting/ModReuploadDialog';
 import { Container, Typography, Box, CircularProgress, Grid2, Paper, Snackbar } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import TagDisplay from './TagDisplay';
+import { webpAspect } from '../../utils/webpSize';
 import GameContent from './GameContent';
 import Comments from './Comments/Comments';
 import SimilarGamesStrip from './SimilarGamesStrip';
@@ -168,6 +169,7 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
     () => (activeVariant && activeVariant.image ? activeVariant : game),
     [activeVariant, game],
   );
+  const coverAspect = useMemo(() => webpAspect(coverRecord?.image_base64), [coverRecord]);
 
   // Record for the game body (iframe/static pages): canonical identity kept, but
   // id+collectionId+content from the variant so file URLs resolve correctly.
@@ -460,13 +462,18 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
 
         <Grid2 container spacing={3}>
           <Grid2 size={{ xs: 12, md: 6 }}>
-            {imageSrc && (
+            {(imageSrc || coverAspect) && (
               <Box
                 sx={{
                   width: '100%',
                   // md+: fixed height keeps columns aligned (image letterboxed). Below md: height
-                  // follows the image so it fills the card width.
+                  // follows the image so it fills the card width — reserved up front from the blur
+                  // placeholder's proportions, else tags below jump when the image decodes (CLS).
                   height: { xs: 'auto', md: '500px' },
+                  ...(coverAspect && {
+                    aspectRatio: { xs: String(coverAspect), md: 'auto' },
+                    maxHeight: { xs: '80vh', md: 'none' },
+                  }),
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
@@ -475,7 +482,7 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
                   overflow: 'hidden'
                 }}
               >
-                <Box
+                {imageSrc && <Box
                   component="img"
                   ref={imgRef}
                   src={imageSrc}
@@ -485,14 +492,14 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
                   sx={{
                     display: 'block',
                     width: '100%',
-                    height: { xs: 'auto', md: '100%' },
+                    height: { xs: coverAspect ? '100%' : 'auto', md: '100%' },
                     // Guard very tall images on mobile.
                     maxHeight: { xs: '80vh', md: 'none' },
                     objectFit: 'contain',
                     transition: 'opacity 0.3s ease-in-out',
                     filter: imageSrc.startsWith('data:') ? 'blur(4px)' : 'none',
                   }}
-                />
+                />}
               </Box>
             )}
           </Grid2>

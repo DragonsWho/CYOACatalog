@@ -43,13 +43,13 @@ import TouchAppIcon from '@mui/icons-material/TouchApp';
 import AppsIcon from '@mui/icons-material/Apps';
 import FilterNoneIcon from '@mui/icons-material/FilterNone';
 
-import { Game, gamesCollectionPublic, tagsCollectionPublic, Tag, authorsCollectionPublic, AuthContext, CATALOG_GAME_FIELDS, PINNED_ORIGINAL_DAYS, loadPinnedSeen } from '../../pocketbase/pocketbase';
+import { Game, gamesCollectionPublic, Tag, authorsCollectionPublic, AuthContext, CATALOG_GAME_FIELDS, PINNED_ORIGINAL_DAYS, loadPinnedSeen } from '../../pocketbase/pocketbase';
 import type { FilterMode } from '../../types';
 import GameGrid from './GameGrid';
 import AnnouncementBanner from '../Announcements/AnnouncementBanner';
 import { analytics } from '../../utils/analytics';
 import { buildAliasIndex, resolveAlias, AliasIndex } from '../../utils/fuzzy';
-import { getUsedTagIds } from '../../utils/tagUsage';
+import { inlineRatingTagIds, loadTagDictionary, tagMapOf } from '../../utils/tagDictionary';
 import { SEARCH_HOME_EVENT } from '../../utils/searchTagBus';
 
 interface SemanticResult { id: string; score: number; }
@@ -290,28 +290,13 @@ const fetchGenerationRef = useRef(0);
       let isMounted = true;
       (async () => {
         try {
-          // v3 added aliases — old v2 cache lacks them, so the cache key was bumped. (v2 was bumped
-          // because a stale cache without the NSFW tag silently disabled the filter.)
-          const cachedTags = localStorage.getItem('tagMap_v3');
-          const lastUpdated = localStorage.getItem('tagMap_v3_updated');
-          const now = Date.now();
-          let newTagMap: Map<string, Tag>;
-
-          if (cachedTags && lastUpdated && now - parseInt(lastUpdated) < ONE_DAY_IN_MS) {
-              newTagMap = new Map(JSON.parse(cachedTags));
-          } else {
-              const fullTagList = await tagsCollectionPublic.getFullList<Tag>({ fields: 'id,name,aliases', sort: 'name' });
-              newTagMap = new Map(fullTagList.map(t => [t.id, t]));
-              localStorage.setItem('tagMap_v3', JSON.stringify([...newTagMap]));
-              localStorage.setItem('tagMap_v3_updated', now.toString());
-              localStorage.removeItem('tagMap');
-              localStorage.removeItem('tagMapLastUpdated');
-              localStorage.removeItem('tagMap_v2');
-              localStorage.removeItem('tagMap_v2_updated');
-          }
+          // One shared tag dictionary (utils/tagDictionary): version-checked against the HTML, so a
+          // stale copy can't silently disable the NSFW filter.
+          const dict = await loadTagDictionary();
+          const newTagMap = tagMapOf(dict);
 
           // Empty (0-game) tags hidden from autocomplete options (author's complaint).
-          const usedIds = await getUsedTagIds();
+          const usedIds = new Set(dict.used);
           const allTags = Array.from(newTagMap.values());
 
           if (isMounted) {
@@ -333,14 +318,14 @@ const fetchGenerationRef = useRef(0);
     for (const [id, tag] of tagMap.entries()) {
         if (tag.name.toLowerCase() === 'nsfw') return id;
     }
-    return null;
+    return inlineRatingTagIds()?.nsfw ?? null;
 }, [tagMap]);
 
 const extremeTagId = useMemo(() => {
     for (const [id, tag] of tagMap.entries()) {
         if (tag.name.toLowerCase() === 'extreme') return id;
     }
-    return null;
+    return inlineRatingTagIds()?.extreme ?? null;
 }, [tagMap]);
 
   const fetchTitleSuggestions = useMemo(

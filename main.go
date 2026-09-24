@@ -574,25 +574,66 @@ func buildCatalogScriptTag(app core.App) (string, error) {
 	if len(clauses) > 0 {
 		filter = strings.Join(clauses, " && ")
 	}
-	sfwJSON, err := buildCatalogItemsJSON(app, filter, params)
+	sfwJSON, err := buildCatalogItemsJSON(app, filter, params, "-bumped_at,-created", catalogSnapshotSize)
 	if err != nil {
 		return "", fmt.Errorf("sfw snapshot: %w", err)
 	}
 
 	// ALL array (the 'all' filter-mode view). Blur thumbnails are ~1px so no meaningful imagery in
 	// source; the inline script uses it only when the cyoa_filter_mode cookie isn't 'sfw'.
-	allJSON, err := buildCatalogItemsJSON(app, "", dbx.Params{})
+	allJSON, err := buildCatalogItemsJSON(app, "", dbx.Params{}, "-bumped_at,-created", catalogSnapshotSize)
 	if err != nil {
 		return "", fmt.Errorf("all snapshot: %w", err)
 	}
 
+	// Home feed pins (fresh author releases, first in the grid). Mirrors HomePage's pin query
+	// (PINNED_ORIGINAL_DAYS, top 10 by -created); without them the seeded grid would shift when the
+	// live pins arrive.
+	cutoff := time.Now().UTC().Add(-catalogPinnedDays * 24 * time.Hour).Format("2006-01-02 15:04:05")
+	pinClause := "original_release = true && created >= {:pincut}"
+	pinParams := dbx.Params{"pincut": cutoff}
+	for k, v := range params {
+		pinParams[k] = v
+	}
+	sfwPinFilter := pinClause
+	if filter != "" {
+		sfwPinFilter += " && " + filter
+	}
+	sfwPinsJSON, err := buildCatalogItemsJSON(app, sfwPinFilter, pinParams, "-created", catalogPinnedMax)
+	if err != nil {
+		return "", fmt.Errorf("sfw pins: %w", err)
+	}
+	allPinsJSON, err := buildCatalogItemsJSON(app, pinClause, dbx.Params{"pincut": cutoff}, "-created", catalogPinnedMax)
+	if err != nil {
+		return "", fmt.Errorf("all pins: %w", err)
+	}
+
+	// Newest announcement: the banner sits above the grid, so fetching it after paint shifted the
+	// whole catalog down (CLS 0.4 on /search). null when there is none.
+	annJSON := "null"
+	if anns, aerr := app.FindRecordsByFilter("announcements", "id != ''", "-created", 1, 0); aerr == nil && len(anns) > 0 {
+		b, _ := json.Marshal(map[string]string{
+			"id": anns[0].Id, "title": anns[0].GetString("title"), "body": anns[0].GetString("body"),
+		})
+		annJSON = string(b)
+	}
+
 	return "<script>window.__CATALOG__=" + sfwJSON +
-		";window.__CATALOG_ALL__=" + allJSON + "</script>", nil
+		";window.__CATALOG_ALL__=" + allJSON +
+		";window.__CATALOG_PINS__=" + sfwPinsJSON +
+		";window.__CATALOG_PINS_ALL__=" + allPinsJSON +
+		";window.__ANNOUNCEMENT__=" + annJSON + "</script>", nil
 }
+
+// Mirror PINNED_ORIGINAL_DAYS and the pin query limit in HomePage.
+const (
+	catalogPinnedDays = 5
+	catalogPinnedMax  = 10
+)
 
 // Default json.Marshal escapes <, >, & and U+2028/2029, so the payload is safe inside <script> (no
 // </script> breakout from description HTML).
-func buildCatalogItemsJSON(app core.App, filter string, params dbx.Params) (string, error) {
+func buildCatalogItemsJSON(app core.App, filter string, params dbx.Params, sort string, limit int) (string, error) {
 	// Direct DB read bypasses the listRule ('hidden != true'): exclude soft-hidden games explicitly or
 	// they leak into the snapshot. Sort mirrors the frontend "new" tab (-bumped_at).
 	if filter != "" {
@@ -600,7 +641,7 @@ func buildCatalogItemsJSON(app core.App, filter string, params dbx.Params) (stri
 	} else {
 		filter = "hidden != true"
 	}
-	records, err := app.FindRecordsByFilter("games", filter, "-bumped_at,-created", catalogSnapshotSize, 0, params)
+	records, err := app.FindRecordsByFilter("games", filter, sort, limit, 0, params)
 	if err != nil {
 		return "", fmt.Errorf("load games: %w", err)
 	}
@@ -625,6 +666,9 @@ func buildCatalogItemsJSON(app core.App, filter string, params dbx.Params) (stri
 			// CATALOG_GAME_FIELDS.
 			"created":          r.GetString("created"),
 			"original_release": r.GetBool("original_release"),
+			// bumped_at: "Bump!" badge; gold_tags: gold chips. Keep in sync with CATALOG_GAME_FIELDS.
+			"bumped_at": r.GetString("bumped_at"),
+			"gold_tags": r.Get("gold_tags"),
 		}
 		expand := map[string]any{}
 		if authors := r.ExpandedAll("authors"); len(authors) > 0 {
@@ -1861,6 +1905,7 @@ func main() {
 				defer ticker.Stop()
 				for range ticker.C {
 					catalogSnap.refresh(app)
+					tagDict.refresh(app)
 				}
 			}()
 			// /assets/* with immutable headers and a real 404 (no SPA fallback), so CF never caches
@@ -1896,7 +1941,13 @@ func main() {
 					c.Response.Header().Set("Link", earlyHintsLink)
 				}
 				doc := indexHTML
-				if snippet := catalogSnap.get(); snippet != "" {
+				// Only the catalog views read the snapshot (~90 KB gzip); game pages etc. don't carry it.
+				if p == "" || p == "search" {
+					if snippet := catalogSnap.get(); snippet != "" {
+						doc = strings.Replace(doc, "</head>", snippet+"</head>", 1)
+					}
+				}
+				if _, _, snippet := tagDict.get(); snippet != "" {
 					doc = strings.Replace(doc, "</head>", snippet+"</head>", 1)
 				}
 				metaBlock, pageTitle, cacheable, notFound, redirectTo := buildSocialMeta(app, p)
@@ -1975,6 +2026,7 @@ func main() {
 	registerBumpRoulette(app)
 
 	registerCatalogSnapshotRefresh(app)
+	registerTagDictionary(app)
 
 	registerSitemapInvalidation(app)
 

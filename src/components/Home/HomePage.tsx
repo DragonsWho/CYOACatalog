@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -43,13 +44,14 @@ import {
   CATALOG_GAME_FIELDS,
   Game,
   PINNED_ORIGINAL_DAYS,
+  peekPinnedSeen,
   Tag,
   authorsCollectionPublic,
   gamesCollectionPublic,
   loadPinnedSeen,
-  tagsCollectionPublic,
 } from '../../pocketbase/pocketbase';
 import { getUsedTagIds } from '../../utils/tagUsage';
+import { inlineRatingTagIds, loadTagDictionary, peekTagDictionary, tagMapOf } from '../../utils/tagDictionary';
 import { SEARCH_HOME_EVENT, requestSearchOpen } from '../../utils/searchTagBus';
 import FeedModeControls from './FeedModeControls';
 import { readSeed } from './feedParams';
@@ -254,49 +256,39 @@ export default function HomePage({
   const panelVisible = isDesktop;
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // --- Tag dictionary --- Same cache as the production page (tagMap_v3): a second key would
-  // diverge and could silently disable the NSFW filter — this has happened before.
-  const [tagMap, setTagMap] = useState<Map<string, Tag>>(new Map());
-  const [tagsLoaded, setTagsLoaded] = useState(false);
+  // --- Tag dictionary --- One shared source (utils/tagDictionary). NSFW/Extreme ids come inlined
+  // in the HTML, so the default feed does NOT wait for the dictionary; only URL tag names (→ ids)
+  // need it. A stale or missing dictionary must never silently disable the NSFW filter.
+  const [tagMap, setTagMap] = useState<Map<string, Tag>>(() => {
+    const dict = peekTagDictionary();
+    return dict ? tagMapOf(dict) : new Map();
+  });
+  const [tagsLoaded, setTagsLoaded] = useState(() => peekTagDictionary() !== null);
   useEffect(() => {
+    if (tagsLoaded) return;
     let alive = true;
-    (async () => {
-      try {
-        const cached = localStorage.getItem('tagMap_v3');
-        const at = localStorage.getItem('tagMap_v3_updated');
-        let map: Map<string, Tag>;
-        if (cached && at && Date.now() - parseInt(at) < ONE_DAY_IN_MS) {
-          map = new Map(JSON.parse(cached));
-        } else {
-          const all = await tagsCollectionPublic.getFullList<Tag>({
-            fields: 'id,name,aliases',
-            sort: 'name',
-          });
-          map = new Map(all.map((t) => [t.id, t]));
-          localStorage.setItem('tagMap_v3', JSON.stringify([...map]));
-          localStorage.setItem('tagMap_v3_updated', Date.now().toString());
-        }
-        if (!alive) return;
-        setTagMap(map);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        if (alive) setTagsLoaded(true);
-      }
-    })();
+    loadTagDictionary()
+      .then((dict) => { if (alive) setTagMap(tagMapOf(dict)); })
+      .catch((e) => console.error(e))
+      .finally(() => { if (alive) setTagsLoaded(true); });
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const inlineRating = useMemo(() => inlineRatingTagIds(), []);
   const nsfwTagId = useMemo(() => {
     for (const [id, t] of tagMap) if (t.name.toLowerCase() === 'nsfw') return id;
-    return null;
-  }, [tagMap]);
+    return inlineRating?.nsfw ?? null;
+  }, [tagMap, inlineRating]);
   const extremeTagId = useMemo(() => {
     for (const [id, t] of tagMap) if (t.name.toLowerCase() === 'extreme') return id;
-    return null;
-  }, [tagMap]);
+    return inlineRating?.extreme ?? null;
+  }, [tagMap, inlineRating]);
+  // The feed can start once the filter has what it needs: rating ids (inline or dictionary) and,
+  // only if tags are named in the URL/header, the dictionary for name → id.
+  const filterReady = tagsLoaded || (inlineRating !== null && activeTags.length === 0);
   const idByName = useMemo(() => {
     const m = new Map<string, string>();
     for (const [id, t] of tagMap) m.set(t.name.toLowerCase(), id);
@@ -364,6 +356,26 @@ export default function HomePage({
   const [hasMore, setHasMore] = useState(true);
   const generationRef = useRef(0);
   const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // First paint from the snapshot Go inlines into the HTML (main.go buildCatalogScriptTag): the
+  // default feed page and its pins, per filter mode. Cards show before any API round-trip; the
+  // normal fetch then reconciles in place (same order → no jump). Only the exact default view is
+  // seeded; nsfw-only is a different server-filtered set. Blocked games/authors are cut at render
+  // (visibleGames); blocked tags are a server filter, so users with any aren't seeded.
+  useLayoutEffect(() => {
+    if (!showPins || dir !== 'desc' || sem || filterMode === 'nsfw' || blockedTags.length) return;
+    const win = window as unknown as Record<string, unknown>;
+    const all = filterMode === 'all';
+    const feed = win[all ? '__CATALOG_ALL__' : '__CATALOG__'];
+    const pins = win[all ? '__CATALOG_PINS_ALL__' : '__CATALOG_PINS__'];
+    if (!Array.isArray(feed) || feed.length === 0) return;
+    setGames(processGameData(feed as Record<string, unknown>[]));
+    setPinned(Array.isArray(pins) ? processGameData(pins as Record<string, unknown>[]) : []);
+    setSeenPinned(peekPinnedSeen());
+    setGamesShowPins(true);
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Liked list is a separate query with no tag conditions (see join trap in buildFilter). null =
   // not loaded yet: the feed waits, otherwise the first visit would show "nothing found".
@@ -485,7 +497,7 @@ export default function HomePage({
 
   const fetchFeed = useCallback(
     async (pageNum: number, reset: boolean) => {
-      if (!tagsLoaded) return;
+      if (!filterReady) return;
       if (liked && !userId) {
         setGames([]);
         setGamesShowPins(false);
@@ -546,7 +558,7 @@ export default function HomePage({
         if (gen === generationRef.current) setLoading(false);
       }
     },
-    [tagsLoaded, liked, likedIds, userId, sort, dir, buildFilter, showPins],
+    [filterReady, liked, likedIds, userId, sort, dir, buildFilter, showPins],
   );
 
   const fetchSemantic = useCallback(async () => {
@@ -686,7 +698,7 @@ export default function HomePage({
   const likedReady = !liked || !userId || likedIds !== null;
   const stateKey = JSON.stringify({
     seed, sort, dir, period, format, liked, q, sem, activeTags, activeAuthors,
-    filterMode, blocked: blockedTags.map((t) => t.id), user: userId, tagsLoaded,
+    filterMode, blocked: blockedTags.map((t) => t.id), user: userId, filterReady,
     likedReady,
     randomBlocks: seed === 'random' ? [blockedGameIds, blockedAuthorIds] : null,
   });
@@ -695,7 +707,7 @@ export default function HomePage({
   useEffect(() => {
     // Mode/filter change invalidates even a pending response.
     ++generationRef.current;
-    if (!tagsLoaded) return;
+    if (!filterReady) return;
     // Liked list still loading — wait, or the seed (random/semantic) runs against the placeholder
     // filter and returns nothing.
     if (!likedReady) { setLoading(true); return; }
@@ -718,7 +730,7 @@ export default function HomePage({
       prevKeyRef.current = '';
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stateKey, randomRoll, tagsLoaded]);
+  }, [stateKey, randomRoll, filterReady]);
 
   // Infinite scroll only for the feed: seed results are finite by nature.
   useEffect(() => {

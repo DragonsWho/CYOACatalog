@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useContext, lazy, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useContext, lazy, Suspense } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { requestSearchAuthor } from '../../utils/searchTagBus';
 
@@ -391,7 +391,9 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
     return () => { links.forEach((el) => el.remove()); };
   }, [game, langOptions, activeLang, originalLang]);
 
-  useEffect(() => {
+  // Layout effect: the cover is set before the first paint — the pre-paint mock (src/prepaint) already
+  // shows it, and an empty or blurred frame in between would flash.
+  useLayoutEffect(() => {
     if (!coverRecord) return;
 
     // Resolve the cover from the active source record so /api/files/{collectionId}/{id}/{image}
@@ -403,6 +405,21 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
     // Cloudflare-resized variant on the detail page; original as fallback.
     const transformedURL = imageURL ? cfImage(imageURL, { width: DETAIL_IMG_WIDTH }) : '';
     const transformedSrcSet = imageURL ? cfImageSrcSet(imageURL, DETAIL_IMG_WIDTHS) : undefined;
+    const showFull = () => {
+      setImageSrc(transformedURL);
+      setImageSrcSet(transformedSrcSet);
+    };
+
+    // The pre-paint mock already shows one of these candidates (loaded from the shell's preload):
+    // reuse that exact URL as a plain src — it paints from the image cache in the same frame, where
+    // a srcset re-selects asynchronously and leaves the box empty for a frame.
+    const prepainted = (window as unknown as { __PREPAINT__?: { cover?: string } }).__PREPAINT__?.cover;
+    const prepaintedPath = prepainted ? new URL(prepainted, location.href).pathname : '';
+    if (prepaintedPath && transformedSrcSet?.includes(prepaintedPath + ' ')) {
+      setImageSrc(prepaintedPath);
+      setImageSrcSet(undefined);
+      return;
+    }
 
     if (coverRecord.image_base64) {
       setImageSrc(
@@ -412,11 +429,6 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
       );
       setImageSrcSet(undefined);
     }
-
-    const showFull = () => {
-      setImageSrc(transformedURL);
-      setImageSrcSet(transformedSrcSet);
-    };
 
     if (imageURL && coverRecord.image_base64) {
       const img = new Image();

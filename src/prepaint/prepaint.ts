@@ -21,6 +21,7 @@ import {
 import { getTagColor, GOLD_ACCENT } from '../utils/tagColors';
 import { pickFeedSeed, type FeedMode, type SeedGame } from './feedSeed';
 import { ICONS } from './icons';
+import { webpAspect } from '../utils/webpSize';
 
 type Responsive = { xs: string; sm?: string; md?: string };
 
@@ -133,6 +134,18 @@ const CSS = [
   `.pp-fresh{background:rgba(113,206,109,.95);color:#0b3d12;box-shadow:0 2px 4px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.25)}`,
   `.pp-bump{background:rgba(0,0,0,.4);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.8)}`,
   `.pp-sk{background:#161616;box-shadow:none}`,
+  // Game page (GameDetails.tsx): Container lg (px 8/16) › Paper elevation 3 (p 16, radius 8) › title
+  // row (column + centred below md; row, bottom-aligned from md) › Grid2 spacing 3 with the cover
+  // box (xs: full width at the placeholder's aspect, max 80vh; md: half width, 500px tall).
+  `.pp-gm{max-width:${LG}px;margin:0 auto;padding:0 8px}@media(min-width:${SM}px){.pp-gm{padding:0 16px}}`,
+  `.pp-gp{padding:16px;border-radius:8px;background:#0b0b0b linear-gradient(rgba(255,255,255,.082),rgba(255,255,255,.082));box-shadow:0 3px 3px -2px rgba(0,0,0,.2),0 3px 4px 0 rgba(0,0,0,.14),0 1px 8px 0 rgba(0,0,0,.12)}`,
+  rcss('.pp-gh', { display: 'flex', 'flex-direction': { xs: 'column', md: 'row' }, 'justify-content': 'center', 'align-items': { xs: 'center', md: 'flex-end' }, gap: { xs: '4px', md: '8px' }, 'text-align': { xs: 'center', md: 'left' }, 'margin-bottom': '16px' }),
+  rcss('.pp-h1', { margin: '0', 'font-weight': '400', 'line-height': '1.2', 'letter-spacing': '0.00735em', color: TEXT, 'font-size': { xs: '1.75rem', md: '2.125rem' } }),
+  rcss('.pp-by', { margin: { xs: '0', md: '0 0 .15em' }, color: '#ff5252', 'font-weight': '600', 'font-size': '1rem', 'line-height': '1.75' }),
+  `.pp-by i{font-style:normal;font-weight:400;color:${TEXT2}}`,
+  rcss('.pp-gc', { width: { xs: '100%', md: 'calc(50% - 12px)' }, height: { xs: 'auto', md: '500px' }, 'max-height': { xs: '80vh', md: 'none' }, 'border-radius': '8px', overflow: 'hidden', position: 'relative', display: 'flex', 'justify-content': 'center', 'align-items': 'center' }),
+  `.pp-gc img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.pp-gc img.b{filter:blur(4px)}`,
+  `@media(min-width:${MD}px){.pp-gc{aspect-ratio:auto!important}}`,
 ].join('');
 
 function icon(name: string): string {
@@ -258,6 +271,48 @@ function card(g: SeedGame, pinned: boolean): string {
     + `</div></div>`;
 }
 
+interface InlineGame {
+  key?: string;
+  game?: {
+    id?: string; collectionId?: string; title?: string; image?: string; image_base64?: string;
+    expand?: { authors?: { name?: string }[] };
+  };
+  variants?: unknown[];
+}
+
+// Same widths/sizes as GameDetails DETAIL_IMG_* and the preload game_inline.go puts in the shell, so
+// the <img> here picks the already-downloading candidate. A failed transform just leaves the blur
+// (GameDetails then falls back to the original file). `cover` tells GameDetails the full image is
+// already on screen, so it skips the blur step.
+const DETAIL_IMG_WIDTHS = [400, 600, 800, 1200];
+const DETAIL_IMG_SIZES = '(max-width: 900px) 96vw, 580px';
+const cfImg = (path: string, w: number) => `/cdn-cgi/image/width=${w},quality=70,format=auto${path}`;
+
+// Game page first screen: title, authors, cover. Only for the plain canonical URL of a game without
+// language variants (a stored language preference could swap title and cover). Tags, icons and the
+// description come later from React — they appear below, which doesn't move anything painted here.
+function gamePage(): string {
+  const g = (window as unknown as { __GAME__?: InlineGame }).__GAME__;
+  const m = location.pathname.match(/^\/game\/([^/]+)\/?$/);
+  if (!g?.game || !m || location.search || decodeURIComponent(m[1]) !== g.key || g.variants?.length) return '';
+  const game = g.game;
+  const authors = (game.expand?.authors ?? []).map((a) => esc(a.name));
+  const by = authors.length ? `<div class="pp-by"><i>by </i>${authors.join('<i>, </i>')}</div>` : '';
+  const b64 = typeof game.image_base64 === 'string' ? game.image_base64 : '';
+  const src = b64 ? (b64.startsWith('data:') ? b64 : `data:image/jpeg;base64,${b64}`) : '';
+  const aspect = webpAspect(b64);
+  let cover = '';
+  if (aspect && game.image && game.id) {
+    const path = `/api/files/${esc(game.collectionId || '5kxdvx071c10s2t')}/${esc(game.id)}/${esc(game.image)}`;
+    const set = DETAIL_IMG_WIDTHS.map((w) => `${cfImg(path, w)} ${w}w`).join(', ');
+    cover = `<div class="pp-gc" style="aspect-ratio:${aspect}"><img class="b" src="${src}" alt="">`
+      + `<img src="${cfImg(path, 600)}" srcset="${set}" sizes="${DETAIL_IMG_SIZES}" alt="" onerror="this.remove()" onload="window.__PREPAINT__.cover=this.currentSrc"></div>`;
+  }
+  return `<div class="pp-gm"><div class="pp-gp"><div class="pp-gh"><h1 class="pp-h1">${esc(game.title || 'Untitled Game')}</h1>${by}</div>${cover}</div></div>`;
+}
+
+interface Prepaint { css: string; home?: string; game?: string; cover?: string }
+
 function run(): void {
   const root = document.getElementById('root');
   if (!root || root.dataset.prepaint) return;
@@ -282,7 +337,13 @@ function run(): void {
     body = `<main class="pp-main">${home}</main>`;
     // React replaces #root before the lazy HomePage chunk arrives; App's route Suspense fallback
     // re-shows this markup instead of a spinner (components/PrepaintFallback.tsx).
-    (window as unknown as { __PREPAINT__?: { css: string; home: string } }).__PREPAINT__ = { css: CSS, home };
+    (window as unknown as { __PREPAINT__?: Prepaint }).__PREPAINT__ = { css: CSS, home };
+  } else {
+    const game = gamePage();
+    if (game) {
+      body = `<main class="pp-main">${game}</main>`;
+      (window as unknown as { __PREPAINT__?: Prepaint }).__PREPAINT__ = { css: CSS, game };
+    }
   }
   root.dataset.prepaint = '1';
   root.innerHTML = `<style>${CSS}</style><div class="pp" aria-hidden="true">${header(mode, user)}${body}</div>`;

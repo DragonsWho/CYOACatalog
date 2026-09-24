@@ -429,8 +429,15 @@ export default function SimilarGamesStrip({ game, filterMode }: { game: Game; fi
       <Box ref={setSkeletonEl} sx={{ mt: 3 }}>
         {heading}
         <Box sx={gridSx}>
+          {/* Same box as a real tile: 3:4 image + two-line caption. A bare Skeleton ignores
+              aspectRatio (it keeps its one-line height), so the strip grew ~200px on load. */}
           {Array.from({ length: MAX_ITEMS }).map((_, i) => (
-            <Skeleton key={i} variant="rounded" sx={{ width: '100%', aspectRatio: '3 / 4' }} />
+            <Box key={i}>
+              <Box sx={{ aspectRatio: '3 / 4' }}>
+                <Skeleton variant="rounded" sx={{ width: '100%', height: '100%' }} />
+              </Box>
+              <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.3, minHeight: '2.6em' }} />
+            </Box>
           ))}
         </Box>
       </Box>
@@ -533,6 +540,9 @@ export default function SimilarGamesStrip({ game, filterMode }: { game: Game; fi
                   WebkitBoxOrient: 'vertical',
                   overflow: 'hidden',
                   lineHeight: 1.3,
+                  // Always two lines tall: row height no longer depends on the titles (the
+                  // skeleton reserves exactly this).
+                  minHeight: '2.6em',
                   color: 'text.primary',
                   transition: 'color 0.2s ease',
                 }}

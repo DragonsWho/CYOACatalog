@@ -311,7 +311,7 @@ function gamePage(): string {
   return `<div class="pp-gm"><div class="pp-gp"><div class="pp-gh"><h1 class="pp-h1">${esc(game.title || 'Untitled Game')}</h1>${by}</div>${cover}</div></div>`;
 }
 
-interface Prepaint { css: string; home?: string; game?: string; cover?: string }
+interface Prepaint { css: string; home?: string; grid?: string; game?: string; cover?: string }
 
 function run(): void {
   const root = document.getElementById('root');
@@ -333,11 +333,14 @@ function run(): void {
       ? seed.pins.map((g) => card(g, true)).join('') + seed.games.map((g) => card(g, false)).join('')
       // No snapshot (dev, old cache): skeletons hold the grid's height so nothing jumps.
       : '<div class="pp-c pp-sk"></div>'.repeat(10);
-    const home = `<div class="pp-home">${panel(!!user)}<div class="pp-grid">${cards}</div></div>`;
+    const grid = `<div class="pp-grid">${cards}</div>`;
+    const home = `<div class="pp-home">${panel(!!user)}${grid}</div>`;
     body = `<main class="pp-main">${home}</main>`;
     // React replaces #root before the lazy HomePage chunk arrives; App's route Suspense fallback
     // re-shows this markup instead of a spinner (components/PrepaintFallback.tsx).
-    (window as unknown as { __PREPAINT__?: Prepaint }).__PREPAINT__ = { css: CSS, home };
+    // `grid` (real cards only): HomePage's first render shows it while the React cards mount in a
+    // time-sliced transition.
+    (window as unknown as { __PREPAINT__?: Prepaint }).__PREPAINT__ = { css: CSS, home, grid: seed ? grid : undefined };
   } else {
     const game = gamePage();
     if (game) {

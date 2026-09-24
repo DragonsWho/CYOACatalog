@@ -4,8 +4,8 @@
 import {
   useCallback,
   useContext,
+  startTransition,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -344,38 +344,50 @@ export default function HomePage({
     return () => clearTimeout(id);
   }, [authorDraft]);
 
-  const [games, setGames] = useState<Game[]>([]);
-  // Pin order belongs to the displayed result, not the requested URL mode. Keep it until the
-  // replacement cards arrive (also on errors).
-  const [gamesShowPins, setGamesShowPins] = useState(false);
-  const [scores, setScores] = useState<Map<string, number>>(new Map());
-  const [pinned, setPinned] = useState<Game[]>([]);
-  const [seenPinned, setSeenPinned] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const generationRef = useRef(0);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-
   // First paint from the snapshot Go inlines into the HTML (main.go buildCatalogScriptTag), picked
   // by the same function as the pre-React pre-paint (prepaint/feedSeed) so the handoff is invisible.
   // The normal fetch then reconciles in place (same order → no jump). Only the exact default view.
-  useLayoutEffect(() => {
-    if (!showPins || dir !== 'desc' || sem) return;
+  // Initial state, not a layout-effect setState: that update ran synchronously — every card in one
+  // ~300 ms main-thread block on a mid phone — while the first render is time-sliced (main.tsx).
+  const [snapSeed] = useState(() => {
+    if (!showPins || dir !== 'desc' || sem) return null;
     const seedFeed = pickFeedSeed(
       filterMode,
       { tags: blockedTags.map((t) => t.id), games: blockedGameIds, authors: blockedAuthorIds },
       peekPinnedSeen(),
     );
-    if (!seedFeed) return;
-    setGames(processGameData(seedFeed.games as Record<string, unknown>[]));
-    setPinned(processGameData(seedFeed.pins as Record<string, unknown>[]));
-    setSeenPinned(peekPinnedSeen());
-    setGamesShowPins(true);
-    setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!seedFeed) return null;
+    return {
+      games: processGameData(seedFeed.games as Record<string, unknown>[]),
+      pins: processGameData(seedFeed.pins as Record<string, unknown>[]),
+      seen: peekPinnedSeen(),
+    };
+  });
+  const [games, setGames] = useState<Game[]>(() => snapSeed?.games ?? []);
+  // Pin order belongs to the displayed result, not the requested URL mode. Keep it until the
+  // replacement cards arrive (also on errors).
+  const [gamesShowPins, setGamesShowPins] = useState(() => snapSeed !== null);
+  const [scores, setScores] = useState<Map<string, number>>(new Map());
+  const [pinned, setPinned] = useState<Game[]>(() => snapSeed?.pins ?? []);
+  const [seenPinned, setSeenPinned] = useState<Set<string>>(() => snapSeed?.seen ?? new Set());
+  const [loading, setLoading] = useState(() => snapSeed === null);
+  // Card handoff: the first render shows the pre-paint's static grid markup (same seed → same cards,
+  // same geometry) and the React cards replace it in a transition. Rendered with the page, 25+ MUI
+  // cards were one ~250 ms main-thread block on a mid phone (TBT): an App-level state update landing
+  // right after the chunk loaded pulled the whole subtree into a synchronous render.
+  const [prepaintGrid] = useState(() => {
+    const pre = (window as unknown as { __PREPAINT__?: { css: string; grid?: string } }).__PREPAINT__;
+    return snapSeed && pre?.grid ? `<style>${pre.css}</style>${pre.grid}` : null;
+  });
+  const [cardsLive, setCardsLive] = useState(prepaintGrid === null);
+  useEffect(() => {
+    if (!cardsLive) startTransition(() => setCardsLive(true));
+  }, [cardsLive]);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const generationRef = useRef(0);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Liked list is a separate query with no tag conditions (see join trap in buildFilter). null =
   // not loaded yet: the feed waits, otherwise the first visit would show "nothing found".
@@ -1111,7 +1123,9 @@ export default function HomePage({
         </Typography>
       )}
 
-      <GameGrid games={feedGames} scores={scores.size ? scores : undefined} lastElementRef={lastItemRef} />
+      {cardsLive || !prepaintGrid
+        ? <GameGrid games={feedGames} scores={scores.size ? scores : undefined} lastElementRef={lastItemRef} />
+        : <div aria-hidden="true" dangerouslySetInnerHTML={{ __html: prepaintGrid }} />}
 
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>

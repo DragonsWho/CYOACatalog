@@ -281,29 +281,7 @@ export const pinnedSeenCollection = pb.collection('pinned_seen') as RecordServic
 // placeholder). Per-user "did I upvote" lives on the detail page.
 // Fresh-release pin and "New" badge live N days from created — single source for GameCard (badge)
 // and SearchPage (pin query).
-export const PINNED_ORIGINAL_DAYS = 5;
-
-export function isFreshOriginal(game: Pick<Game, 'original_release' | 'created'>): boolean {
-  if (!game.original_release || !game.created) return false;
-  const createdMs = new Date(game.created).getTime();
-  if (Number.isNaN(createdMs)) return false;
-  return Date.now() - createdMs <= PINNED_ORIGINAL_DAYS * 24 * 60 * 60 * 1000;
-}
-
-// "Bump!" = card recently won bump roulette (bump_roulette.go sets bumped_at=now()). bumped_at is
-// seeded = created and moves only on a real bump, so "bumped_at noticeably later than created"
-// suffices — no bump_draws/bump_votes lookup.
-export const BUMP_FRESH_DAYS = 7;
-const BUMP_VS_CREATED_SLACK_MS = 60 * 1000;  // guards against millisecond jitter at seeding
-
-export function isFreshBump(game: Pick<Game, 'bumped_at' | 'created'>): boolean {
-  if (!game.bumped_at || !game.created) return false;
-  const bumpedMs = new Date(game.bumped_at).getTime();
-  const createdMs = new Date(game.created).getTime();
-  if (Number.isNaN(bumpedMs) || Number.isNaN(createdMs)) return false;
-  if (bumpedMs - createdMs <= BUMP_VS_CREATED_SLACK_MS) return false;
-  return Date.now() - bumpedMs <= BUMP_FRESH_DAYS * 24 * 60 * 60 * 1000;
-}
+export { PINNED_ORIGINAL_DAYS, isFreshOriginal, BUMP_FRESH_DAYS, isFreshBump } from '../components/cardGeometry';
 
 // --- Per-user pin dismiss --- Anon stores seen ids locally; only fresh pins matter, but trim
 // anyway so it doesn't grow.

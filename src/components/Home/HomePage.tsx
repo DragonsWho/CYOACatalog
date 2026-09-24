@@ -54,6 +54,7 @@ import { getUsedTagIds } from '../../utils/tagUsage';
 import { inlineRatingTagIds, loadTagDictionary, peekTagDictionary, tagMapOf } from '../../utils/tagDictionary';
 import { SEARCH_HOME_EVENT, requestSearchOpen } from '../../utils/searchTagBus';
 import FeedModeControls from './FeedModeControls';
+import { pickFeedSeed } from '../../prepaint/feedSeed';
 import { readSeed } from './feedParams';
 import type { DirKey, FormatKey, PeriodKey, SeedKey, SortKey } from './feedParams';
 import type { FilterMode } from '../../types';
@@ -357,20 +358,19 @@ export default function HomePage({
   const generationRef = useRef(0);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // First paint from the snapshot Go inlines into the HTML (main.go buildCatalogScriptTag): the
-  // default feed page and its pins, per filter mode. Cards show before any API round-trip; the
-  // normal fetch then reconciles in place (same order → no jump). Only the exact default view is
-  // seeded; nsfw-only is a different server-filtered set. Blocked games/authors are cut at render
-  // (visibleGames); blocked tags are a server filter, so users with any aren't seeded.
+  // First paint from the snapshot Go inlines into the HTML (main.go buildCatalogScriptTag), picked
+  // by the same function as the pre-React pre-paint (prepaint/feedSeed) so the handoff is invisible.
+  // The normal fetch then reconciles in place (same order → no jump). Only the exact default view.
   useLayoutEffect(() => {
-    if (!showPins || dir !== 'desc' || sem || filterMode === 'nsfw' || blockedTags.length) return;
-    const win = window as unknown as Record<string, unknown>;
-    const all = filterMode === 'all';
-    const feed = win[all ? '__CATALOG_ALL__' : '__CATALOG__'];
-    const pins = win[all ? '__CATALOG_PINS_ALL__' : '__CATALOG_PINS__'];
-    if (!Array.isArray(feed) || feed.length === 0) return;
-    setGames(processGameData(feed as Record<string, unknown>[]));
-    setPinned(Array.isArray(pins) ? processGameData(pins as Record<string, unknown>[]) : []);
+    if (!showPins || dir !== 'desc' || sem) return;
+    const seedFeed = pickFeedSeed(
+      filterMode,
+      { tags: blockedTags.map((t) => t.id), games: blockedGameIds, authors: blockedAuthorIds },
+      peekPinnedSeen(),
+    );
+    if (!seedFeed) return;
+    setGames(processGameData(seedFeed.games as Record<string, unknown>[]));
+    setPinned(processGameData(seedFeed.pins as Record<string, unknown>[]));
     setSeenPinned(peekPinnedSeen());
     setGamesShowPins(true);
     setLoading(false);

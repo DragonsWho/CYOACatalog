@@ -574,14 +574,23 @@ func buildCatalogScriptTag(app core.App) (string, error) {
 	if len(clauses) > 0 {
 		filter = strings.Join(clauses, " && ")
 	}
-	sfwJSON, err := buildCatalogItemsJSON(app, filter, params, "-bumped_at,-created", catalogSnapshotSize)
+	tagCategory := map[string]string{}
+	if cats, cerr := app.FindRecordsByFilter("tag_categories", "id != ''", "", 0, 0); cerr == nil {
+		for _, c := range cats {
+			for _, id := range c.GetStringSlice("tags") {
+				tagCategory[id] = c.GetString("name")
+			}
+		}
+	}
+
+	sfwJSON, err := buildCatalogItemsJSON(app, filter, params, "-bumped_at,-created", catalogSnapshotSize, tagCategory)
 	if err != nil {
 		return "", fmt.Errorf("sfw snapshot: %w", err)
 	}
 
 	// ALL array (the 'all' filter-mode view). Blur thumbnails are ~1px so no meaningful imagery in
 	// source; the inline script uses it only when the cyoa_filter_mode cookie isn't 'sfw'.
-	allJSON, err := buildCatalogItemsJSON(app, "", dbx.Params{}, "-bumped_at,-created", catalogSnapshotSize)
+	allJSON, err := buildCatalogItemsJSON(app, "", dbx.Params{}, "-bumped_at,-created", catalogSnapshotSize, tagCategory)
 	if err != nil {
 		return "", fmt.Errorf("all snapshot: %w", err)
 	}
@@ -599,11 +608,11 @@ func buildCatalogScriptTag(app core.App) (string, error) {
 	if filter != "" {
 		sfwPinFilter += " && " + filter
 	}
-	sfwPinsJSON, err := buildCatalogItemsJSON(app, sfwPinFilter, pinParams, "-created", catalogPinnedMax)
+	sfwPinsJSON, err := buildCatalogItemsJSON(app, sfwPinFilter, pinParams, "-created", catalogPinnedMax, tagCategory)
 	if err != nil {
 		return "", fmt.Errorf("sfw pins: %w", err)
 	}
-	allPinsJSON, err := buildCatalogItemsJSON(app, pinClause, dbx.Params{"pincut": cutoff}, "-created", catalogPinnedMax)
+	allPinsJSON, err := buildCatalogItemsJSON(app, pinClause, dbx.Params{"pincut": cutoff}, "-created", catalogPinnedMax, tagCategory)
 	if err != nil {
 		return "", fmt.Errorf("all pins: %w", err)
 	}
@@ -633,7 +642,7 @@ const (
 
 // Default json.Marshal escapes <, >, & and U+2028/2029, so the payload is safe inside <script> (no
 // </script> breakout from description HTML).
-func buildCatalogItemsJSON(app core.App, filter string, params dbx.Params, sort string, limit int) (string, error) {
+func buildCatalogItemsJSON(app core.App, filter string, params dbx.Params, sort string, limit int, tagCategory map[string]string) (string, error) {
 	// Direct DB read bypasses the listRule ('hidden != true'): exclude soft-hidden games explicitly or
 	// they leak into the snapshot. Sort mirrors the frontend "new" tab (-bumped_at).
 	if filter != "" {
@@ -681,7 +690,9 @@ func buildCatalogItemsJSON(app core.App, filter string, params dbx.Params, sort 
 		if tags := r.ExpandedAll("tags"); len(tags) > 0 {
 			arr := make([]map[string]any, 0, len(tags))
 			for _, t := range tags {
-				arr = append(arr, map[string]any{"id": t.Id, "name": t.GetString("name")})
+				// category: lets the pre-React pre-paint colour and order chips like GameCard without
+				// the tag dictionary. Extra field, harmless to getList consumers.
+				arr = append(arr, map[string]any{"id": t.Id, "name": t.GetString("name"), "category": tagCategory[t.Id]})
 			}
 			expand["tags"] = arr
 		}

@@ -1,12 +1,36 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react-swc';
+// esbuild ships with vite; used directly only to bundle the tiny pre-paint script.
+import { build as esbuild } from 'esbuild';
+
+// Bundles src/prepaint/prepaint.ts into one classic inline <script> at <!--prepaint--> in index.html,
+// so the UI mock paints before the main bundle is even fetched. Rebuilt on every HTML transform
+// (dev picks up edits on reload).
+function prepaint(): Plugin {
+  return {
+    name: 'prepaint',
+    async transformIndexHtml(html) {
+      const out = await esbuild({
+        entryPoints: ['src/prepaint/prepaint.ts'],
+        bundle: true,
+        write: false,
+        format: 'iife',
+        minify: true,
+        target: 'es2019',
+        legalComments: 'none',
+      });
+      const code = out.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
+      return html.replace('<!--prepaint-->', `<script>${code}</script>`);
+    },
+  };
+}
 
 export default defineConfig({
   
   optimizeDeps: {
     exclude: ["@jsquash/webp"]
   },
-  plugins: [react()],
+  plugins: [react(), prepaint()],
   define: {
     'global': 'window', 
   },

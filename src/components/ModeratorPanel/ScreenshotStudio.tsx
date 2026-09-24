@@ -5,6 +5,8 @@
 // 960×1280 WebP (catalog format). Result is downloaded locally for now; PocketBase upload can be
 // wired after quality is verified. Ported from the standalone screenshot_studio.html prototype —
 // keep capture behavior identical. Moderator UI is English.
+// Mod Tools opens this page as ?url=<game>&handoff=<id>; "Use as cover" then posts the capture back
+// over a BroadcastChannel (same origin, no upload round-trip).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -15,6 +17,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import DownloadIcon from '@mui/icons-material/Download';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { COVER_HANDOFF_CHANNEL, CoverHandoffMessage } from '../ModTools/coverHandoff';
 
 const SOURCE_W = 1920;
 const SOURCE_H = 2560;
@@ -121,9 +124,24 @@ export default function ScreenshotStudio() {
   const previewScaleRef = useRef(0.3);
   const captureModeRef = useRef(false);
 
+  const [handoff, setHandoff] = useState('');
+  const [handoffSent, setHandoffSent] = useState(false);
+
   useEffect(() => {
-    const saved = localStorage.getItem(URL_STORAGE_KEY);
-    if (saved) setUrlValue(saved);
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('url');
+    setHandoff(params.get('handoff') || '');
+    if (fromQuery) {
+      setUrlValue(fromQuery);
+      try {
+        setIframeSrc(new URL(fromQuery).href);
+      } catch { /* invalid, user can fix it in the field */ }
+      return;
+    }
+    try {
+      const saved = localStorage.getItem(URL_STORAGE_KEY);
+      if (saved) setUrlValue(saved);
+    } catch { /* storage blocked */ }
   }, []);
 
   const setScale = useCallback((scale: number) => {
@@ -372,6 +390,15 @@ export default function ScreenshotStudio() {
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   }, [result]);
 
+  const handleSendToModTools = useCallback(() => {
+    if (!result || !handoff) return;
+    const ch = new BroadcastChannel(COVER_HANDOFF_CHANNEL);
+    const msg: CoverHandoffMessage = { handoff, blob: result.blob, placeholder: result.placeholder };
+    ch.postMessage(msg);
+    ch.close();
+    setHandoffSent(true);
+  }, [result, handoff]);
+
   const handleCopyPlaceholder = useCallback(async () => {
     if (!result) return;
     try {
@@ -553,7 +580,12 @@ export default function ScreenshotStudio() {
                 Tab source: {result.captureWidth}×{result.captureHeight}; tiles: {result.tiles};
                 {' '}output: {OUTPUT_W}×{OUTPUT_H} WebP, {(result.blob.size / 1024).toFixed(1)} KiB.
               </Typography>
-              <Button variant="contained" color="success" startIcon={<DownloadIcon />} onClick={handleDownload}>
+              {handoff && (
+                <Button variant="contained" color="warning" onClick={handleSendToModTools}>
+                  {handoffSent ? 'Sent — switch back to the Mod Tools tab' : 'Use as cover in Mod Tools'}
+                </Button>
+              )}
+              <Button variant={handoff ? 'outlined' : 'contained'} color="success" startIcon={<DownloadIcon />} onClick={handleDownload}>
                 Download WebP
               </Button>
               <Button variant="outlined" startIcon={<ContentCopyIcon />} onClick={handleCopyPlaceholder}>

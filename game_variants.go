@@ -154,6 +154,11 @@ func registerGameVariants(app *pocketbase.PocketBase) {
 
 			ensureCanonLangTag(app, game, language)
 			purgeGamePage(app, game.Id)
+			logModAction(app, c, modAction{
+				Action: "variant.create", Target: variantsColl + ":" + variant.Id, Game: game.Id,
+				After:      modSnapshot(variant, "language", "version_label", "title", "iframe_url"),
+				Reversible: true,
+			})
 			return c.JSON(http.StatusOK, variant)
 		})
 
@@ -173,6 +178,8 @@ func registerGameVariants(app *pocketbase.PocketBase) {
 			if err := c.BindBody(payload); err != nil {
 				return c.BadRequestError("Invalid request body", err)
 			}
+			variantFields := []string{"language", "version_label", "title", "description", "iframe_url"}
+			before := modSnapshot(variant, variantFields...)
 			if err := applyVariantFields(c, variant, payload); err != nil {
 				return err
 			}
@@ -182,6 +189,10 @@ func registerGameVariants(app *pocketbase.PocketBase) {
 
 			ensureCanonLangTag(app, game, variant.GetString("language"))
 			purgeGamePage(app, game.Id)
+			logModAction(app, c, modAction{
+				Action: "variant.update", Target: variantsColl + ":" + variant.Id, Game: game.Id,
+				Before: before, After: modSnapshot(variant, variantFields...), Reversible: true,
+			})
 			return c.JSON(http.StatusOK, variant)
 		})
 
@@ -197,10 +208,15 @@ func registerGameVariants(app *pocketbase.PocketBase) {
 			if err != nil || variant.GetString("game") != game.Id {
 				return apis.NewNotFoundError("Variant not found", nil)
 			}
+			snapshot := modSnapshot(variant, "language", "version_label", "title", "description", "iframe_url")
 			if err := app.Delete(variant); err != nil {
 				return c.BadRequestError("Delete failed", err)
 			}
 			purgeGamePage(app, game.Id)
+			logModAction(app, c, modAction{
+				Action: "variant.delete", Target: variantsColl + ":" + variant.Id, Game: game.Id,
+				Before: snapshot, Reversible: true, Note: "undo = add the variant again with these fields",
+			})
 			return c.JSON(http.StatusOK, map[string]any{"success": true})
 		})
 

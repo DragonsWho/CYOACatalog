@@ -1,6 +1,7 @@
 // /moderator/queue — auto-publication (drip-feed) queue management. Backend: Go
 // /api/pipeline/queue/* (publication_queue_api.go); the queue→games transfer is the Go cron
-// (publication_queue.go).
+// (publication_queue.go). Cards a moderator submitted from Mod Tools carry `mod_upload` and wait,
+// highlighted, until ANOTHER moderator checks them (the timer skips them until then).
 
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
@@ -9,7 +10,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext, pb } from '../../pocketbase/pocketbase';
+import { AuthContext, pb, authedFetch } from '../../pocketbase/pocketbase';
 import GameMetaDialog from '../GameMeta/GameMetaDialog';
 import { pickAdapter } from '../GameMeta/adapters';
 import { GameMetaField, GameMetaValue } from '../GameMeta/types';
@@ -25,6 +26,7 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
 type Counts = {
   approved: number; approved_nsfw: number; approved_sfw: number; approved_community: number;
   publishing: number; publish_failed: number; published: number; dismissed: number;
+  mod_unchecked?: number;
 };
 type Status = {
   enabled: boolean;
@@ -47,7 +49,43 @@ type QueueItem = {
   game: string; author: string; aliases: string; has_aliases: boolean;
   authors: Array<{ id: string; name: string }>;
   tags: Array<{ id: string; name: string }>;
+  mod_upload?: ModUpload | null;
+  description?: string;
+  hosted_url?: string;
+  source_url?: string;
 };
+type ModUpload = {
+  by: string; by_name: string; at: string; job: string; checked: boolean;
+  checked_by?: string; checked_by_name?: string; checked_at?: string;
+};
+
+const MOD_ACCENT = '#ff9100';
+
+// Staged covers are superuser-only files; the Go handler streams them after the perm check.
+function QueueCover({ id }: { id: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let objUrl: string | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authedFetch(`/api/pipeline/queue/items/${id}/cover`, { method: 'GET' });
+        if (!res.ok) return;
+        objUrl = URL.createObjectURL(await res.blob());
+        if (cancelled) URL.revokeObjectURL(objUrl);
+        else setUrl(objUrl);
+      } catch { /* no cover */ }
+    })();
+    return () => { cancelled = true; if (objUrl) URL.revokeObjectURL(objUrl); };
+  }, [id]);
+  if (!url) return <Box sx={{ width: 150, height: 200, bgcolor: '#1c1c1c', borderRadius: 1, flexShrink: 0 }} />;
+  return (
+    <Box component="a" href={url} target="_blank" rel="noopener noreferrer" sx={{ flexShrink: 0 }}>
+      <Box component="img" src={url} alt="cover"
+        sx={{ width: 150, height: 200, objectFit: 'cover', objectPosition: 'top', borderRadius: 1, display: 'block' }} />
+    </Box>
+  );
+}
 
 const fmtDate = (s: string) => {
   if (!s) return '–';
@@ -59,7 +97,7 @@ const LIST_STATES = ['approved', 'publish_failed', 'dismissed', 'published'] as 
 type ListState = typeof LIST_STATES[number];
 
 export default function PublicationQueuePanel() {
-  const { signedIn, isModerator } = useContext(AuthContext);
+  const { signedIn, isModerator, user } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [status, setStatus] = useState<Status | null>(null);
@@ -201,6 +239,21 @@ export default function PublicationQueuePanel() {
     }
   };
 
+  const checkModUpload = async (it: QueueItem) => {
+    setBusyId(it.id);
+    try {
+      const res = await pb.send(`/api/pipeline/queue/items/${it.id}/check`, { method: 'POST' });
+      setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, mod_upload: res.mod_upload } : x)));
+      setToast({ msg: 'Checked — the timer will publish it', sev: 'success' });
+      loadStatus();
+    } catch (err) {
+      const msg = (err as { message?: string })?.message || 'check failed';
+      setToast({ msg, sev: 'error' });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   // Published rows use the catalog adapter, others the pipeline one; published cards get tags via
   // voting, so no tag field (adapter.supports would drop it anyway, but keep the field list
   // honest).
@@ -281,6 +334,8 @@ export default function PublicationQueuePanel() {
           <StatBox label="· NSFW / SFW" value={c ? `${c.approved_nsfw} / ${c.approved_sfw}` : undefined} />
           <StatBox label="· community (go first)" value={c?.approved_community}
             accent={c?.approved_community ? '#ba68c8' : undefined} />
+          <StatBox label="Mod uploads to check" value={c?.mod_unchecked}
+            accent={c?.mod_unchecked ? MOD_ACCENT : undefined} />
           <StatBox label="Publishing" value={c?.publishing} />
           <StatBox label="Failed" value={c?.publish_failed} accent={c?.publish_failed ? '#e57373' : undefined} />
           <StatBox label="Dismissed" value={c?.dismissed} />
@@ -301,10 +356,15 @@ export default function PublicationQueuePanel() {
           <Typography sx={{ color: '#888', py: 2 }}>Nothing here.</Typography>
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {items.map((it) => (
+            {items.map((it) => {
+              const mu = it.mod_upload;
+              const needsCheck = !!mu && !mu.checked;
+              const ownUpload = !!mu && mu.by === user?.id;
+              return (
               <Box key={it.id} sx={{
                 display: 'flex', alignItems: 'center', gap: 1.5, py: 1, px: 1.5,
-                borderRadius: 1, bgcolor: '#262626', flexWrap: 'wrap',
+                borderRadius: 1, bgcolor: needsCheck ? 'rgba(255,145,0,0.08)' : '#262626', flexWrap: 'wrap',
+                border: needsCheck ? `2px solid ${MOD_ACCENT}` : '2px solid transparent',
               }}>
                 <Box sx={{ flex: '1 1 280px', minWidth: 0 }}>
                   <Typography noWrap sx={{ fontWeight: 500 }}>{it.title || it.slug || '(untitled)'}</Typography>
@@ -312,6 +372,18 @@ export default function PublicationQueuePanel() {
                     {it.author ? `by ${it.author} · ` : ''}{it.original_url}
                   </Typography>
                 </Box>
+                {mu && (
+                  <Tooltip title={mu.checked
+                    ? `Uploaded by moderator ${mu.by_name}, checked by ${mu.checked_by_name || '?'}`
+                    : `Uploaded by moderator ${mu.by_name} with the helper app. The timer skips it until another moderator checks it.`}>
+                    <Chip size="small"
+                      label={mu.checked ? `🛠 mod upload · ${mu.by_name} · checked ✓` : `🛠 MOD UPLOAD · ${mu.by_name} · NEEDS CHECK`}
+                      sx={mu.checked
+                        ? { color: MOD_ACCENT, borderColor: MOD_ACCENT }
+                        : { bgcolor: MOD_ACCENT, color: '#1a1a1a', fontWeight: 700 }}
+                      variant={mu.checked ? 'outlined' : 'filled'} />
+                  </Tooltip>
+                )}
                 {it.community && (
                   <Tooltip title="Suggested by a user via /add-next – published ahead of the general backlog">
                     <Chip size="small" color="secondary"
@@ -348,6 +420,16 @@ export default function PublicationQueuePanel() {
                       </span>
                     </Tooltip>
                   )}
+                  {needsCheck && tab === 'approved' && (
+                    <Tooltip title={ownUpload ? 'Another moderator has to check your own upload' : 'Played it, cover/tags/description are fine — let the timer publish it'}>
+                      <span>
+                        <Button size="small" variant="contained"
+                          disabled={busyId === it.id}
+                          sx={{ bgcolor: MOD_ACCENT, color: '#1a1a1a', '&:hover': { bgcolor: '#ffab40' } }}
+                          onClick={() => checkModUpload(it)}>Looks good</Button>
+                      </span>
+                    </Tooltip>
+                  )}
                   {(tab === 'dismissed' || tab === 'publish_failed') && (
                     <Button size="small" variant="outlined" disabled={busyId === it.id}
                       onClick={() => itemAction(it.id, 'requeue')}>Re-queue</Button>
@@ -357,8 +439,30 @@ export default function PublicationQueuePanel() {
                       onClick={() => itemAction(it.id, 'dismiss')}>Dismiss</Button>
                   )}
                 </Box>
+                {needsCheck && (
+                  <Box sx={{ flexBasis: '100%', display: 'flex', gap: 2, pt: 1, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                    <QueueCover id={it.id} />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+                        {it.hosted_url && (
+                          <a href={it.hosted_url} target="_blank" rel="noopener noreferrer" style={{ color: '#90caf9' }}>▶ Play our copy ↗</a>
+                        )}
+                        {it.source_url && (
+                          <a href={it.source_url} target="_blank" rel="noopener noreferrer" style={{ color: '#90caf9' }}>Original ↗</a>
+                        )}
+                      </Box>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+                        {it.tags.map((t) => <Chip key={t.id} size="small" label={t.name} />)}
+                      </Box>
+                      <Typography variant="body2" sx={{ color: '#ccc', whiteSpace: 'pre-wrap', maxHeight: 160, overflowY: 'auto' }}>
+                        {it.description || 'No description.'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
               </Box>
-            ))}
+              );
+            })}
           </Box>
         )}
 

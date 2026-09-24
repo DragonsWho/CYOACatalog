@@ -9,7 +9,7 @@
 
 /// <reference path="../pb_data/types.d.ts" />
 
-console.log("[pipeline] hook loaded: v9 (2026-08-11, +/meta shared editor)");
+console.log("[pipeline] hook loaded: v10 (2026-09-24, /meta open to queue perm)");
 
 routerAdd("GET", "/api/pipeline/review", (e) => {
   console.log("[pipeline/review] hit; auth?", !!e.auth);
@@ -382,8 +382,11 @@ routerAdd("POST", "/api/pipeline/review/{id}/meta", (e) => {
   if (!(v === true || v == true || v === 1 || String(v) === "true")) {
     return e.json(403, { message: "moderators only" });
   }
-  // `review` permission (registry: mod_perms.go). No row → legacy full access. Inlined on purpose:
-  // JSVM isolates can't see shared helpers.
+  // `review` permission (registry: mod_perms.go) edits any row. `queue` alone edits rows already in
+  // the publication queue (approved / publish_failed / dismissed): /moderator/queue uses this same
+  // editor, and moderators without `review` got 403 on every tag change there. No row → legacy full
+  // access. Inlined on purpose: JSVM isolates can't see shared helpers.
+  let queueOnly = false;
   try {
     const pr = $app.findFirstRecordByFilter(
       "mod_permissions", "user = {:u}", { u: e.auth.id });
@@ -398,11 +401,14 @@ routerAdd("POST", "/api/pipeline/review/{id}/meta", (e) => {
         list = null;
       }
       if (list) {
-        let allowed = false;
+        let review = false;
+        let queue = false;
         for (let i = 0; i < list.length; i++) {
-          if (list[i] === "*" || list[i] === "review") allowed = true;
+          if (list[i] === "*" || list[i] === "review") review = true;
+          if (list[i] === "queue") queue = true;
         }
-        if (!allowed) return e.json(403, { message: "no \"review\" permission" });
+        if (!review && !queue) return e.json(403, { message: "no \"review\" or \"queue\" permission" });
+        queueOnly = !review;
       }
     }
   } catch (permErr) {
@@ -414,6 +420,12 @@ routerAdd("POST", "/api/pipeline/review/{id}/meta", (e) => {
     const recs = $app.findAllRecords("game_pipeline_state", $dbx.hashExp({ id: id }));
     const r = recs && recs.length ? recs[0] : null;
     if (!r) return e.json(404, { message: "record not found" });
+    if (queueOnly) {
+      const st = String(r.get("state") || "");
+      if (st !== "approved" && st !== "publish_failed" && st !== "dismissed") {
+        return e.json(403, { message: "no \"review\" permission for a game in state " + st });
+      }
+    }
 
     const out = { ok: true };
     let touched = false;

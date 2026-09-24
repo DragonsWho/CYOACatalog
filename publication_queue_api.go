@@ -5,8 +5,10 @@
 package main
 
 import (
+	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/dbx"
@@ -31,6 +33,8 @@ func registerPublicationQueueAPI(app core.App) {
 		g.POST("/items/{id}/publish", pqGuard(func(c *core.RequestEvent) error { return pqPublishItemNow(app, c) }))
 		g.POST("/items/{id}/dismiss", pqGuard(func(c *core.RequestEvent) error { return pqSetItemState(app, c, "dismissed") }))
 		g.POST("/items/{id}/requeue", pqGuard(func(c *core.RequestEvent) error { return pqSetItemState(app, c, "approved") }))
+		g.POST("/items/{id}/check", pqGuard(func(c *core.RequestEvent) error { return pqCheckModUpload(app, c) }))
+		g.GET("/items/{id}/cover", pqGuard(func(c *core.RequestEvent) error { return pqItemCover(app, c) }))
 
 		return e.Next()
 	})
@@ -83,6 +87,7 @@ func pqStatus(app core.App, c *core.RequestEvent) error {
 			"publish_failed":     pqCount(app, "state = 'publish_failed'"),
 			"published":          pqCount(app, "state = 'published'"),
 			"dismissed":          pqCount(app, "state = 'dismissed'"),
+			"mod_unchecked":      pqCountModUnchecked(app),
 		},
 		"drain_eta_hours": etaHours,
 	})
@@ -207,6 +212,16 @@ func pqItems(app core.App, c *core.RequestEvent) error {
 			"moderator_note":  r.GetString("moderator_note"),
 			"community":       submittedBy != "",
 			"submitter":       submitter,
+			"mod_upload":      modUploadInfo(r),
+			// Only moderator uploads need the text here (the checker reads it before approving).
+			"description": func() string {
+				if modUploadInfo(r) == nil {
+					return ""
+				}
+				return r.GetString("description")
+			}(),
+			"hosted_url":      r.GetString("hosted_url"),
+			"source_url":      r.GetString("source_url"),
 		})
 	}
 
@@ -304,6 +319,16 @@ func pqPublishItemNow(app core.App, c *core.RequestEvent) error {
 	if rec.GetString("publish_mode") == "skip" {
 		return c.BadRequestError("publish_mode=skip", nil)
 	}
+	// Publishing a moderator's upload by hand counts as the check, so the same second-pair-of-eyes
+	// rule applies.
+	checkedNow := false
+	if modUploadAwaitingCheck(rec) {
+		if err := canCheckModUpload(c, rec); err != nil {
+			return err
+		}
+		markModUploadChecked(c, rec)
+		checkedNow = true
+	}
 
 	settings, err := loadSettings(app)
 	if err != nil {
@@ -338,6 +363,12 @@ func pqPublishItemNow(app core.App, c *core.RequestEvent) error {
 	}
 	app.Logger().Info("published game from queue (manual)", "queue_id", rec.Id, "game_id", gameID, "mode", rec.GetString("publish_mode"))
 
+	if checkedNow {
+		logModAction(app, c, modAction{
+			Action: "queue.mod_upload_checked", Target: id + " " + rec.GetString("slug"), Game: gameID,
+			After: modUploadInfo(rec), Reversible: false, Note: "checked by publishing it",
+		})
+	}
 	logModAction(app, c, modAction{
 		Action:     "queue.item_publish_now",
 		Target:     id + " " + rec.GetString("slug"),
@@ -376,4 +407,102 @@ func pqSetItemState(app core.App, c *core.RequestEvent, newState string) error {
 		Reversible: true,
 	})
 	return c.JSON(http.StatusOK, map[string]any{"ok": true, "id": id, "state": newState})
+}
+
+func pqCountModUnchecked(app core.App) int64 {
+	var n int64
+	err := app.ConcurrentDB().NewQuery(
+		"SELECT COUNT(*) FROM " + pqQueueCol + " WHERE state = 'approved' AND " +
+			"(CASE WHEN json_valid(data) THEN json_extract(data, '$.mod_upload.by') END) IS NOT NULL AND " +
+			"COALESCE(CASE WHEN json_valid(data) THEN json_extract(data, '$.mod_upload.checked') END, 0) = 0",
+	).Row(&n)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// The uploader can't check their own card; the site owner (review permission) and superusers can.
+func canCheckModUpload(c *core.RequestEvent, rec *core.Record) error {
+	mu := modUploadInfo(rec)
+	by, _ := mu["by"].(string)
+	if c.Auth != nil && c.Auth.Id == by && !hasPerm(c, permReview) {
+		return c.ForbiddenError("Another moderator has to check your own upload.", nil)
+	}
+	return nil
+}
+
+func markModUploadChecked(c *core.RequestEvent, rec *core.Record) {
+	data := recordJSONMap(rec, "data")
+	mu, _ := data["mod_upload"].(map[string]any)
+	if mu == nil {
+		return
+	}
+	mu["checked"] = true
+	mu["checked_at"] = time.Now().UTC().Format(time.RFC3339)
+	if c.Auth != nil {
+		mu["checked_by"] = c.Auth.Id
+		mu["checked_by_name"] = c.Auth.GetString("username")
+	}
+	data["mod_upload"] = mu
+	rec.Set("data", data)
+}
+
+func pqCheckModUpload(app core.App, c *core.RequestEvent) error {
+	id := c.Request.PathValue("id")
+	rec, err := app.FindRecordById(pqQueueCol, id)
+	if err != nil {
+		return c.NotFoundError("queue item not found", err)
+	}
+	if !modUploadAwaitingCheck(rec) {
+		return c.BadRequestError("not a moderator upload waiting for a check", nil)
+	}
+	if err := canCheckModUpload(c, rec); err != nil {
+		return err
+	}
+	markModUploadChecked(c, rec)
+	if err := app.Save(rec); err != nil {
+		return c.InternalServerError("save failed", err)
+	}
+	logModAction(app, c, modAction{
+		Action: "queue.mod_upload_checked", Target: id + " " + rec.GetString("slug"),
+		After: modUploadInfo(rec), Reversible: true,
+		Note: "the timer may now publish it; undo = dismiss the item",
+	})
+	return c.JSON(http.StatusOK, map[string]any{"ok": true, "id": id, "mod_upload": modUploadInfo(rec)})
+}
+
+// Staged cover of a queue row (game_pipeline_state files are superuser-only, so moderators get
+// them through here; fetched with the auth header and shown as an object URL).
+func pqItemCover(app core.App, c *core.RequestEvent) error {
+	rec, err := app.FindRecordById(pqQueueCol, c.Request.PathValue("id"))
+	if err != nil {
+		return c.NotFoundError("queue item not found", err)
+	}
+	name := rec.GetString("image")
+	if name == "" {
+		return c.NotFoundError("no cover staged", nil)
+	}
+	fsys, err := app.NewFilesystem()
+	if err != nil {
+		return c.InternalServerError("storage unavailable", err)
+	}
+	defer fsys.Close()
+	r, err := fsys.GetReader(rec.BaseFilesPath() + "/" + name)
+	if err != nil {
+		return c.NotFoundError("cover file missing", err)
+	}
+	defer r.Close()
+	ct := "image/webp"
+	switch {
+	case strings.HasSuffix(strings.ToLower(name), ".png"):
+		ct = "image/png"
+	case strings.HasSuffix(strings.ToLower(name), ".jpg"), strings.HasSuffix(strings.ToLower(name), ".jpeg"):
+		ct = "image/jpeg"
+	}
+	c.Response.Header().Set("Content-Type", ct)
+	c.Response.Header().Set("Cache-Control", "private, max-age=300")
+	c.Response.WriteHeader(http.StatusOK)
+	_, err = io.Copy(c.Response, r)
+	return err
 }

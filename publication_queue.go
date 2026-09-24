@@ -132,10 +132,33 @@ func pickCandidate(app core.App) (*core.Record, error) {
 	if err != nil {
 		return nil, fmt.Errorf("pick candidate: %w", err)
 	}
-	if len(recs) == 0 {
+	ready := recs[:0]
+	for _, r := range recs {
+		if !modUploadAwaitingCheck(r) {
+			ready = append(ready, r)
+		}
+	}
+	if len(ready) == 0 {
 		return nil, nil
 	}
-	return recs[rand.Intn(len(recs))], nil
+	return ready[rand.Intn(len(ready))], nil
+}
+
+// Cards submitted by a moderator through Mod Tools (data.mod_upload) wait in the queue until a
+// second moderator marks them checked; the timer skips them until then.
+func modUploadInfo(q *core.Record) map[string]any {
+	data := recordJSONMap(q, "data")
+	mu, _ := data["mod_upload"].(map[string]any)
+	return mu
+}
+
+func modUploadAwaitingCheck(q *core.Record) bool {
+	mu := modUploadInfo(q)
+	if mu == nil {
+		return false
+	}
+	checked, _ := mu["checked"].(bool)
+	return !checked
 }
 
 func publishOne(app core.App, q *core.Record, settings *core.Record) (string, error) {

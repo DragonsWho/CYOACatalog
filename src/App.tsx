@@ -44,6 +44,7 @@ const RoulettePage = lazy(() => import('./components/Roulette/RoulettePage'));
 const RoulettePanel = lazy(() => import('./components/ModeratorPanel/RoulettePanel'));
 const ModAccessPanel = lazy(() => import('./components/ModeratorPanel/ModAccessPanel'));
 const ScreenshotStudio = lazy(() => import('./components/ModeratorPanel/ScreenshotStudio'));
+const ModToolsPage = lazy(() => import('./components/ModTools/ModToolsPage'));
 
 import {
   AuthContext,
@@ -708,6 +709,14 @@ export default function App() {
                   element={
                     <ModeratorRoute perm="roulette">
                       <RoulettePanel />
+                    </ModeratorRoute>
+                  }
+                />
+                <Route
+                  path="/moderator/mod-tools"
+                  element={
+                    <ModeratorRoute perm="mod_upload">
+                      <ModToolsPage />
                     </ModeratorRoute>
                   }
                 />

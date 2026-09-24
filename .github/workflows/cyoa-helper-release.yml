@@ -1,0 +1,38 @@
+# Builds the moderators' CYOA Helper for Windows, macOS and Linux and attaches the binaries to a
+# GitHub release. Trigger: push a tag like helper-v0.1.0.
+name: cyoa-helper release
+
+on:
+  push:
+    tags: ["helper-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/cyoa-helper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/cyoa-helper/go.mod
+          cache-dependency-path: tools/cyoa-helper/go.sum
+      - run: go vet ./... && go test ./...
+      - name: Build
+        run: |
+          VERSION="${GITHUB_REF_NAME#helper-}"
+          mkdir -p out
+          build() { CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "out/$3" . ; }
+          build windows amd64 cyoa-helper-windows.exe
+          build linux   amd64 cyoa-helper-linux
+          build darwin  arm64 cyoa-helper-macos
+          build darwin  amd64 cyoa-helper-macos-intel
+          cd out && sha256sum * > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: tools/cyoa-helper/out/*
+          make_latest: true

@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -86,9 +85,13 @@ func newR2Client() *s3.Client {
 	}
 
 	return s3.NewFromConfig(cfg, func(o *s3.Options) {
-		o.BaseEndpoint = aws.String(
-			fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID),
-		)
+		endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
+		// Local E2E against a fake S3 (gofakes3); never set in production.
+		if ep := os.Getenv("R2_ENDPOINT_URL"); ep != "" {
+			endpoint = ep
+			o.UsePathStyle = true
+		}
+		o.BaseEndpoint = aws.String(endpoint)
 	})
 }
 
@@ -1462,6 +1465,8 @@ body{
 func registerHostingRoutes(app *pocketbase.PocketBase) {
 	s3Client := newR2Client()
 	bucket := os.Getenv("R2_BUCKET_NAME")
+	// Shared with modkit.go (moderator uploads go through the same chunked-part code).
+	hostingR2, hostingBucket = s3Client, bucket
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		if s3Client == nil {
@@ -1984,163 +1989,11 @@ func registerHostingRoutes(app *pocketbase.PocketBase) {
 					"error": fmt.Sprintf("user with hosting_slug '%s' not found", userSlug),
 				})
 			}
-			hostingSlug := targetUser.GetString("hosting_slug")
-			userID := targetUser.Id
-
-			slug := strings.ToLower(strings.TrimSpace(e.Request.FormValue("slug")))
-			if !isValidSlug(slug) {
-				return e.JSON(http.StatusBadRequest, map[string]string{
-					"error": "slug: 3-60 chars, a-z 0-9 hyphens, no leading/trailing hyphens",
-				})
-			}
-
 			force := strings.ToLower(strings.TrimSpace(e.Request.FormValue("force"))) == "true"
-			partIndex, _ := strconv.Atoi(e.Request.FormValue("part_index"))
-			final := strings.ToLower(strings.TrimSpace(e.Request.FormValue("final"))) == "true"
-
-			dup, _ := app.FindFirstRecordByFilter("hosted_games",
-				"owner = {:owner} && slug = {:slug}",
-				dbx.Params{"owner": userID, "slug": slug})
-
-			oldVersion := 0
-			if dup != nil {
-				oldVersion = dup.GetInt("version")
-				if oldVersion <= 0 {
-					oldVersion = 1
-				}
-			}
-			var newVersion int
-			if partIndex == 0 {
-				if dup != nil && !force {
-					return e.JSON(http.StatusOK, map[string]interface{}{
-						"id": dup.Id, "slug": slug, "url": makeGameURL(hostingSlug, slug),
-						"version": dup.GetInt("version"), "skipped": true,
-						"message": "game with this slug already exists",
-					})
-				}
-				if dup != nil {
-					newVersion = oldVersion + 1
-				} else {
-					newVersion = 1
-				}
-			} else {
-				newVersion, _ = strconv.Atoi(e.Request.FormValue("version"))
-				if newVersion <= 0 {
-					return e.JSON(http.StatusBadRequest, map[string]string{
-						"error": "version (returned by part 0) required for part_index > 0",
-					})
-				}
-			}
-			prefix := r2VersionPrefix(hostingSlug, slug, newVersion)
-
-			file, header, err := e.Request.FormFile("archive")
-			if err != nil {
-				return e.JSON(http.StatusBadRequest, map[string]string{"error": "missing 'archive' file"})
-			}
-			defer file.Close()
-			if header.Size > maxZipSize {
-				return e.JSON(http.StatusRequestEntityTooLarge, map[string]string{
-					"error": fmt.Sprintf("part too large, max %d MB", maxZipSize>>20),
-				})
-			}
-			zipData, err := io.ReadAll(io.LimitReader(file, maxZipSize+1))
-			if err != nil || int64(len(zipData)) > maxZipSize {
-				return e.JSON(http.StatusRequestEntityTooLarge, map[string]string{"error": "part too large"})
-			}
-			if _, err := processZipPartToR2(zipData, s3Client, bucket, prefix, maxChunkedGameSize); err != nil {
-				// Do NOT clear the prefix: the client may resend this part (idempotent).
-				return e.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
-			}
-
-			if !final {
-				return e.JSON(http.StatusOK, map[string]interface{}{
-					"slug": slug, "version": newVersion, "part_index": partIndex, "done": false,
-				})
-			}
-
-			fileCount, totalBytes, hasIndex, relPaths := r2PrefixStats(s3Client, bucket, prefix)
-			if !hasIndex {
-				cleanupR2(s3Client, bucket, prefix)
-				return e.JSON(http.StatusBadRequest, map[string]string{"error": "archive must contain index.html"})
-			}
-			if fileCount > maxFiles {
-				cleanupR2(s3Client, bucket, prefix)
-				return e.JSON(http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("too many files (max %d)", maxFiles)})
-			}
-			if totalBytes > maxChunkedGameSize {
-				cleanupR2(s3Client, bucket, prefix)
-				return e.JSON(http.StatusRequestEntityTooLarge, map[string]string{
-					"error": fmt.Sprintf("game too large, max %d MB", maxChunkedGameSize>>20),
-				})
-			}
-
-			now := time.Now().UTC().Format(time.RFC3339)
-			desc := strings.TrimSpace(e.Request.FormValue("description"))
-			title := strings.TrimSpace(e.Request.FormValue("title"))
-
-			var rec *core.Record
-			if dup != nil {
-				rec = dup
-				rec.Set("version", newVersion)
-				rec.Set("size_bytes", totalBytes)
-				rec.Set("file_count", fileCount)
-				if desc != "" {
-					rec.Set("description", desc)
-				}
-				var meta []map[string]interface{}
-				if raw := rec.GetString("versions_meta"); raw != "" && raw != "null" {
-					json.Unmarshal([]byte(raw), &meta)
-				}
-				meta = append(meta, map[string]interface{}{
-					"v": newVersion, "uploaded_at": now,
-					"size_bytes": totalBytes, "file_count": fileCount,
-					"note": "admin chunked update",
-				})
-				rec.Set("versions_meta", meta)
-			} else {
-				if title == "" {
-					cleanupR2(s3Client, bucket, prefix)
-					return e.JSON(http.StatusBadRequest, map[string]string{"error": "title required for new game"})
-				}
-				col, err := app.FindCollectionByNameOrId("hosted_games")
-				if err != nil {
-					cleanupR2(s3Client, bucket, prefix)
-					return e.JSON(http.StatusInternalServerError, map[string]string{"error": "internal error"})
-				}
-				rec = core.NewRecord(col)
-				rec.Set("owner", userID)
-				rec.Set("slug", slug)
-				rec.Set("title", title)
-				rec.Set("description", desc)
-				rec.Set("version", newVersion)
-				rec.Set("size_bytes", totalBytes)
-				rec.Set("file_count", fileCount)
-				rec.Set("status", "active")
-				rec.Set("entry_point", "index.html")
-				rec.Set("versions_meta", []map[string]interface{}{
-					{"v": newVersion, "uploaded_at": now, "size_bytes": totalBytes, "file_count": fileCount, "note": desc},
-				})
-			}
-
-			if err := app.Save(rec); err != nil {
-				cleanupR2(s3Client, bucket, prefix)
-				return e.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			}
-
-			lookupCache.drop(hostingSlug + "/" + slug)
-			if oldVersion > 0 {
-				purgeGameURLs(s3Client, bucket, hostingSlug, slug, oldVersion, relPaths)
-			} else {
-				go purgeCloudflareCache([]string{fmt.Sprintf("https://%s.%s/", hostingSlug, baseDomain)})
-			}
-
-			fmt.Printf("[hosting] admin/upload-part: '%s/%s' v%d finalized by superadmin for user '%s' (%d files, %s, force=%v)\n",
-				hostingSlug, slug, newVersion, targetUser.GetString("username"), fileCount, formatBytes(totalBytes), force)
-
-			return e.JSON(http.StatusOK, map[string]interface{}{
-				"id": rec.Id, "slug": slug, "url": makeGameURL(hostingSlug, slug),
-				"version": newVersion, "size": totalBytes, "files": fileCount, "done": true,
+			_, err = uploadPartForUser(app, e, s3Client, bucket, targetUser, uploadPartOpts{
+				Force: force, Actor: "superadmin", UpdateNote: "admin chunked update",
 			})
+			return err
 		}).Bind(apis.BodyLimit(maxZipSize))
 
 		se.Router.POST("/api/hosting/update/{id}", func(e *core.RequestEvent) error {

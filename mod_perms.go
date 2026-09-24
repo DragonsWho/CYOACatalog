@@ -39,6 +39,7 @@ const (
 	permRoulette     = "roulette"
 	permStats        = "stats"
 	permPerms        = "perms"
+	permModUpload    = "mod_upload"
 )
 
 type modCapability struct {
@@ -60,6 +61,7 @@ var modCapabilities = []modCapability{
 	{permRoulette, "Bump roulette", "Roulette settings and forcing a draw"},
 	{permStats, "View stats", "First-party per-game view counters"},
 	{permPerms, "Moderator access", "Hand out the permissions on this page"},
+	{permModUpload, "Mod uploads", "Helper app: download games, create reserved author accounts, upload to hosting, submit new cards to the publication queue"},
 }
 
 var modPermApp core.App

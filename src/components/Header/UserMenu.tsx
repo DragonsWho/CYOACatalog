@@ -126,6 +126,9 @@ const UserMenu: React.FC<UserMenuProps> = ({ currentUser, isMobile, isBelow400px
             {hasModPerm('review') && (
               <MenuItem onClick={() => { setAnchorEl(null); navigate('/moderator/review'); }}>Review queue</MenuItem>
             )}
+            {hasModPerm('mod_upload') && (
+              <MenuItem onClick={() => { setAnchorEl(null); navigate('/moderator/mod-tools'); }}>Mod Tools: add games</MenuItem>
+            )}
             {hasModPerm('queue') && (
               <MenuItem onClick={() => { setAnchorEl(null); navigate('/moderator/queue'); }}>Publication queue</MenuItem>
             )}

@@ -20,7 +20,8 @@ export type ModPermKey =
   | 'queue'
   | 'roulette'
   | 'stats'
-  | 'perms';
+  | 'perms'
+  | 'mod_upload';
 
 export interface ModCapability {
   key: ModPermKey;

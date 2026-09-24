@@ -2083,6 +2083,9 @@ func main() {
 
 	registerGameVariants(app)
 
+	// Mod Tools: helper app pairing/jobs, reserved author accounts, card submission (modkit.go).
+	registerModkit(app)
+
 	// CF purge after card edits, otherwise a removed tag lingers until TTL (game_cache_purge.go).
 	registerGameCachePurge(app)
 

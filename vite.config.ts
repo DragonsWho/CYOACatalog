@@ -45,12 +45,33 @@ function prepaint(): Plugin {
   };
 }
 
+// The entry stylesheet (~10 KB, ~3 KB gzip: Tailwind preflight + global rules) inlined as <style>:
+// a <link rel=stylesheet> is render-blocking — the pre-paint waited a full round trip for it
+// (Lighthouse "Render-blocking requests"). The .css file stays in dist; nothing links it.
+function inlineEntryCss(): Plugin {
+  return {
+    name: 'inline-entry-css',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        return html.replace(/<link rel="stylesheet"[^>]*href="\/(assets\/[^"]+\.css)"[^>]*>/g, (tag, file: string) => {
+          const asset = ctx.bundle?.[file];
+          if (!asset || asset.type !== 'asset') return tag;
+          const css = String(asset.source).replace(/<\/style/gi, '<\\/style');
+          return `<style>${css}</style>`;
+        });
+      },
+    },
+  };
+}
+
 export default defineConfig({
   
   optimizeDeps: {
     exclude: ["@jsquash/webp"]
   },
-  plugins: [react(), prepaint()],
+  plugins: [react(), prepaint(), inlineEntryCss()],
   define: {
     'global': 'window', 
   },

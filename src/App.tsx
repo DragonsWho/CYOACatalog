@@ -1,5 +1,5 @@
-import { useState, useEffect, lazy, Suspense, useContext, useCallback } from 'react';
-import { Routes, Route, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
+import { useState, useEffect, useLayoutEffect, lazy, Suspense, useContext, useCallback } from 'react';
+import { Routes, Route, useLocation, useNavigate, useNavigationType, useParams, Navigate } from 'react-router-dom';
 import {
   Container, Box, GlobalStyles,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button
@@ -175,6 +175,14 @@ export default function App() {
   // One element for all chat routes (ChatPage reads the URL itself). The adult flag comes from the
   // SITE header toggle, so every chat route gets it.
   const chatScreen = <ChatPage rating={filterMode} />;
+
+  // A link to another page opens at its top. Without this the window kept the previous page's scroll
+  // (a card deep in the feed opened its game half a screen down). Back/forward (POP) keeps the
+  // browser's restoration; #anchors (comment links) scroll themselves.
+  const navType = useNavigationType();
+  useLayoutEffect(() => {
+    if (navType !== 'POP' && !location.hash) window.scrollTo(0, 0);
+  }, [location.pathname, navType, location.hash]);
 
   useEffect(() => {
     // Game pages send their own page_view from GameDetails (title loads async); here: all other

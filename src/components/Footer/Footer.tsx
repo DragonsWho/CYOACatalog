@@ -76,7 +76,7 @@ export default function Footer() {
             <Typography variant="body1" component="span" sx={{ mr: 0.5 }}>
               Made by Dragon&lsquo;s Whore! To keep this project from going to hell, please support it on
             </Typography>
-            <SupportLink href="https://boosty.to/dragonswhore" target="_blank" rel="noopener noreferrer">
+            <SupportLink href="https://boosty.to/dragonswhore" target="_blank" rel="noopener noreferrer" aria-label="Boosty">
               <IconWrapper>
                 <BoostyIcon sx={{ width: 100, height: 'auto', ml: -1 }} />
               </IconWrapper>
@@ -84,7 +84,7 @@ export default function Footer() {
             <Typography variant="body1" component="span" sx={{ mx: 0.5, ml: -0.7 }}>
               or
             </Typography>
-            <SupportLink href="https://www.patreon.com/DragonsWhore" target="_blank" rel="noopener noreferrer">
+            <SupportLink href="https://www.patreon.com/DragonsWhore" target="_blank" rel="noopener noreferrer" aria-label="Patreon">
               <IconWrapper sx={{ display: 'flex', alignItems: 'center' }}>
                 <PatreonIcon sx={{ width: 23, height: 'auto' }} />
                 <PatreonWordmark sx={{ width: 100, height: 'auto', ml: -0.5 }} />

@@ -10,14 +10,34 @@ import (
 	"encoding/json"
 	"io/fs"
 	"log"
+	"path"
 	"strings"
 )
 
 type viteManifestEntry struct {
-	File    string   `json:"file"`
-	Imports []string `json:"imports"`
-	CSS     []string `json:"css"`
-	IsEntry bool     `json:"isEntry"`
+	File           string   `json:"file"`
+	Name           string   `json:"name"`
+	Imports        []string `json:"imports"`
+	CSS            []string `json:"css"`
+	IsEntry        bool     `json:"isEntry"`
+	IsDynamicEntry bool     `json:"isDynamicEntry"`
+}
+
+// Manifest key of a route module. Usually its source path; when other lazy chunks import modules
+// that Rollup placed in the route's chunk, Vite keys it as a shared chunk ("_GameDetails-<hash>.js")
+// — then match the dynamic entry by chunk name (the file's base name).
+func routeManifestKey(man map[string]viteManifestEntry, src string) string {
+	if _, ok := man[src]; ok {
+		return src
+	}
+	name := path.Base(src)
+	name = strings.TrimSuffix(name, path.Ext(name))
+	for key, e := range man {
+		if e.IsDynamicEntry && e.Name == name {
+			return key
+		}
+	}
+	return ""
 }
 
 // Route source module → the <link> tags to inline for it.
@@ -78,9 +98,12 @@ func buildRoutePreloads(distFS fs.FS) map[string]string {
 				walk(imp)
 			}
 		}
-		walk(src)
+		key := routeManifestKey(man, src)
+		walk(key)
 		if b.Len() > 0 {
 			out[route] = b.String()
+		} else {
+			log.Printf("Warn: no route preload for %s (%s not in manifest)", route, src)
 		}
 	}
 	return out

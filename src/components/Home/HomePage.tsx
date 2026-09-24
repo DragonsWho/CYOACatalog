@@ -891,7 +891,8 @@ export default function HomePage({
 
   return (
     <Container maxWidth={false} disableGutters sx={{ maxWidth: '2200px', mx: 'auto', px: { xs: 1, sm: 2, md: 3 }, pb: 2 }}>
-      <Collapse in={panelVisible}>
+      {/* unmountOnExit: on phones the hidden wide panel (3 Autocompletes) was still rendered. */}
+      <Collapse in={panelVisible} unmountOnExit>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, mb: 1.5, alignItems: { md: 'center' } }}>
           <Box
             sx={{

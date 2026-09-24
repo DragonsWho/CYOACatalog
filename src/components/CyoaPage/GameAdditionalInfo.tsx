@@ -18,7 +18,7 @@ import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp
 import DieIcon from '../DieIcon';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
-import { BUMP_COOLDOWN_MS } from './GameEditDialog';
+import { BUMP_COOLDOWN_MS } from './bumpCooldown';
 import BumpVoteWidget from './BumpVoteWidget';
 
 const LOGIN_TOOLTIP = 'Login to upvote';

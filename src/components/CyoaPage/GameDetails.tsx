@@ -1,16 +1,12 @@
-import { useState, useEffect, useMemo, useRef, useContext } from 'react';
+import { useState, useEffect, useMemo, useRef, useContext, lazy, Suspense } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { requestSearchAuthor } from '../../utils/searchTagBus';
-import { GameEditDialog, BumpDialog } from './GameEditDialog';
-import ModReuploadDialog from '../Hosting/ModReuploadDialog';
 
 import { Container, Typography, Box, CircularProgress, Grid2, Paper, Snackbar } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import TagDisplay from './TagDisplay';
 import { webpAspect } from '../../utils/webpSize';
 import GameContent from './GameContent';
-import Comments from './Comments/Comments';
-import SimilarGamesStrip from './SimilarGamesStrip';
 import GameAbout from './GameAbout';
 import GameAdditionalInfo from './GameAdditionalInfo';
 import LanguageSwitcher, { LangOption } from './LanguageSwitcher';
@@ -32,6 +28,14 @@ import type { FilterMode } from '../../types';
 import { LOAD_BUILD_EVENT } from '../../utils/cheat';
 import DOMPurify from 'dompurify';
 import CyoaCompanionDrawer from './CyoaCompanionDrawer';
+import LazyMount from '../LazyMount';
+
+// Below the fold / owner-and-moderator only: separate chunks, fetched when needed.
+const Comments = lazy(() => import('./Comments/Comments'));
+const SimilarGamesStrip = lazy(() => import('./SimilarGamesStrip'));
+const GameEditDialog = lazy(() => import('./GameEditDialog').then((m) => ({ default: m.GameEditDialog })));
+const BumpDialog = lazy(() => import('./GameEditDialog').then((m) => ({ default: m.BumpDialog })));
+const ModReuploadDialog = lazy(() => import('../Hosting/ModReuploadDialog'));
 import { cfImage, cfImageSrcSet } from '../../utils/cfImage';
 import { recordGameView } from '../../utils/gameViews';
 import { splitGameAliases } from '../../utils/aliases';
@@ -109,6 +113,11 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
   const [editOpen, setEditOpen] = useState(false);
   const [bumpOpen, setBumpOpen] = useState(false);
   const [reuploadOpen, setReuploadOpen] = useState(false);
+  // Dialogs mount on first open and then stay mounted (so their close transition still plays).
+  const [dialogsLoaded, setDialogsLoaded] = useState(false);
+  useEffect(() => {
+    if (editOpen || bumpOpen || reuploadOpen) setDialogsLoaded(true);
+  }, [editOpen, bumpOpen, reuploadOpen]);
   // Increment re-runs fetchGameData (after an edit/bump save).
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -634,11 +643,20 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
         "Other games" before the comments: after reading the description and trying the game, offer
         the next one. Also the only links from the card to the catalog — see SimilarGamesStrip.
       */}
-      <SimilarGamesStrip game={game} filterMode={filterMode} />
+      <LazyMount minHeight={200}>
+        <Suspense fallback={<Box sx={{ minHeight: 200 }} />}>
+          <SimilarGamesStrip game={game} filterMode={filterMode} />
+        </Suspense>
+      </LazyMount>
 
-      <Box>
-        <Comments game={game} />
-      </Box>
+      {/* Straight away when the link targets a comment or summons a moderator (?call=mod). */}
+      <LazyMount eager={/^#comment-/.test(window.location.hash) || searchParams.get('call') === 'mod'}>
+        <Suspense fallback={null}>
+          <Box>
+            <Comments game={game} />
+          </Box>
+        </Suspense>
+      </LazyMount>
 
       {/*
         Game breakdown for readers and search engines at the very bottom, collapsed (why here, not
@@ -650,8 +668,8 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
         <CyoaCompanionDrawer gameId={game.id} />
       )}
 
-      {canManage && game && (
-        <>
+      {canManage && game && (editOpen || bumpOpen || dialogsLoaded) && (
+        <Suspense fallback={null}>
           <GameEditDialog
             key={`edit-${game.id}-${reloadKey}`}
             open={editOpen}
@@ -668,16 +686,18 @@ export default function GameDetails({ filterMode }: { filterMode: FilterMode }) 
             isModerator={isModerator}
             onBumped={() => setReloadKey((k) => k + 1)}
           />
-        </>
+        </Suspense>
       )}
 
-      {isModerator && game && (
-        <ModReuploadDialog
-          open={reuploadOpen}
-          onClose={() => setReuploadOpen(false)}
-          gameId={game.id}
-          gameTitle={game.title}
-        />
+      {isModerator && game && (reuploadOpen || dialogsLoaded) && (
+        <Suspense fallback={null}>
+          <ModReuploadDialog
+            open={reuploadOpen}
+            onClose={() => setReuploadOpen(false)}
+            gameId={game.id}
+            gameTitle={game.title}
+          />
+        </Suspense>
       )}
 
       <Snackbar

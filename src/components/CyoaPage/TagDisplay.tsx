@@ -1,7 +1,8 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
+import { loadTagDictionary } from '../../utils/tagDictionary';
 import { Box, Chip, useMediaQuery, Button, Tooltip } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, tagCategoriesCollectionPublic, tagsCollection } from '../../pocketbase/pocketbase';
+import { Tag, GameTagVote, AuthContext, gameTagVotesCollection, tagCategoriesCollection, tagsCollection } from '../../pocketbase/pocketbase';
 import AddTagPopover from './AddTagPopover';
 import TagCategoryComponent from './TagCategory';
 import CustomTagPopover from './CustomTagPopover';
@@ -124,53 +125,39 @@ export default function TagDisplay({
   useEffect(() => {
 
 
+    // Registry from the shared tag dictionary (one versioned request, usually already cached by
+    // App) instead of its own tag_categories+tags query. Versioned, so a fresh custom tag shows at
+    // once — no day-long edge-cache lag like the old anonymous query had.
     const loadAllData = async () => {
         try {
-          const combinedResponse = await tagCategoriesCollectionPublic.getFullList({
-            fields: 'id,name,expand.tags.id,expand.tags.name',
-            expand: 'tags'
-          });
-      
+          const dict = await loadTagDictionary();
+          const nameOf = new Map(dict.tags.map((t) => [t.id, t.name]));
           const categoryNames: string[] = [];
           const catTags: Record<string, Tag[]> = {};
           const tagsMap: Record<string, Tag> = {};
-      
-          combinedResponse.forEach((category) => {
+
+          dict.categories.forEach((category) => {
             categoryNames.push(category.name);
-      
             const currentCategoryProcessedTags: Tag[] = [];
-            if (category.expand?.tags) {
-              category.expand.tags.forEach(tagFromExpand => {
-                // Recreate the expand structure the rest of the code expects (tag with its
-                // category).
-                const processedTag: Tag = {
-                  id: tagFromExpand.id,
-                  name: tagFromExpand.name, 
-                  expand: {
-                    tag_categories_via_tags: [
-                      {
-                        name: category.name
-                      }
-                    ]
-                  }
-                } as any;
-      
-                currentCategoryProcessedTags.push(processedTag);
-      
-                // A tag in several categories would be overwritten by the last one; normally one
-                // category per tag.
-                if (!tagsMap[processedTag.id]) {
-                   tagsMap[processedTag.id] = processedTag;
-                }
-              });
-            }
+            category.tags.forEach((tagId) => {
+              const name = nameOf.get(tagId);
+              if (name === undefined) return;
+              // The tag-with-its-category shape the rest of the code expects.
+              const processedTag = {
+                id: tagId,
+                name,
+                expand: { tag_categories_via_tags: [{ name: category.name }] },
+              } as unknown as Tag;
+              currentCategoryProcessedTags.push(processedTag);
+              // A tag in several categories keeps the first; normally one category per tag.
+              if (!tagsMap[tagId]) tagsMap[tagId] = processedTag;
+            });
             catTags[category.name] = currentCategoryProcessedTags;
           });
-      
+
           setAllCategories(categoryNames);
           setAllAvailableTags(tagsMap);
           setCategoryTags(catTags);
-      
         } catch (error) {
           console.error('Failed to load data:', error);
         }

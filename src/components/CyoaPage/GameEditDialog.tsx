@@ -31,7 +31,9 @@ import CyoaImageUploader from '../Add/CyoaImageUploader';
 import GameRelationshipEditor from '../GameRelationships/GameRelationshipEditor';
 import GameVariantsEditor from '../GameVariants/GameVariantsEditor';
 
-export const BUMP_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+import { BUMP_COOLDOWN_MS } from './bumpCooldown';
+
+export { BUMP_COOLDOWN_MS };
 const SELF_DELETE_WINDOW_MS = 60 * 60 * 1000;
 
 async function extractError(res: Response, fallback: string): Promise<string> {

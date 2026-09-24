@@ -1980,6 +1980,27 @@
     return '•';
   }
 
+  // Authors restyle the number via their own CSS, not app.styling (Gyaru Glam: bar font Pinlock has
+  // blank digits 3-9, a loading.css rule swaps the value to another font). Styling alone → invisible
+  // number. Copy the native value leaf's computed font (+ its size relative to the parent, clamped)
+  // only when set on the leaf itself — an inherited bar font is already handled by authorFont.
+  function nativeValueFont(p) {
+    var nb = findNativeBar();
+    var want = fmtPointValue(p);
+    if (!nb || !want) return null;
+    var leaves = nb.querySelectorAll('span, div, b, strong, i, em');
+    for (var i = 0; i < leaves.length; i++) {
+      var e = leaves[i];
+      if (e.children.length || !e.parentElement || (e.textContent || '').trim() !== want) continue;
+      var cs = getComputedStyle(e), up = getComputedStyle(e.parentElement);
+      if (!cs.fontFamily || cs.fontFamily === up.fontFamily) return null;
+      var k = parseFloat(cs.fontSize) / parseFloat(up.fontSize);
+      k = isFinite(k) ? Math.round(Math.min(2, Math.max(0.5, k)) * 100) / 100 : 1;
+      return { family: cs.fontFamily, scale: k };
+    }
+    return null;
+  }
+
   function renderBar() {
     if (!bar) return;
     var app = getApp();
@@ -2006,6 +2027,11 @@
       if (lbl) chip.appendChild(el('span', 'clbl', lbl));
       var val = el('span', 'cval', fmtPointValue(p));
       if (col.value) val.style.color = col.value;
+      var vf = barPrefs.skin !== 'dark' && nativeValueFont(p);
+      if (vf) {
+        val.style.fontFamily = vf.family + ',' + UI_FONTS;
+        if (vf.scale !== 1) val.style.fontSize = vf.scale + 'em';
+      }
       chip.appendChild(val);
       chips.appendChild(chip);
     });

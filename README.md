@@ -24,7 +24,7 @@ not shared, and a catalog dump may be published separately.
 
 ## Build and run
 
-Requirements: Go 1.25+, Node 18+ with npm, Python 3 (for `pb_scripts/` only).
+Requirements: Go 1.25+, Node 20+ with npm, Python 3 (for `pb_scripts/` only).
 
 ```bash
 make install   # frontend dependencies (npm ci, from package-lock.json)
